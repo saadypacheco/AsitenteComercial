@@ -408,41 +408,66 @@
 
     /* ===== MODO COMPACTO MÓVIL ===== */
     @media (max-width: 760px) {
-        .top-bar { padding: 9px 12px; gap: 8px; }
-        .logo { font-size: 16px; }
-        .view-switch { gap: 2px; padding: 3px; }
-        .view-tab { padding: 6px 9px; font-size: 11.5px; }
+        .top-bar { padding: 8px 10px; gap: 6px; }
+        .logo { font-size: 15px; }
+        .view-switch { gap: 2px; padding: 2px; }
+        .view-tab { padding: 5px 8px; font-size: 11px; }
         .leader-profile { display: none; }
-        .bell { padding: 6px 11px; font-size: 12px; }
+        .bell { padding: 5px 9px; font-size: 12px; }
+        .bell-badge { width: 18px; height: 18px; font-size: 10px; }
 
-        .dia-layout { padding: 12px; gap: 14px; }
-        .day-greeting { font-size: 18px; }
-        .section-label { margin: 14px 0 7px; font-size: 11px; }
+        .dia-layout { padding: 10px; gap: 10px; }
+        .day-greeting { font-size: 16px; }
+        .day-sub { font-size: 12px; }
+        .day-progress-bar { height: 6px; margin-top: 10px; }
+        .section-label { margin: 12px 0 6px; font-size: 10.5px; }
 
-        .timeline { padding: 12px 16px 8px; margin: 10px 0; }
-        .tl-track { margin: 30px 4px 26px; }
+        /* línea de tiempo compacta */
+        .timeline { padding: 10px 14px 6px; margin: 8px 0; }
+        .tl-head { font-size: 12px; }
+        .tl-track { margin: 26px 4px 22px; }
+        .tl-dot { width: 15px; height: 15px; }
+        .tl-dot .tl-time { font-size: 9px; }
 
-        /* panorama: UNA fila deslizable en vez de varias */
-        .panorama { display: flex; overflow-x: auto; gap: 10px; margin: 12px 0; padding-bottom: 6px; scroll-snap-type: x mandatory; }
-        .stat { min-width: 124px; flex: 0 0 auto; padding: 11px 13px; scroll-snap-align: start; }
-        .stat-num { font-size: 20px; }
-        .stat-label { font-size: 10px; margin-top: 4px; }
-        .stat-trend { font-size: 10px; }
+        /* panorama: UNA fila deslizable */
+        .panorama { display: flex; overflow-x: auto; gap: 8px; margin: 10px 0; padding-bottom: 6px; scroll-snap-type: x mandatory; }
+        .stat { min-width: 110px; flex: 0 0 auto; padding: 10px 12px; border-radius: 10px; scroll-snap-align: start; }
+        .stat-num { font-size: 18px; }
+        .stat-label { font-size: 9.5px; margin-top: 3px; }
+        .stat-trend { font-size: 9.5px; }
 
-        /* acciones inmediatas: UNA fila deslizable */
-        .quick-bar { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 6px; }
-        .quick-action { min-width: 158px; flex: 0 0 auto; padding: 11px 12px; }
+        /* acciones: UNA fila deslizable */
+        .quick-bar { flex-wrap: nowrap; overflow-x: auto; gap: 8px; padding-bottom: 6px; }
+        .quick-action { min-width: 146px; flex: 0 0 auto; padding: 10px 11px; gap: 8px; }
+        .qa-icon { font-size: 18px; }
+        .qa-text { font-size: 12px; }
+        .qa-text small { font-size: 10px; }
 
-        /* Mi Día más compacto */
-        .dia-side { padding: 14px; border-radius: 14px; }
-        .side-title { font-size: 16px; }
-        .mode-toggle { margin: 14px 0; }
-        .action-card { padding: 12px; margin-bottom: 10px; }
-        .ac-title { font-size: 14px; }
-        .ac-reason { font-size: 12.5px; }
+        /* Mi Día compacto */
+        .dia-side { padding: 12px; border-radius: 14px; }
+        .side-title { font-size: 15px; }
+        .mode-toggle { margin: 12px 0; gap: 6px; }
+        .mode-btn { padding: 7px 12px; font-size: 12px; }
+        .group-label { font-size: 10.5px; margin: 14px 0 8px; }
+        .action-card { padding: 11px; margin-bottom: 9px; }
+        .ac-top { gap: 10px; margin-bottom: 6px; }
+        .ac-avatar { width: 34px; height: 34px; font-size: 16px; }
+        .ac-title { font-size: 13.5px; }
+        .ac-reason { font-size: 12px; }
         .ac-context, .ac-buttons, .ac-done-tag { padding-left: 0; }
-        .ac-context { margin: 6px 0 10px; }
-        .ac-avatar { width: 36px; height: 36px; font-size: 17px; }
+        .ac-context { margin: 6px 0 9px; font-size: 11.5px; }
+        .ac-buttons .btn { padding: 8px 12px; font-size: 12px; }
+    }
+
+    /* ===== CELULARES CHICOS ===== */
+    @media (max-width: 430px) {
+        .view-tab { padding: 5px 7px; font-size: 10.5px; }
+        .day-greeting { font-size: 15px; }
+        .stat { min-width: 102px; }
+        .stat-num { font-size: 17px; }
+        .quick-action { min-width: 138px; }
+        .ac-title { font-size: 13px; }
+        .action-card { padding: 10px; }
     }
 </style>
 </head>
