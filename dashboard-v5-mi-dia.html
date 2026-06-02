@@ -1,0 +1,1500 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Asistente - Mi Día</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+        --bg: #0f1419;
+        --panel: #141823;
+        --grad: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --accent: #667eea;
+        --danger: #ff6b6b;
+        --warning: #ffa940;
+        --ok: #52c41a;
+        --line: rgba(102,126,234,0.15);
+    }
+
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        background: var(--bg);
+        color: #fff;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* ===== TOP BAR ===== */
+    .top-bar {
+        background: rgba(0,0,0,0.5);
+        backdrop-filter: blur(10px);
+        padding: 14px 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid rgba(102,126,234,0.2);
+        position: sticky; top: 0; z-index: 100;
+    }
+    .logo {
+        font-size: 19px; font-weight: 700;
+        background: var(--grad);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .view-switch { display: flex; gap: 6px; background: rgba(102,126,234,0.08); padding: 4px; border-radius: 10px; }
+    .view-tab {
+        padding: 8px 18px; border: none; background: transparent; color: #888;
+        border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all .2s;
+    }
+    .view-tab.active { background: var(--grad); color: #fff; }
+    .top-right { display: flex; gap: 16px; align-items: center; }
+    .leader-profile { text-align: right; }
+    .leader-name { font-weight: 600; font-size: 13px; }
+    .leader-subtitle { font-size: 11px; color: #888; }
+    .bell {
+        position: relative; background: rgba(102,126,234,0.2); border: 1px solid rgba(102,126,234,0.4);
+        color: var(--accent); padding: 8px 14px; border-radius: 20px; cursor: pointer; font-size: 13px;
+    }
+    .bell-badge {
+        position: absolute; top: -7px; right: -7px; background: var(--danger); color: #fff;
+        width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center;
+        justify-content: center; font-size: 11px; font-weight: 700;
+    }
+
+    /* ===== MI DÍA ===== */
+    #view-dia { flex: 1; overflow-y: auto; }
+    .dia-layout { display: flex; gap: 24px; padding: 24px; align-items: flex-start; max-width: 1500px; margin: 0 auto; }
+    .dia-main { flex: 1; min-width: 0; }
+    .dia-side {
+        width: 400px; flex-shrink: 0; background: rgba(20,24,35,0.6);
+        border: 1px solid var(--line); border-radius: 16px; padding: 18px;
+        position: sticky; top: 80px; max-height: calc(100vh - 96px); overflow-y: auto;
+    }
+    .side-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+
+    .day-header { margin-bottom: 4px; }
+    .day-greeting { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+    .day-sub-static { color: #9aa; font-size: 14px; margin-bottom: 8px; }
+    .day-sub { color: #9aa; font-size: 13px; }
+    .day-progress-bar { height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; margin-top: 14px; overflow: hidden; }
+    .day-progress-fill { height: 100%; background: var(--grad); border-radius: 4px; width: 0%; transition: width .4s; }
+
+    /* línea de tiempo del día */
+    .timeline { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 22px 12px; margin: 16px 0; }
+    .tl-head { display: flex; justify-content: space-between; align-items: center; font-size: 13px; margin-bottom: 6px; }
+    .tl-title { font-weight: 700; }
+    .tl-remaining { color: var(--accent); font-weight: 600; }
+    .tl-track { position: relative; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin: 38px 6px 30px; }
+    .tl-fill { position: absolute; left: 0; top: 0; height: 100%; background: var(--grad); border-radius: 2px; }
+    .tl-now { position: absolute; top: -7px; width: 2px; height: 18px; background: #fff; border-radius: 1px; }
+    .tl-now::after { content: 'ahora'; position: absolute; top: -15px; left: 50%; transform: translateX(-50%); font-size: 9px; color: #fff; white-space: nowrap; }
+    .tl-dot { position: absolute; top: 50%; transform: translate(-50%,-50%); width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--panel); display: flex; align-items: center; justify-content: center; font-size: 10px; color: #fff; cursor: pointer; }
+    .tl-dot.now { background: var(--danger); } .tl-dot.today { background: var(--warning); } .tl-dot.good { background: var(--ok); }
+    .tl-dot.done { background: var(--ok); }
+    .tl-dot .tl-time { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); font-size: 10px; color: #9aa; white-space: nowrap; }
+    .tl-ends { display: flex; justify-content: space-between; margin: -24px 6px 0; font-size: 10px; color: #667; }
+
+    /* panorama */
+    .panorama { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px,1fr)); gap: 12px; margin: 20px 0; }
+    .stat {
+        background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px;
+        cursor: pointer; transition: all .2s; border-top: 3px solid var(--accent);
+    }
+    .stat:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.3); border-color: var(--accent); }
+    .stat.danger { border-top-color: var(--danger); }
+    .stat.warning { border-top-color: var(--warning); }
+    .stat.ok { border-top-color: var(--ok); }
+    .stat-num { font-size: 28px; font-weight: 700; line-height: 1; }
+    .stat.danger .stat-num { color: var(--danger); }
+    .stat.warning .stat-num { color: var(--warning); }
+    .stat.ok .stat-num { color: var(--ok); }
+    .stat-label { font-size: 11px; color: #9aa; margin-top: 6px; }
+    .stat-trend { font-size: 11px; margin-top: 4px; }
+    .stat-trend.up { color: var(--ok); } .stat-trend.down { color: var(--danger); }
+
+    /* acciones inmediatas */
+    .section-label { font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--accent); margin: 22px 0 10px; }
+    .quick-bar { display: flex; gap: 10px; flex-wrap: wrap; }
+    .quick-action {
+        flex: 1; min-width: 150px; display: flex; align-items: center; gap: 10px;
+        padding: 13px 14px; background: rgba(102,126,234,0.1); border: 1px solid rgba(102,126,234,0.25);
+        border-radius: 10px; cursor: pointer; transition: all .2s; color: #fff;
+    }
+    .quick-action:hover { background: rgba(102,126,234,0.22); border-color: var(--accent); transform: translateY(-2px); }
+    .qa-icon { font-size: 22px; }
+    .qa-text { font-size: 12.5px; font-weight: 600; line-height: 1.3; }
+    .qa-text small { display: block; font-weight: 400; color: #9aa; font-size: 11px; }
+
+    .day-divider { display: flex; align-items: center; gap: 12px; margin: 28px 0 6px; }
+    .day-divider .line { flex: 1; height: 1px; background: var(--line); }
+    .day-divider .txt { font-size: 13px; font-weight: 700; color: #ccd; }
+
+    .mode-toggle { display: flex; gap: 6px; margin: 18px 0; }
+    .mode-btn {
+        padding: 8px 16px; border: 1px solid var(--line); background: rgba(102,126,234,0.06);
+        color: #888; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all .2s;
+    }
+    .mode-btn.active { background: rgba(102,126,234,0.2); color: var(--accent); border-color: var(--accent); }
+
+    /* group headers */
+    .group-label { font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin: 22px 0 10px; }
+    .group-label.now { color: var(--danger); }
+    .group-label.today { color: var(--warning); }
+    .group-label.good { color: var(--ok); }
+
+    /* action card (lista mode) */
+    .action-card {
+        background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent);
+        border-radius: 12px; padding: 16px; margin-bottom: 12px; transition: all .2s;
+    }
+    .action-card.now { border-left-color: var(--danger); }
+    .action-card.today { border-left-color: var(--warning); }
+    .action-card.good { border-left-color: var(--ok); }
+    .action-card.done { opacity: .45; }
+    .ac-top { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .ac-avatar { width: 42px; height: 42px; border-radius: 50%; background: var(--grad); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+    .ac-title { font-weight: 600; font-size: 15px; }
+    .ac-reason { color: #9aa; font-size: 13px; }
+    .ac-context { font-size: 12px; color: #777; margin: 6px 0 12px; padding-left: 54px; }
+    .ac-buttons { display: flex; gap: 8px; flex-wrap: wrap; padding-left: 54px; }
+    .ac-done-tag { padding-left: 54px; color: var(--ok); font-size: 13px; font-weight: 600; }
+
+    .btn {
+        padding: 9px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600;
+        border: 1px solid var(--accent); background: transparent; color: var(--accent); transition: all .2s;
+    }
+    .btn:hover { background: rgba(102,126,234,0.18); }
+    .btn.primary { background: var(--grad); color: #fff; border: none; }
+    .btn.primary:hover { box-shadow: 0 4px 14px rgba(102,126,234,.4); }
+    .btn.ghost { border-color: var(--line); color: #888; }
+    .btn.wa { border-color: #25d366; color: #25d366; }
+    .btn.wa:hover { background: rgba(37,211,102,.15); }
+
+    /* guided mode */
+    .guided-stage { display: flex; flex-direction: column; align-items: center; padding-top: 10px; }
+    .guided-counter { color: #9aa; font-size: 13px; margin-bottom: 14px; }
+    .guided-dots { display: flex; gap: 6px; margin-bottom: 22px; }
+    .gdot { width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,0.15); }
+    .gdot.active { background: var(--accent); transform: scale(1.3); }
+    .gdot.done { background: var(--ok); }
+    .guided-card {
+        background: var(--panel); border: 1px solid var(--line); border-radius: 18px;
+        padding: 30px; width: 100%; max-width: 460px; text-align: center; box-shadow: 0 16px 50px rgba(0,0,0,.4);
+    }
+    .gc-urgency { display: inline-block; padding: 4px 14px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 1px; margin-bottom: 16px; }
+    .gc-urgency.now { background: rgba(255,107,107,.2); color: var(--danger); }
+    .gc-urgency.today { background: rgba(255,169,64,.2); color: var(--warning); }
+    .gc-urgency.good { background: rgba(82,196,26,.2); color: var(--ok); }
+    .gc-avatar { width: 80px; height: 80px; border-radius: 50%; background: var(--grad); display: flex; align-items: center; justify-content: center; font-size: 40px; margin: 0 auto 14px; }
+    .gc-name { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+    .gc-reason { font-size: 15px; color: #cdd; margin-bottom: 16px; line-height: 1.5; }
+    .gc-context-box { background: rgba(102,126,234,0.08); border-radius: 10px; padding: 12px; font-size: 13px; color: #9aa; margin-bottom: 22px; text-align: left; }
+    .gc-context-box div { margin: 3px 0; }
+    .gc-buttons { display: flex; flex-direction: column; gap: 10px; }
+    .gc-buttons .btn { padding: 13px; font-size: 14px; }
+    .gc-skip { background: none; border: none; color: #666; cursor: pointer; font-size: 13px; margin-top: 16px; }
+    .gc-skip:hover { color: #999; }
+    .guided-done { text-align: center; padding: 60px 20px; }
+    .guided-done .big { font-size: 60px; margin-bottom: 16px; }
+    .guided-done h2 { font-size: 24px; margin-bottom: 8px; }
+    .guided-done p { color: #9aa; }
+
+    /* ===== EQUIPO ===== */
+    #view-equipo { flex: 1; display: none; }
+    .eq-layout { display: flex; flex: 1; height: 100%; }
+    .sidebar-left { width: 230px; background: rgba(20,24,35,0.8); border-right: 1px solid rgba(102,126,234,0.1); padding: 20px; overflow-y: auto; }
+    .filter-title { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; letter-spacing: 1px; }
+    .filter-item {
+        padding: 9px 12px; background: rgba(102,126,234,0.07); border: 1px solid rgba(102,126,234,0.12);
+        border-radius: 8px; cursor: pointer; color: #999; font-size: 13px; margin-bottom: 7px; transition: all .2s;
+    }
+    .filter-item:hover { color: var(--accent); border-color: var(--accent); }
+    .filter-item.active { background: var(--grad); border-color: var(--accent); color: #fff; }
+
+    .eq-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .eq-header { padding: 18px 24px; border-bottom: 1px solid rgba(102,126,234,0.1); }
+    .eq-header h2 { font-size: 17px; margin-bottom: 4px; }
+    .eq-header p { font-size: 13px; color: #888; }
+    .eq-grid-wrap { flex: 1; overflow-y: auto; padding: 18px 24px; }
+    .agents-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px,1fr)); gap: 14px; }
+
+    .agent-card {
+        background: linear-gradient(135deg, rgba(102,126,234,0.1), rgba(118,75,162,0.1));
+        border: 1px solid rgba(102,126,234,0.2); border-radius: 12px; padding: 15px; cursor: pointer; transition: all .25s;
+    }
+    .agent-card:hover { border-color: rgba(102,126,234,0.4); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(102,126,234,0.2); }
+    .agent-card.active { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(102,126,234,0.5); }
+    .agent-top { display: flex; align-items: center; gap: 11px; margin-bottom: 10px; }
+    .agent-avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--grad); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+    .agent-name { font-size: 14px; font-weight: 600; }
+    .agent-meta { font-size: 11px; color: #888; }
+    .agent-score { font-size: 26px; font-weight: 700; background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; margin-bottom: 10px; }
+    .badge.danger { background: rgba(255,107,107,.2); color: var(--danger); }
+    .badge.warning { background: rgba(255,169,64,.2); color: var(--warning); }
+    .badge.ok { background: rgba(82,196,26,.2); color: var(--ok); }
+    .metric { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 11px; }
+    .metric-label { color: #888; }
+    .metric-bar { flex: 1; height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px; margin: 0 8px; overflow: hidden; }
+    .metric-fill { height: 100%; background: var(--grad); border-radius: 2px; }
+    .metric-val { color: var(--accent); font-weight: 600; min-width: 28px; text-align: right; }
+    .agent-actions { display: flex; gap: 6px; margin-top: 11px; padding-top: 11px; border-top: 1px solid rgba(102,126,234,0.1); }
+    .agent-actions .btn { flex: 1; padding: 7px; font-size: 11px; }
+
+    /* RIGHT COMM PANEL */
+    .sidebar-right { width: 360px; background: rgba(20,24,35,0.95); border-left: 1px solid rgba(102,126,234,0.1); display: flex; flex-direction: column; }
+    .panel-header { padding: 14px 16px; border-bottom: 1px solid rgba(102,126,234,0.1); display: flex; align-items: center; gap: 11px; }
+    .panel-avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--grad); display: flex; align-items: center; justify-content: center; font-size: 18px; }
+    .panel-name { font-size: 14px; font-weight: 600; }
+    .panel-sub { font-size: 11px; color: #888; }
+    .panel-tabs { display: flex; padding: 0 12px; border-bottom: 1px solid rgba(102,126,234,0.1); }
+    .panel-tab { flex: 1; padding: 11px 4px; background: none; border: none; color: #888; cursor: pointer; font-size: 12px; font-weight: 600; border-bottom: 2px solid transparent; }
+    .panel-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .panel-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+    .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #777; font-size: 13px; gap: 8px; padding: 20px; text-align: center; }
+
+    .chat-messages { display: flex; flex-direction: column; gap: 10px; padding: 14px; flex: 1; }
+    .msg { padding: 9px 12px; border-radius: 10px; font-size: 12.5px; line-height: 1.4; max-width: 88%; }
+    .msg.in { background: rgba(102,126,234,0.15); border-left: 2px solid var(--accent); align-self: flex-start; }
+    .msg.out { background: var(--grad); align-self: flex-end; }
+    .msg-meta { font-size: 10px; opacity: .7; margin-top: 4px; display: flex; gap: 6px; align-items: center; }
+    .chan { font-size: 9px; padding: 1px 6px; border-radius: 8px; font-weight: 700; }
+    .chan.wa { background: rgba(37,211,102,.25); color: #25d366; }
+    .chan.app { background: rgba(102,126,234,.3); color: #aab6ff; }
+    .panel-input { padding: 10px 12px; border-top: 1px solid rgba(102,126,234,0.1); display: flex; gap: 8px; }
+    .panel-input input { flex: 1; background: rgba(102,126,234,0.1); border: 1px solid rgba(102,126,234,0.2); color: #fff; padding: 10px 12px; border-radius: 8px; font-size: 12.5px; font-family: inherit; }
+    .panel-input input:focus { outline: none; border-color: var(--accent); }
+    .send-btn { background: var(--grad); border: none; color: #fff; width: 38px; border-radius: 8px; cursor: pointer; font-size: 16px; }
+
+    .list-item { padding: 11px 14px; margin: 8px 12px; background: rgba(102,126,234,0.08); border-left: 3px solid var(--accent); border-radius: 6px; font-size: 12.5px; }
+    .list-item .t { font-weight: 600; margin-bottom: 3px; }
+    .list-item .s { font-size: 11px; color: #888; }
+
+    /* ===== MODAL ===== */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+    .modal-overlay.show { display: flex; }
+    .modal { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; width: 100%; max-width: 440px; padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,.6); }
+    .modal h3 { font-size: 18px; margin-bottom: 4px; }
+    .modal .msub { color: #9aa; font-size: 13px; margin-bottom: 18px; }
+    .modal label { display: block; font-size: 12px; color: #9aa; margin-bottom: 6px; margin-top: 12px; }
+    .modal textarea, .modal input, .modal select {
+        width: 100%; background: rgba(102,126,234,0.1); border: 1px solid rgba(102,126,234,0.25);
+        color: #fff; padding: 11px; border-radius: 8px; font-size: 13px; font-family: inherit; resize: vertical;
+    }
+    .modal textarea:focus, .modal input:focus, .modal select:focus { outline: none; border-color: var(--accent); }
+    .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+    .modal-actions .btn { flex: 1; padding: 12px; }
+
+    /* TOAST */
+    .toast { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%) translateY(100px); background: var(--panel); border: 1px solid var(--ok); border-left: 4px solid var(--ok); padding: 14px 22px; border-radius: 10px; font-size: 13px; box-shadow: 0 10px 30px rgba(0,0,0,.5); opacity: 0; transition: all .3s; z-index: 2000; max-width: 90%; }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-thumb { background: rgba(102,126,234,0.3); border-radius: 3px; }
+
+    /* ===== NOTIFICACIONES ===== */
+    .notif-panel {
+        position: absolute; top: 64px; right: 16px; width: 340px; max-height: 70vh; overflow-y: auto;
+        background: var(--panel); border: 1px solid var(--accent); border-radius: 14px; padding: 8px;
+        box-shadow: 0 16px 50px rgba(0,0,0,.6); z-index: 200; display: none;
+    }
+    .notif-panel.show { display: block; }
+    .notif-head { display: flex; justify-content: space-between; align-items: center; padding: 10px; font-size: 13px; font-weight: 700; }
+    .notif-clear { background: none; border: none; color: var(--accent); font-size: 11px; cursor: pointer; font-weight: 600; }
+    .notif-item { display: flex; gap: 10px; padding: 11px 10px; border-radius: 8px; cursor: pointer; }
+    .notif-item:hover { background: rgba(102,126,234,0.1); }
+    .notif-item.unread { background: rgba(102,126,234,0.07); }
+    .notif-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+    .notif-dot.now { background: var(--danger); } .notif-dot.today { background: var(--warning); } .notif-dot.good { background: var(--ok); }
+    .notif-body .t { font-size: 13px; font-weight: 600; }
+    .notif-body .s { font-size: 11px; color: #9aa; margin-top: 2px; }
+
+    /* ===== BANDEJA / INBOX ===== */
+    #view-bandeja { flex: 1; display: none; overflow: hidden; }
+    .inbox-layout { display: flex; flex: 1; height: 100%; }
+    .inbox-list { width: 360px; border-right: 1px solid rgba(102,126,234,0.1); overflow-y: auto; flex-shrink: 0; }
+    .inbox-head { padding: 16px 18px; border-bottom: 1px solid rgba(102,126,234,0.1); }
+    .inbox-head h2 { font-size: 16px; } .inbox-head p { font-size: 12px; color: #9aa; margin-top: 3px; }
+    .inbox-group { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; padding: 12px 18px 6px; }
+    .inbox-group.now { color: var(--danger); } .inbox-group.wait { color: var(--warning); } .inbox-group.done { color: var(--ok); }
+    .conv { display: flex; gap: 11px; padding: 12px 18px; cursor: pointer; border-bottom: 1px solid rgba(102,126,234,0.06); transition: background .15s; }
+    .conv:hover { background: rgba(102,126,234,0.07); }
+    .conv.active { background: rgba(102,126,234,0.14); border-left: 3px solid var(--accent); }
+    .conv-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--grad); display: flex; align-items: center; justify-content: center; font-size: 19px; flex-shrink: 0; position: relative; }
+    .conv-ch { position: absolute; bottom: -2px; right: -2px; font-size: 11px; background: var(--panel); border-radius: 50%; padding: 1px; }
+    .conv-main { flex: 1; min-width: 0; }
+    .conv-top { display: flex; justify-content: space-between; }
+    .conv-name { font-size: 13.5px; font-weight: 600; }
+    .conv-time { font-size: 10.5px; color: #778; }
+    .conv-preview { font-size: 12px; color: #9aa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+    .conv-unread { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); flex-shrink: 0; align-self: center; }
+    .inbox-reader { flex: 1; display: flex; flex-direction: column; }
+    .reader-head { padding: 14px 18px; border-bottom: 1px solid rgba(102,126,234,0.1); display: flex; align-items: center; gap: 12px; }
+    .reader-actions { display: flex; gap: 8px; margin-left: auto; }
+    .reader-body { flex: 1; overflow-y: auto; }
+
+    /* ===== ONBOARDING (vista líder) ===== */
+    #view-onboarding { flex: 1; display: none; overflow-y: auto; }
+    .ob-wrap { max-width: 1100px; margin: 0 auto; padding: 22px 24px; }
+    .ob-funnel { display: flex; gap: 8px; margin: 18px 0 26px; overflow-x: auto; }
+    .ob-stage { flex: 1; min-width: 92px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; text-align: center; }
+    .ob-stage .n { font-size: 22px; font-weight: 700; color: var(--accent); }
+    .ob-stage .l { font-size: 10.5px; color: #9aa; margin-top: 4px; line-height: 1.3; }
+    .ob-stage.alert { border-color: var(--danger); }
+    .ob-stage.alert .n { color: var(--danger); }
+    .ob-agent { display: flex; align-items: center; gap: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 10px; cursor: pointer; transition: all .2s; }
+    .ob-agent:hover { border-color: var(--accent); transform: translateY(-1px); }
+    .ob-avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--grad); display: flex; align-items: center; justify-content: center; font-size: 21px; flex-shrink: 0; }
+    .ob-info { flex: 1; min-width: 0; }
+    .ob-name { font-size: 14px; font-weight: 600; }
+    .ob-step { font-size: 12px; color: #9aa; margin: 4px 0 6px; }
+    .ob-progress { height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; max-width: 260px; }
+    .ob-progress-fill { height: 100%; background: var(--grad); }
+    .ob-flag { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; white-space: nowrap; }
+    .ob-flag.stuck { background: rgba(255,107,107,.2); color: var(--danger); }
+    .ob-flag.ok { background: rgba(82,196,26,.2); color: var(--ok); }
+
+    /* ===== AGENTE DETALLE / HILO ÚNICO ===== */
+    #view-agente { flex: 1; overflow-y: auto; display: none; padding-bottom: 92px; }
+    .detail-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 24px; }
+    .back-btn { background: none; border: 1px solid var(--line); color: #9aa; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; margin-bottom: 16px; }
+    .back-btn:hover { color: var(--accent); border-color: var(--accent); }
+    .detail-header { display: flex; align-items: center; gap: 18px; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 20px; margin-bottom: 18px; }
+    .detail-avatar { width: 72px; height: 72px; border-radius: 50%; background: var(--grad); display: flex; align-items: center; justify-content: center; font-size: 36px; flex-shrink: 0; }
+    .detail-id { flex: 1; }
+    .detail-name { font-size: 22px; font-weight: 700; }
+    .detail-meta { font-size: 13px; color: #9aa; margin-top: 4px; }
+    .detail-score-wrap { text-align: center; }
+    .detail-score-num { font-size: 44px; font-weight: 800; line-height: 1; }
+    .detail-score-num.danger { color: var(--danger); } .detail-score-num.warning { color: var(--warning); } .detail-score-num.ok { color: var(--ok); }
+    .detail-score-cap { font-size: 11px; color: #9aa; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .detail-col { display: flex; flex-direction: column; gap: 16px; }
+    .dcard { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+    .dcard-title { font-size: 14px; font-weight: 700; margin-bottom: 14px; }
+    .dcard-hint { font-size: 11px; font-weight: 400; color: #9aa; background: rgba(102,126,234,.15); padding: 2px 8px; border-radius: 8px; margin-left: 6px; }
+    .sb-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; font-size: 12px; }
+    .sb-label { width: 132px; color: #cdd; }
+    .sb-w { color: #777; font-size: 10px; }
+    .roadmap { display: flex; flex-direction: column; gap: 5px; }
+    .road-step { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; font-size: 13px; color: #888; }
+    .road-step.done { color: #cdd; }
+    .road-step.active { background: rgba(102,126,234,.12); border: 1px solid var(--accent); color: #fff; font-weight: 600; }
+    .road-now { margin-left: auto; font-size: 10px; color: var(--accent); font-weight: 700; }
+    .detail-actions { position: fixed; bottom: 0; left: 0; right: 0; display: flex; gap: 8px; padding: 12px 24px; background: rgba(8,10,16,.96); backdrop-filter: blur(8px); border-top: 1px solid var(--line); overflow-x: auto; z-index: 50; }
+    .detail-actions .btn { white-space: nowrap; padding: 11px 16px; }
+
+    @media (max-width: 1100px) { .sidebar-right { display: none; } }
+    @media (max-width: 820px) { .detail-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 1000px) {
+        .dia-layout { flex-direction: column; }
+        .dia-side { width: 100%; position: static; max-height: none; }
+    }
+    @media (max-width: 760px) { .sidebar-left { display: none; } }
+</style>
+</head>
+<body>
+
+<!-- ===== TOP BAR ===== -->
+<div class="top-bar">
+    <div class="logo">🎯 Asistente</div>
+    <div class="view-switch">
+        <button class="view-tab active" id="vt-dia" onclick="switchView('dia')">📋 Mi Día</button>
+        <button class="view-tab" id="vt-bandeja" onclick="switchView('bandeja')">💬 Bandeja</button>
+        <button class="view-tab" id="vt-equipo" onclick="switchView('equipo')">👥 Agentes</button>
+        <button class="view-tab" id="vt-onboarding" onclick="switchView('onboarding')">🎯 Onboarding</button>
+    </div>
+    <div class="top-right">
+        <div class="leader-profile">
+            <div class="leader-name">Cecilia</div>
+            <div class="leader-subtitle">1300 agentes</div>
+        </div>
+        <button class="bell" onclick="toggleNotif(event)">🔔<span class="bell-badge" id="bellBadge">3</span></button>
+        <a class="bell" href="login.html" style="text-decoration:none" title="Salir">⎋</a>
+    </div>
+    <!-- PANEL DE NOTIFICACIONES -->
+    <div class="notif-panel" id="notifPanel">
+        <div class="notif-head">🔔 Notificaciones <button class="notif-clear" onclick="clearNotif()">Marcar leídas</button></div>
+        <div id="notifList"></div>
+    </div>
+</div>
+
+<!-- ===== VIEW: MI DÍA ===== -->
+<div id="view-dia">
+    <div class="dia-layout">
+        <!-- IZQUIERDA: DASHBOARD / PANORAMA -->
+        <div class="dia-main">
+            <div class="day-header">
+                <div class="day-greeting" id="dayGreeting">Buenos días, Cecilia</div>
+            </div>
+
+            <!-- LÍNEA DE TIEMPO DEL DÍA -->
+            <div class="timeline">
+                <div class="tl-head">
+                    <span class="tl-title">🗓️ Tu día</span>
+                    <span class="tl-remaining" id="tlRemaining"></span>
+                </div>
+                <div class="tl-track" id="tlTrack"></div>
+                <div class="tl-ends"><span>08:00</span><span>13:00</span><span>18:00</span></div>
+            </div>
+
+            <div class="section-label">📊 Resumen general</div>
+            <div class="panorama" id="panorama"></div>
+
+            <div class="section-label">⚡ Acciones inmediatas</div>
+            <div class="quick-bar">
+                <div class="quick-action" onclick="qaMassMessage()">
+                    <span class="qa-icon">📤</span><span class="qa-text">Mensaje masivo<small>a un segmento</small></span></div>
+                <div class="quick-action" onclick="qaGroupTask()">
+                    <span class="qa-icon">✅</span><span class="qa-text">Tarea grupal<small>asignar a varios</small></span></div>
+                <div class="quick-action" onclick="qaScheduleTraining()">
+                    <span class="qa-icon">📹</span><span class="qa-text">Programar capacitación<small>Zoom + convocar</small></span></div>
+                <div class="quick-action" onclick="jumpToEquipo('danger')">
+                    <span class="qa-icon">🔍</span><span class="qa-text">Ver críticos<small>actuar ahora</small></span></div>
+            </div>
+        </div>
+
+        <!-- DERECHA: MI DÍA -->
+        <div class="dia-side">
+            <div class="side-title">📋 Mi Día</div>
+            <div class="day-sub" id="daySub"></div>
+            <div class="day-progress-bar"><div class="day-progress-fill" id="dayProgress"></div></div>
+
+            <div class="mode-toggle">
+                <button class="mode-btn active" id="mode-lista" onclick="setMode('lista')">☰ Lista</button>
+                <button class="mode-btn" id="mode-guiado" onclick="setMode('guiado')">▶ Guiado</button>
+            </div>
+
+            <div id="lista-container"></div>
+            <div id="guiado-container" style="display:none;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== VIEW: EQUIPO ===== -->
+<div id="view-equipo">
+    <div class="eq-layout">
+        <div class="sidebar-left">
+            <div class="filter-title">Estado (Score)</div>
+            <div class="filter-item active" data-filter="all" onclick="setFilter(this,'all')">Todos</div>
+            <div class="filter-item" data-filter="danger" onclick="setFilter(this,'danger')">🔴 Críticos</div>
+            <div class="filter-item" data-filter="warning" onclick="setFilter(this,'warning')">🟠 Atención</div>
+            <div class="filter-item" data-filter="ok" onclick="setFilter(this,'ok')">🟢 Saludables</div>
+
+            <div style="margin-top:22px;">
+                <div class="filter-title">Situación</div>
+                <div class="filter-item" data-filter="inactivo" onclick="setFilter(this,'inactivo')">Sin actividad</div>
+                <div class="filter-item" data-filter="trabado" onclick="setFilter(this,'trabado')">Onboarding trabado</div>
+                <div class="filter-item" data-filter="nuevo" onclick="setFilter(this,'nuevo')">Nuevos</div>
+                <div class="filter-item" data-filter="reconocer" onclick="setFilter(this,'reconocer')">Listos p/ reconocer</div>
+            </div>
+
+            <div style="margin-top:22px;">
+                <div class="filter-title">Orden</div>
+                <div class="filter-item active" data-sort="urgencia" onclick="setSort(this,'urgencia')">Por urgencia</div>
+                <div class="filter-item" data-sort="score" onclick="setSort(this,'score')">Por Score</div>
+            </div>
+        </div>
+
+        <div class="eq-main">
+            <div class="eq-header" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+                <div>
+                    <h2>👥 Agentes</h2>
+                    <p id="eqCount">Ordená, filtrá y comunicá. Tocá un agente para abrir su hilo único.</p>
+                </div>
+                <button class="btn primary" style="white-space:nowrap;padding:10px 16px;" onclick="openAltaModal()">➕ Nuevo agente</button>
+            </div>
+            <div class="eq-grid-wrap"><div class="agents-grid" id="agentsGrid"></div></div>
+        </div>
+
+        <div class="sidebar-right">
+            <div class="panel-header">
+                <div class="panel-avatar" id="pAvatar">👤</div>
+                <div>
+                    <div class="panel-name" id="pName">Seleccioná un agente</div>
+                    <div class="panel-sub" id="pSub">Hilo único: WhatsApp + app en un solo lugar</div>
+                </div>
+            </div>
+            <div class="panel-tabs">
+                <button class="panel-tab active" data-tab="chat" onclick="setPanelTab('chat')">💬 Chat</button>
+                <button class="panel-tab" data-tab="tasks" onclick="setPanelTab('tasks')">✅ Tareas</button>
+                <button class="panel-tab" data-tab="zoom" onclick="setPanelTab('zoom')">📹 Zoom</button>
+                <button class="panel-tab" data-tab="history" onclick="setPanelTab('history')">📋 Historial</button>
+            </div>
+            <div class="panel-body" id="panelBody">
+                <div class="empty">👈<div>Seleccioná un agente para ver su conversación y operar.</div></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== VIEW: BANDEJA / INBOX ===== -->
+<div id="view-bandeja">
+    <div class="inbox-layout">
+        <div class="inbox-list">
+            <div class="inbox-head">
+                <h2>💬 Bandeja</h2>
+                <p>Todo lo que entra por WhatsApp + app, triado por urgencia</p>
+            </div>
+            <div id="convList"></div>
+        </div>
+        <div class="inbox-reader">
+            <div class="reader-head" id="readerHead">
+                <div class="empty" style="margin:0;color:#778;font-size:13px;">Elegí una conversación de la izquierda</div>
+            </div>
+            <div class="reader-body" id="readerBody">
+                <div class="empty">💬<div>Seleccioná un mensaje para leer y responder.</div></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== VIEW: ONBOARDING (vista líder) ===== -->
+<div id="view-onboarding">
+    <div class="ob-wrap">
+        <h2 style="font-size:18px;">🎯 Onboarding — Camino a la Primera Venta</h2>
+        <p style="font-size:13px;color:#9aa;margin-top:4px;">Dónde está cada agente nuevo y quién se trabó.</p>
+        <div class="ob-funnel" id="obFunnel"></div>
+        <div class="section-label" style="margin-top:0;">Agentes en onboarding</div>
+        <div id="obList"></div>
+    </div>
+</div>
+
+<!-- ===== VIEW: AGENTE DETALLE / HILO ÚNICO ===== -->
+<div id="view-agente">
+    <div class="detail-wrap">
+        <button class="back-btn" onclick="closeAgentDetail()">← Volver a Agentes</button>
+        <div class="detail-header">
+            <div class="detail-avatar" id="dAvatar">👤</div>
+            <div class="detail-id">
+                <div class="detail-name" id="dName"></div>
+                <div class="detail-meta" id="dMeta"></div>
+                <span class="badge" id="dBand" style="margin-top:8px;"></span>
+            </div>
+            <div class="detail-score-wrap">
+                <div class="detail-score-num" id="dScore"></div>
+                <div class="detail-score-cap">Score</div>
+            </div>
+        </div>
+
+        <div class="detail-grid">
+            <div class="detail-col">
+                <div class="dcard">
+                    <div class="dcard-title">📊 Composición del Score</div>
+                    <div id="dScoreBreak"></div>
+                </div>
+                <div class="dcard">
+                    <div class="dcard-title">🎯 Camino a la Primera Venta</div>
+                    <div id="dRoadmap" class="roadmap"></div>
+                </div>
+            </div>
+            <div class="detail-col">
+                <div class="dcard">
+                    <div class="dcard-title">💬 Hilo único <span class="dcard-hint">WhatsApp + app, todo junto</span></div>
+                    <div id="dThread" class="chat-messages" style="max-height:280px;"></div>
+                    <div class="panel-input" style="padding:10px 0 0;">
+                        <input id="dChatInput" placeholder="Escribí un mensaje…" onkeydown="if(event.key==='Enter')quickSendDetail()">
+                        <button class="send-btn" onclick="quickSendDetail()">📤</button>
+                    </div>
+                </div>
+                <div class="dcard">
+                    <div class="dcard-title">📋 Historial de interacciones</div>
+                    <div id="dHistory"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="detail-actions">
+        <button class="btn primary" onclick="detailAction('reply')">💬 Responder</button>
+        <button class="btn wa" onclick="detailAction('wa')">📱 WhatsApp</button>
+        <button class="btn" onclick="detailAction('call')">📞 Llamar</button>
+        <button class="btn" onclick="detailAction('task')">✅ Tarea</button>
+        <button class="btn" onclick="detailAction('zoomprog')">📹 Zoom 1-1</button>
+        <button class="btn" onclick="detailAction('recognize')">🏆 Reconocer</button>
+    </div>
+</div>
+
+<!-- ===== MODAL ===== -->
+<div class="modal-overlay" id="modalOverlay">
+    <div class="modal" id="modalBox"></div>
+</div>
+
+<!-- ===== TOAST ===== -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   ESTADO (datos simulados) — sin equipos, hilo único WhatsApp+app
+   ============================================================ */
+const state = {
+    selectedAgent: null,
+    panelTab: 'chat',
+    diaMode: 'lista',
+    guidedIndex: 0,
+    filter: 'all',
+    sort: 'urgencia',
+    agents: [
+        {
+            id: 'juan', name: 'Juan Pérez', emoji: '👨‍💼', score: 28, band: 'danger',
+            situations: ['inactivo','trabado'], inactiveH: 28, onboardingStep: 4, isNew: true,
+            metrics: { actividad: 2, asistencia: 3, cumplimiento: 5 },
+            thread: [
+                { dir:'in', chan:'wa', text:'Estoy medio perdido con el material del paso 4', time:'Ayer 19:40' },
+            ],
+            history: []
+        },
+        {
+            id: 'carlos', name: 'Carlos López', emoji: '👨‍💼', score: 35, band: 'danger',
+            situations: ['inactivo','trabado','msg'], inactiveH: 12, onboardingStep: 4, isNew: true,
+            urgentMsg: 'No puedo terminar la práctica, ¿me ayudás? 🙏',
+            metrics: { actividad: 3, asistencia: 5, cumplimiento: 4 },
+            thread: [
+                { dir:'in', chan:'wa', text:'Hola Cecilia', time:'Hoy 08:10' },
+                { dir:'in', chan:'wa', text:'No puedo terminar la práctica, ¿me ayudás? 🙏', time:'Hoy 08:11' },
+            ],
+            history: []
+        },
+        {
+            id: 'maria', name: 'María García', emoji: '👩‍💼', score: 58, band: 'warning',
+            situations: ['capacitacion'], inactiveH: 4, onboardingStep: 4, isNew: true,
+            metrics: { actividad: 6, asistencia: 4, cumplimiento: 7 },
+            thread: [
+                { dir:'in', chan:'wa', text:'¿La capacitación de hoy es presencial o por Zoom?', time:'Hoy 09:02' },
+            ],
+            history: []
+        },
+        {
+            id: 'roberto', name: 'Roberto Sánchez', emoji: '👨‍💼', score: 92, band: 'ok',
+            situations: ['reconocer'], inactiveH: 1, onboardingStep: 8, isNew: false,
+            hito: 'Cerró su PRIMERA venta 🎉',
+            metrics: { actividad: 10, asistencia: 10, cumplimiento: 9 },
+            thread: [
+                { dir:'in', chan:'app', text:'¡Cerré la primera venta! 🎉', time:'Hoy 11:20' },
+            ],
+            history: []
+        },
+        {
+            id: 'patricia', name: 'Patricia López', emoji: '👩‍💼', score: 88, band: 'ok',
+            situations: [], inactiveH: 2, onboardingStep: 7, isNew: false,
+            metrics: { actividad: 9, asistencia: 8, cumplimiento: 9 },
+            thread: [], history: []
+        },
+        {
+            id: 'andres', name: 'Andrés Martín', emoji: '👨‍💼', score: 85, band: 'ok',
+            situations: [], inactiveH: 3, onboardingStep: 6, isNew: false,
+            metrics: { actividad: 8, asistencia: 9, cumplimiento: 8 },
+            thread: [], history: []
+        },
+    ],
+    // Acciones del día (se generan de las situaciones + agenda)
+    dayActions: [
+        { id:'a1', at:'10:00', urgency:'now', agentId:'carlos', icon:'💬',
+          title:'Carlos te escribió y necesita ayuda',
+          reason:'"No puedo terminar la práctica, ¿me ayudás?"',
+          context:['📱 Por WhatsApp · hoy 08:11', 'Score 35 🔴 · trabado en Paso 4'],
+          buttons:[{label:'Responder',type:'reply',primary:true},{label:'📞 Llamar',type:'call'}], status:'pending' },
+        { id:'a2', at:'09:30', urgency:'now', agentId:'juan', icon:'⚠️',
+          title:'Juan sin actividad hace 28h',
+          reason:'Riesgo de abandono — trabado en Paso 4 del onboarding',
+          context:['Último acceso: ayer 19:40', 'Score 28 🔴 CRÍTICO'],
+          buttons:[{label:'📞 Llamar',type:'call',primary:true},{label:'WhatsApp',type:'wa'}], status:'pending' },
+        { id:'a3', at:'14:00', urgency:'today', agentId:null, icon:'📹',
+          title:'Capacitación de agentes nuevos · 14:00',
+          reason:'5 agentes nuevos convocados (Zoom)',
+          context:['⏰ Hoy 14:00 · 90 min', '3 confirmaron, 2 pendientes'],
+          buttons:[{label:'🔗 Abrir Zoom',type:'zoomopen',primary:true},{label:'Recordar a todos',type:'remind'}], status:'pending' },
+        { id:'a4', at:'11:00', urgency:'today', agentId:'maria', icon:'❓',
+          title:'María preguntó por la capacitación',
+          reason:'"¿La capacitación de hoy es presencial o por Zoom?"',
+          context:['📱 Por WhatsApp · hoy 09:02', 'No confirmó asistencia aún'],
+          buttons:[{label:'Responder',type:'reply',primary:true}], status:'pending' },
+        { id:'a5', at:'16:00', urgency:'good', agentId:'roberto', icon:'🏆',
+          title:'Roberto cerró su primera venta',
+          reason:'¡Momento ideal para reconocer y motivar!',
+          context:['🎉 Hito alcanzado hoy 11:20', 'Score 92 🟢'],
+          buttons:[{label:'🏆 Felicitar',type:'recognize',primary:true}], status:'pending' },
+    ],
+};
+
+// Panorama de la flota completa (agregado; la grilla muestra una muestra)
+state.fleet = { total: 1300, danger: 7, warning: 23, ok: 1270, unread: 12, avgFirstSale: 21 };
+
+const URG = { now:{label:'🔴 Ahora · próximas 2h',cls:'now'}, today:{label:'🟠 Hoy',cls:'today'}, good:{label:'🟢 Reconocer',cls:'good'} };
+const BANDLABEL = { danger:'🔴 CRÍTICO', warning:'🟠 ATENCIÓN', ok:'🟢 SALUDABLE' };
+
+function agentById(id){ return state.agents.find(a => a.id === id); }
+
+/* ============================================================
+   NAVEGACIÓN DE VISTAS
+   ============================================================ */
+function switchView(v){
+    const views = { dia:'block', bandeja:'flex', equipo:'flex', onboarding:'block' };
+    ['dia','bandeja','equipo','onboarding'].forEach(name=>{
+        document.getElementById('view-'+name).style.display = (v===name) ? views[name] : 'none';
+        document.getElementById('vt-'+name).classList.toggle('active', v===name);
+    });
+    document.getElementById('view-agente').style.display = 'none';
+    if(v==='equipo') renderEquipo();
+    if(v==='bandeja') renderBandeja();
+    if(v==='onboarding') renderOnboarding();
+}
+
+/* ============================================================
+   MI DÍA
+   ============================================================ */
+function pendingActions(){ return state.dayActions.filter(a => a.status==='pending'); }
+
+function renderDiaHeader(){
+    const total = state.dayActions.length;
+    const done = state.dayActions.filter(a=>a.status!=='pending').length;
+    document.getElementById('daySub').textContent =
+        done >= total ? '¡Despejaste todo por hoy! 🎉'
+        : `Tenés ${total-done} acción(es) para hoy · ${done}/${total} resueltas`;
+    document.getElementById('dayProgress').style.width = (total? (done/total*100):0) + '%';
+    document.getElementById('bellBadge').textContent = pendingActions().filter(a=>a.urgency==='now').length;
+}
+
+function setMode(m){
+    state.diaMode = m;
+    document.getElementById('mode-lista').classList.toggle('active', m==='lista');
+    document.getElementById('mode-guiado').classList.toggle('active', m==='guiado');
+    document.getElementById('lista-container').style.display = m==='lista'?'block':'none';
+    document.getElementById('guiado-container').style.display = m==='guiado'?'block':'none';
+    renderDia();
+}
+
+function renderDia(){
+    renderDiaHeader();
+    renderTimeline();
+    renderPanorama();
+    if(state.diaMode==='lista') renderLista(); else renderGuiado();
+}
+
+function renderTimeline(){
+    const startM = 8*60, span = 10*60; // 08:00 → 18:00
+    const pos = t => { const [h,m] = t.split(':').map(Number); return Math.max(0, Math.min(100, ((h*60+m)-startM)/span*100)); };
+    const acts = state.dayActions.filter(a=>a.at).sort((x,y)=>pos(x.at)-pos(y.at));
+    const pending = acts.filter(a=>a.status==='pending').length;
+    const total = acts.length;
+
+    // "ahora" según la hora real del navegador
+    const d = new Date();
+    const nowPct = Math.max(0, Math.min(100, ((d.getHours()*60+d.getMinutes())-startM)/span*100));
+
+    const dots = acts.map(a=>{
+        const agent = a.agentId ? agentById(a.agentId) : null;
+        const done = a.status!=='pending';
+        const label = agent ? agent.name.split(' ')[0] : a.title;
+        return `<div class="tl-dot ${done?'done':a.urgency}" style="left:${pos(a.at)}%" title="${a.at} · ${a.title}" onclick="setMode('guiado')">
+            ${done?'✓':''}<span class="tl-time">${a.at}</span></div>`;
+    }).join('');
+
+    document.getElementById('tlTrack').innerHTML =
+        `<div class="tl-fill" style="width:${nowPct}%"></div>
+         <div class="tl-now" style="left:${nowPct}%"></div>${dots}`;
+    document.getElementById('tlRemaining').textContent =
+        pending ? `Te quedan ${pending} de ${total} tareas` : '¡Día completo! 🎉';
+}
+
+function renderPanorama(){
+    const f = state.fleet;
+    const unresolvedNow = pendingActions().filter(a=>a.urgency==='now').length;
+    const cards = [
+        { num: f.total.toLocaleString('es'), label:'Agentes activos', cls:'', filter:'all' },
+        { num: f.danger, label:'🔴 Críticos (score<40)', cls:'danger', filter:'danger' },
+        { num: f.warning, label:'🟠 En atención', cls:'warning', filter:'warning' },
+        { num: f.ok.toLocaleString('es'), label:'🟢 Saludables', cls:'ok', filter:'ok', trend:'up', trendTxt:'▲ +12 esta semana' },
+        { num: f.unread, label:'📱 Mensajes sin responder', cls:'', filter:'all' },
+        { num: f.avgFirstSale+'d', label:'⏱ Tiempo a 1ª venta (prom.)', cls:'', filter:'nuevo', trend:'down', trendTxt:'▼ -3d vs mes' },
+    ];
+    document.getElementById('panorama').innerHTML = cards.map(c=>`
+        <div class="stat ${c.cls}" onclick="jumpToEquipo('${c.filter}')">
+            <div class="stat-num">${c.num}</div>
+            <div class="stat-label">${c.label}</div>
+            ${c.trend?`<div class="stat-trend ${c.trend}">${c.trendTxt}</div>`:''}
+        </div>`).join('');
+}
+
+/* ---- Acciones inmediatas (desde el panorama) ---- */
+function jumpToEquipo(filter){
+    switchView('equipo');
+    state.filter = filter;
+    document.querySelectorAll('.filter-item[data-filter]').forEach(x=>x.classList.toggle('active', x.dataset.filter===filter));
+    renderEquipo();
+}
+
+function qaMassMessage(){
+    openModal(`
+        <h3>📤 Mensaje masivo</h3>
+        <div class="msub">Llega por el hilo único de cada agente</div>
+        <label>Enviar a</label>
+        <select id="mmSeg">
+            <option value="all">Todos (1300)</option>
+            <option value="danger">🔴 Críticos (7)</option>
+            <option value="warning">🟠 En atención (23)</option>
+            <option value="nuevo">Nuevos en onboarding</option>
+        </select>
+        <label>Mensaje</label>
+        <textarea id="mmText" rows="4" placeholder="Ej: Recuerden la capacitación de hoy 14:00 por Zoom 🙌"></textarea>
+        <div class="modal-actions">
+            <button class="btn ghost" onclick="closeModal()">Cancelar</button>
+            <button class="btn primary" onclick="sendMass()">Enviar</button>
+        </div>`);
+}
+function sendMass(){
+    const seg = document.getElementById('mmSeg');
+    const n = { all:'1300', danger:'7', warning:'23', nuevo:'los nuevos' }[seg.value] || '';
+    const text = document.getElementById('mmText').value.trim();
+    closeModal();
+    if(text) toast(`📤 Mensaje enviado a ${n} agente(s)`); else toast('Escribí un mensaje primero');
+}
+
+function qaGroupTask(){
+    openModal(`
+        <h3>✅ Tarea grupal</h3>
+        <div class="msub">Se asigna a un segmento con vencimiento</div>
+        <label>Tarea</label>
+        <input id="gtTitle" value="Contactar 5 prospectos">
+        <label>Asignar a</label>
+        <select id="gtSeg"><option>Nuevos en onboarding</option><option>🟠 En atención (23)</option><option>Todos</option></select>
+        <label>Vence</label>
+        <select id="gtDue"><option>Hoy 17:00</option><option>Mañana</option><option>Esta semana</option></select>
+        <div class="modal-actions">
+            <button class="btn ghost" onclick="closeModal()">Cancelar</button>
+            <button class="btn primary" onclick="closeModal();toast('✅ Tarea grupal asignada')">Asignar</button>
+        </div>`);
+}
+
+function qaScheduleTraining(){
+    openModal(`
+        <h3>📹 Programar capacitación</h3>
+        <div class="msub">Crea el bloque de agenda y convoca por el hilo único</div>
+        <label>Título</label>
+        <input id="stTitle" value="Capacitación inicial de productos">
+        <label>Cuándo</label>
+        <select id="stWhen"><option>Hoy 14:00</option><option>Mañana 10:00</option><option>Mañana 16:00</option></select>
+        <label>Convocar a</label>
+        <select id="stSeg"><option>Nuevos en onboarding</option><option>🔴 Críticos (7)</option><option>Todos</option></select>
+        <div class="modal-actions">
+            <button class="btn ghost" onclick="closeModal()">Cancelar</button>
+            <button class="btn primary" onclick="closeModal();toast('📹 Capacitación programada y convocatoria enviada')">Programar</button>
+        </div>`);
+}
+
+function renderLista(){
+    const c = document.getElementById('lista-container');
+    let html = '';
+    ['now','today','good'].forEach(u => {
+        const acts = state.dayActions.filter(a=>a.urgency===u);
+        if(!acts.length) return;
+        html += `<div class="group-label ${URG[u].cls}">${URG[u].label}</div>`;
+        acts.forEach(a => {
+            const agent = a.agentId ? agentById(a.agentId) : null;
+            const avatar = agent ? agent.emoji : a.icon;
+            if(a.status!=='pending'){
+                html += `<div class="action-card ${URG[u].cls} done">
+                    <div class="ac-top"><div class="ac-avatar">${avatar}</div>
+                    <div><div class="ac-title">${a.title}</div></div></div>
+                    <div class="ac-done-tag">✅ ${a.status==='done'?'Resuelto':'Reagendado'}</div></div>`;
+                return;
+            }
+            const btns = a.buttons.map(b =>
+                `<button class="btn ${b.primary?'primary':''} ${b.type==='wa'?'wa':''}" onclick="doAction('${a.id}','${b.type}')">${b.label}</button>`
+            ).join('');
+            html += `<div class="action-card ${URG[u].cls}">
+                <div class="ac-top"><div class="ac-avatar">${avatar}</div>
+                    <div><div class="ac-title">${a.title}</div><div class="ac-reason">${a.reason}</div></div></div>
+                <div class="ac-context">${a.context.join(' &nbsp;·&nbsp; ')}</div>
+                <div class="ac-buttons">${btns}</div></div>`;
+        });
+    });
+    if(!pendingActions().length) html += `<div class="guided-done"><div class="big">🎉</div><h2>Día despejado</h2><p>No te queda nada urgente. Buen trabajo.</p></div>`;
+    c.innerHTML = html;
+}
+
+function renderGuiado(){
+    const c = document.getElementById('guiado-container');
+    const pend = pendingActions();
+    if(!pend.length){
+        c.innerHTML = `<div class="guided-done"><div class="big">🎉</div><h2>¡Despejaste el día!</h2><p>Resolviste todas las acciones de hoy.</p></div>`;
+        return;
+    }
+    if(state.guidedIndex >= pend.length) state.guidedIndex = 0;
+    const a = pend[state.guidedIndex];
+    const agent = a.agentId ? agentById(a.agentId) : null;
+    const avatar = agent ? agent.emoji : a.icon;
+    const name = agent ? agent.name : a.title;
+
+    // dots
+    let dots = '';
+    state.dayActions.forEach((act,i) => {
+        const cls = act.status!=='pending' ? 'done' : (act===a ? 'active' : '');
+        dots += `<div class="gdot ${cls}"></div>`;
+    });
+
+    const btns = a.buttons.map(b =>
+        `<button class="btn ${b.primary?'primary':''} ${b.type==='wa'?'wa':''}" onclick="doAction('${a.id}','${b.type}')">${b.label}</button>`
+    ).join('');
+
+    c.innerHTML = `<div class="guided-stage">
+        <div class="guided-counter">Acción ${state.guidedIndex+1} de ${pend.length}</div>
+        <div class="guided-dots">${dots}</div>
+        <div class="guided-card">
+            <div class="gc-urgency ${URG[a.urgency].cls}">${URG[a.urgency].label}</div>
+            <div class="gc-avatar">${avatar}</div>
+            <div class="gc-name">${name}</div>
+            <div class="gc-reason">${a.reason}</div>
+            <div class="gc-context-box">${a.context.map(x=>`<div>${x}</div>`).join('')}</div>
+            <div class="gc-buttons">${btns}</div>
+            <button class="gc-skip" onclick="skipGuided()">Saltar por ahora →</button>
+        </div>
+    </div>`;
+}
+
+function skipGuided(){
+    const pend = pendingActions();
+    state.guidedIndex = (state.guidedIndex + 1) % Math.max(pend.length,1);
+    renderGuiado();
+}
+
+/* ============================================================
+   ACCIONES (operan de verdad sobre el estado simulado)
+   ============================================================ */
+function doAction(actionId, type){
+    const a = state.dayActions.find(x=>x.id===actionId) || { agentId: state.selectedAgent };
+    const agent = a.agentId ? agentById(a.agentId) : null;
+
+    switch(type){
+        case 'reply':
+        case 'wa':
+            openMessageModal(agent, actionId, type==='wa');
+            break;
+        case 'call':
+            openCallModal(agent, actionId);
+            break;
+        case 'recognize':
+            openRecognizeModal(agent, actionId);
+            break;
+        case 'task':
+            openTaskModal(agent, actionId);
+            break;
+        case 'zoomopen':
+            toast('🔗 Abriendo sala de Zoom… (simulado)');
+            completeAction(actionId,'done');
+            logHistory(null, '📹 Zoom', 'Capacitación abierta · 14:00');
+            break;
+        case 'zoomprog':
+            openZoomModal(agent, actionId);
+            break;
+        case 'remind':
+            toast('🔔 Recordatorio enviado a los convocados (simulado)');
+            completeAction(actionId,'done');
+            break;
+    }
+}
+
+/* ---- Modales ---- */
+function openModal(html){ document.getElementById('modalBox').innerHTML = html; document.getElementById('modalOverlay').classList.add('show'); }
+function closeModal(){ document.getElementById('modalOverlay').classList.remove('show'); }
+
+function openMessageModal(agent, actionId, viaWa){
+    const tpl = agent && agent.urgentMsg ? `Hola ${agent.name.split(' ')[0]}, vi tu mensaje. ` : `Hola ${agent? agent.name.split(' ')[0]:''}, `;
+    openModal(`
+        <h3>${viaWa?'📱 Enviar por WhatsApp':'💬 Responder'}</h3>
+        <div class="msub">${agent? agent.name : ''} · queda en el hilo único</div>
+        <label>Mensaje</label>
+        <textarea id="msgText" rows="4">${tpl}</textarea>
+        <div class="modal-actions">
+            <button class="btn ghost" onclick="closeModal()">Cancelar</button>
+            <button class="btn primary" onclick="sendMessage('${agent?agent.id:''}','${actionId}','${viaWa?'wa':'app'}')">${viaWa?'Abrir WhatsApp y enviar':'Enviar'}</button>
+        </div>
+    `);
+}
+function sendMessage(agentId, actionId, chan){
+    const agent = agentById(agentId);
+    const text = document.getElementById('msgText').value.trim();
+    if(agent && text){
+        agent.thread.push({ dir:'out', chan, text, time:'Ahora' });
+        logHistory(agent, chan==='wa'?'📱 WhatsApp':'💬 Mensaje', text.slice(0,40)+(text.length>40?'…':''));
+    }
+    closeModal();
+    toast(chan==='wa'?'📱 Enviado por WhatsApp (simulado)':'💬 Mensaje enviado');
+    completeAction(actionId,'done');
+    refreshViews(agentId);
+}
+
+function openCallModal(agent, actionId){
+    openModal(`
+        <h3>📞 Llamar a ${agent?agent.name:''}</h3>
+        <div class="msub">Registrá el resultado de la llamada</div>
+        <label>Resultado</label>
+        <select id="callResult">
+            <option>Atendió - conversamos</option>
+            <option>No atendió</option>
+            <option>Reagendar llamada</option>
+        </select>
+        <label>Nota (opcional)</label>
+        <textarea id="callNote" rows="3" placeholder="Ej: necesita apoyo con el paso 4, reagendé práctica"></textarea>
+        <div class="modal-actions">
+            <button class="btn ghost" onclick="closeModal()">Cancelar</button>
+            <button class="btn primary" onclick="finishCall('${agent?agent.id:''}','${actionId}')">Guardar</button>
+        </div>
+    `);
+}
+function finishCall(agentId, actionId){
+    const agent = agentById(agentId);
+    const res = document.getElementById('callResult').value;
+    const note = document.getElementById('callNote').value.trim();
+    logHistory(agent, '📞 Llamada', res + (note?(' · '+note):''));
+    closeModal();
+    toast('📞 Llamada registrada en el historial');
+    completeAction(actionId, res.includes('Reagendar')?'rescheduled':'done');
+    refreshViews(agentId);
+}
+
+function openRecognizeModal(agent, actionId){
+    openModal(`
+        <h3>🏆 Reconocer a ${agent?agent.name:''}</h3>
+        <div class="msub">Un reconocimiento a tiempo motiva y retiene</div>
+        <label>Mensaje de felicitación</label>
+        <textarea id="recogText" rows="3">¡Felicitaciones ${agent?agent.name.split(' ')[0]:''}! 🎉 Tu primera venta es enorme. Seguí así 💪</textarea>
+        <label>Insignia</label>
+        <select id="recogBadge"><option>🥇 Primera Venta</option><option>⭐ Estrella de la semana</option><option>🔥 En racha</option></select>
+        <div class="modal-actions">
+            <button class="btn ghost" onclick="closeModal()">Cancelar</button>
+            <button class="btn primary" onclick="finishRecognize('${agent?agent.id:''}','${actionId}')">Enviar reconocimiento</button>
+        </div>
+    `);
+}
+function finishRecognize(agentId, actionId){
+    const agent = agentById(agentId);
+    const text = document.getElementById('recogText').value.trim();
+    const badge = document.getElementById('recogBadge').value;
+    if(agent){ agent.thread.push({dir:'out',chan:'app',text:text+' '+badge,time:'Ahora'}); logHistory(agent,'🏆 Reconocimiento',badge); }
+    closeModal();
+    toast('🏆 ¡Reconocimiento enviado!');
+    completeAction(actionId,'done');
+    refreshViews(agentId);
+}
+
+function openTaskModal(agent, actionId){
+    openModal(`
+        <h3>✅ Asignar tarea${agent?' a '+agent.name:''}</h3>
+        <div class="msub">Quedará en sus pendientes con vencimiento</div>
+        <label>Tarea</label>
+        <input id="taskTitle" value="Completar Paso 4 del onboarding">
+        <label>Vence</label>
+        <select id="taskDue"><option>Hoy 17:00</option><option>Mañana</option><option>Esta semana</option></select>
+        <div class="modal-actions">
+            <button class="btn ghost" onclick="closeModal()">Cancelar</button>
+            <button class="btn primary" onclick="finishTask('${agent?agent.id:''}','${actionId}')">Asignar</button>
+        </div>
+    `);
+}
+function finishTask(agentId, actionId){
+    const agent = agentById(agentId);
+    const title = document.getElementById('taskTitle').value.trim();
+    const due = document.getElementById('taskDue').value;
+    if(agent) logHistory(agent,'✅ Tarea asignada', title+' · vence '+due);
+    closeModal();
+    toast('✅ Tarea asignada');
+    if(actionId && actionId!=='undefined') completeAction(actionId,'done');
+    refreshViews(agentId);
+}
+
+function openZoomModal(agent, actionId){
+    openModal(`
+        <h3>📹 Programar Zoom${agent?' con '+agent.name:''}</h3>
+        <div class="msub">Reunión 1-1 de apoyo</div>
+        <label>Cuándo</label>
+        <select id="zoomWhen"><option>Hoy 16:00</option><option>Mañana 10:00</option><option>Mañana 15:00</option></select>
+        <div class="modal-actions">
+            <button class="btn ghost" onclick="closeModal()">Cancelar</button>
+            <button class="btn primary" onclick="finishZoom('${agent?agent.id:''}','${actionId}')">Programar y enviar link</button>
+        </div>
+    `);
+}
+function finishZoom(agentId, actionId){
+    const agent = agentById(agentId);
+    const when = document.getElementById('zoomWhen').value;
+    if(agent){ agent.thread.push({dir:'out',chan:'app',text:'Te agendé un Zoom 1-1 para '+when+'. Link: zoom.us/j/mentor',time:'Ahora'}); logHistory(agent,'📹 Zoom 1-1 programado', when); }
+    closeModal();
+    toast('📹 Zoom programado y link enviado');
+    if(actionId && actionId!=='undefined') completeAction(actionId,'done');
+    refreshViews(agentId);
+}
+
+function logHistory(agent, type, detail){
+    if(!agent) return;
+    agent.history.unshift({ type, detail, time:'Ahora' });
+}
+
+function completeAction(actionId, status){
+    const a = state.dayActions.find(x=>x.id===actionId);
+    if(a) a.status = status;
+    if(state.diaMode==='guiado'){ state.guidedIndex = 0; }
+    renderDia();
+}
+
+/* ============================================================
+   EQUIPO (grilla + filtros + panel)
+   ============================================================ */
+function urgencyRank(a){ if(a.band==='danger')return 0; if(a.band==='warning')return 1; return 2; }
+
+function setFilter(el, f){
+    document.querySelectorAll('.filter-item[data-filter]').forEach(x=>x.classList.remove('active'));
+    el.classList.add('active'); state.filter = f; renderEquipo();
+}
+function setSort(el, s){
+    document.querySelectorAll('.filter-item[data-sort]').forEach(x=>x.classList.remove('active'));
+    el.classList.add('active'); state.sort = s; renderEquipo();
+}
+
+function filteredAgents(){
+    let list = state.agents.slice();
+    const f = state.filter;
+    if(['danger','warning','ok'].includes(f)) list = list.filter(a=>a.band===f);
+    else if(f==='inactivo') list = list.filter(a=>a.inactiveH>=8);
+    else if(f==='trabado') list = list.filter(a=>a.situations.includes('trabado'));
+    else if(f==='nuevo') list = list.filter(a=>a.isNew);
+    else if(f==='reconocer') list = list.filter(a=>a.situations.includes('reconocer'));
+    if(state.sort==='urgencia') list.sort((a,b)=>urgencyRank(a)-urgencyRank(b) || a.score-b.score);
+    else list.sort((a,b)=>b.score-a.score);
+    return list;
+}
+
+function renderEquipo(){
+    const list = filteredAgents();
+    document.getElementById('eqCount').textContent = `${list.length} agente(s) · ordenados ${state.sort==='urgencia'?'por urgencia (quién necesita acción primero)':'por Score'}`;
+    const grid = document.getElementById('agentsGrid');
+    grid.innerHTML = list.map(a => {
+        const recog = a.situations.includes('reconocer');
+        const metrics = [['Actividad',a.metrics.actividad],['Asistencia',a.metrics.asistencia],['Cumplimiento',a.metrics.cumplimiento]];
+        return `<div class="agent-card ${state.selectedAgent===a.id?'active':''}" onclick="openAgentDetail('${a.id}')" title="Abrir perfil completo">
+            <div class="agent-top">
+                <div class="agent-avatar">${a.emoji}</div>
+                <div style="flex:1"><div class="agent-name">${a.name}</div>
+                    <div class="agent-meta">${a.isNew?'Nuevo · Paso '+a.onboardingStep:'Establecido'} · últ. act. ${a.inactiveH}h</div></div>
+                <div class="agent-score">${a.score}</div>
+            </div>
+            <div class="badge ${a.band}">${BANDLABEL[a.band]}</div>
+            ${metrics.map(([l,v])=>`<div class="metric"><div class="metric-label">${l}</div>
+                <div class="metric-bar"><div class="metric-fill" style="width:${v*10}%"></div></div>
+                <div class="metric-val">${v}/10</div></div>`).join('')}
+            <div class="agent-actions">
+                <button class="btn" onclick="event.stopPropagation();selectAgent('${a.id}')">💬 Chat</button>
+                <button class="btn" onclick="event.stopPropagation();doAgentAction('${a.id}','call')">📞 Llamar</button>
+                <button class="btn" onclick="event.stopPropagation();doAgentAction('${a.id}','${recog?'recognize':'task'}')">${recog?'🏆':'✅'}</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function doAgentAction(agentId, type){
+    state.selectedAgent = agentId;
+    doAction('undefined', type);
+}
+
+function selectAgent(id){
+    state.selectedAgent = id;
+    state.panelTab = 'chat';
+    renderEquipo();
+    renderPanel();
+}
+
+function setPanelTab(t){ state.panelTab = t; document.querySelectorAll('.panel-tab').forEach(x=>x.classList.toggle('active', x.dataset.tab===t)); renderPanel(); }
+
+function renderPanel(){
+    const agent = agentById(state.selectedAgent);
+    const body = document.getElementById('panelBody');
+    if(!agent){ body.innerHTML = `<div class="empty">👈<div>Seleccioná un agente para ver su conversación y operar.</div></div>`; return; }
+    document.getElementById('pAvatar').textContent = agent.emoji;
+    document.getElementById('pName').textContent = agent.name;
+    document.getElementById('pSub').textContent = `Score ${agent.score} · ${BANDLABEL[agent.band]}`;
+
+    if(state.panelTab==='chat'){
+        const msgs = agent.thread.length ? agent.thread.map(m=>`
+            <div class="msg ${m.dir==='in'?'in':'out'}">${m.text}
+                <div class="msg-meta"><span class="chan ${m.chan}">${m.chan==='wa'?'WhatsApp':'App'}</span>${m.time}</div></div>`).join('')
+            : `<div class="empty">Sin mensajes todavía</div>`;
+        body.innerHTML = `<div class="chat-messages">${msgs}</div>
+            <div class="panel-input">
+                <input id="chatInput" placeholder="Escribí un mensaje…" onkeydown="if(event.key==='Enter')quickSend()">
+                <button class="send-btn" onclick="quickSend()">📤</button>
+            </div>`;
+    } else if(state.panelTab==='tasks'){
+        body.innerHTML = `
+            <div class="list-item"><div class="t">${agent.isNew?'⏳ Paso '+agent.onboardingStep+' del onboarding':'✅ Onboarding completo'}</div>
+                <div class="s">${agent.isNew?'En progreso':'Agente establecido'}</div></div>
+            <div style="padding:12px;"><button class="btn primary" style="width:100%" onclick="doAgentAction('${agent.id}','task')">+ Asignar tarea</button></div>`;
+    } else if(state.panelTab==='zoom'){
+        body.innerHTML = `
+            <div class="list-item"><div class="t">📹 Capacitación grupal · Hoy 14:00</div><div class="s">${agent.isNew?'Convocado':'No aplica'}</div></div>
+            <div style="padding:12px;"><button class="btn primary" style="width:100%" onclick="doAgentAction('${agent.id}','zoomprog')">+ Programar Zoom 1-1</button></div>`;
+    } else {
+        const h = agent.history.length ? agent.history.map(x=>`<div class="list-item"><div class="t">${x.type} · ${x.time}</div><div class="s">${x.detail}</div></div>`).join('')
+            : `<div class="empty">Sin interacciones registradas.<br>Las acciones que hagas aparecen acá automáticamente.</div>`;
+        body.innerHTML = h;
+    }
+}
+
+function quickSend(){
+    const agent = agentById(state.selectedAgent);
+    const inp = document.getElementById('chatInput');
+    const text = inp.value.trim(); if(!agent||!text) return;
+    agent.thread.push({dir:'out',chan:'app',text,time:'Ahora'});
+    logHistory(agent,'💬 Mensaje', text.slice(0,40));
+    renderPanel();
+}
+
+/* ============================================================
+   AGENTE DETALLE / HILO ÚNICO
+   ============================================================ */
+const ONBOARDING_STEPS = ['Perfil','Bienvenida','Productos','Capacitación inicial','Práctica','Primeros prospectos','Primera presentación','Primera venta'];
+const SCORE_WEIGHTS = [['Actividad','actividad',30],['Asistencia','asistencia',20],['Cumplimiento','cumplimiento',30],['Interacción','interaccion',20]];
+
+function refreshViews(agentId){
+    if(state.selectedAgent!==agentId) return;
+    if(document.getElementById('view-equipo').style.display!=='none') renderPanel();
+    if(document.getElementById('view-agente').style.display!=='none') renderAgentDetail();
+    if(document.getElementById('view-bandeja').style.display!=='none') renderConvBody(agentId);
+}
+
+function openAgentDetail(id){
+    state.selectedAgent = id;
+    ['dia','bandeja','equipo','onboarding'].forEach(name=>{
+        document.getElementById('view-'+name).style.display = 'none';
+        document.getElementById('vt-'+name).classList.remove('active');
+    });
+    document.getElementById('view-agente').style.display = 'block';
+    renderAgentDetail();
+    window.scrollTo(0,0);
+}
+function closeAgentDetail(){ switchView('equipo'); }
+function detailAction(type){ doAgentAction(state.selectedAgent, type); }
+
+function renderAgentDetail(){
+    const a = agentById(state.selectedAgent);
+    if(!a) return;
+    document.getElementById('dAvatar').textContent = a.emoji;
+    document.getElementById('dName').textContent = a.name;
+    document.getElementById('dMeta').textContent =
+        (a.isNew?'Nuevo · en onboarding':'Agente establecido') + ' · última actividad hace ' + a.inactiveH + 'h';
+    const dScore = document.getElementById('dScore');
+    dScore.textContent = a.score; dScore.className = 'detail-score-num ' + a.band;
+    const dBand = document.getElementById('dBand');
+    dBand.textContent = BANDLABEL[a.band]; dBand.className = 'badge ' + a.band;
+
+    // Composición del Score
+    document.getElementById('dScoreBreak').innerHTML = SCORE_WEIGHTS.map(([label,key,w])=>{
+        const v = a.metrics[key] != null ? a.metrics[key] : Math.round(a.score/10);
+        return `<div class="sb-row">
+            <div class="sb-label">${label} <span class="sb-w">${w}%</span></div>
+            <div class="metric-bar"><div class="metric-fill" style="width:${v*10}%"></div></div>
+            <div class="metric-val">${v}/10</div></div>`;
+    }).join('');
+
+    // Roadmap onboarding
+    document.getElementById('dRoadmap').innerHTML = ONBOARDING_STEPS.map((s,i)=>{
+        const n = i+1; let st='pending', ic='⬜';
+        if(n < a.onboardingStep){ st='done'; ic='✅'; }
+        else if(n === a.onboardingStep){ st='active'; ic='🔵'; }
+        return `<div class="road-step ${st}"><span>${ic}</span><span class="road-name">Paso ${n}: ${s}</span>${n===a.onboardingStep?'<span class="road-now">acá está</span>':''}</div>`;
+    }).join('');
+
+    // Hilo único
+    document.getElementById('dThread').innerHTML = a.thread.length ? a.thread.map(m=>`
+        <div class="msg ${m.dir==='in'?'in':'out'}">${m.text}
+            <div class="msg-meta"><span class="chan ${m.chan}">${m.chan==='wa'?'WhatsApp':'App'}</span>${m.time}</div></div>`).join('')
+        : `<div class="empty">Sin mensajes todavía</div>`;
+
+    // Historial
+    document.getElementById('dHistory').innerHTML = a.history.length
+        ? a.history.map(x=>`<div class="list-item"><div class="t">${x.type} · ${x.time}</div><div class="s">${x.detail}</div></div>`).join('')
+        : `<div class="empty">Sin interacciones registradas.<br>Las acciones que hagas aparecen acá automáticamente.</div>`;
+}
+
+function quickSendDetail(){
+    const a = agentById(state.selectedAgent);
+    const inp = document.getElementById('dChatInput');
+    const text = inp.value.trim(); if(!a||!text) return;
+    a.thread.push({ dir:'out', chan:'app', text, time:'Ahora' });
+    logHistory(a, '💬 Mensaje', text.slice(0,40));
+    renderAgentDetail();
+}
+
+/* ============================================================
+   BANDEJA / INBOX
+   ============================================================ */
+function inboxTriage(a){
+    if(!a.thread.length) return null;
+    const last = a.thread[a.thread.length-1];
+    if(last.dir==='out') return 'done';
+    if(a.situations.includes('msg') || a.band==='danger') return 'now';
+    return 'wait';
+}
+function renderBandeja(){
+    const groups = { now:[], wait:[], done:[] };
+    state.agents.forEach(a=>{ const t=inboxTriage(a); if(t) groups[t].push(a); });
+    const labels = { now:{l:'🔴 Urgente · responder ya',c:'now'}, wait:{l:'🟠 Puede esperar',c:'wait'}, done:{l:'✅ Respondidas',c:'done'} };
+    let html = '';
+    ['now','wait','done'].forEach(g=>{
+        if(!groups[g].length) return;
+        html += `<div class="inbox-group ${labels[g].c}">${labels[g].l} (${groups[g].length})</div>`;
+        groups[g].forEach(a=>{
+            const last = a.thread[a.thread.length-1];
+            const unread = last.dir==='in';
+            html += `<div class="conv ${state.selectedAgent===a.id?'active':''}" onclick="openConv('${a.id}')">
+                <div class="conv-avatar">${a.emoji}<span class="conv-ch">${last.chan==='wa'?'📱':'💬'}</span></div>
+                <div class="conv-main">
+                    <div class="conv-top"><span class="conv-name">${a.name}</span><span class="conv-time">${last.time}</span></div>
+                    <div class="conv-preview">${last.dir==='out'?'Vos: ':''}${last.text}</div>
+                </div>
+                ${unread?'<div class="conv-unread"></div>':''}
+            </div>`;
+        });
+    });
+    document.getElementById('convList').innerHTML = html || '<div class="empty">Bandeja vacía 🎉</div>';
+}
+function openConv(id){
+    state.selectedAgent = id;
+    renderBandeja();
+    const a = agentById(id);
+    document.getElementById('readerHead').innerHTML = `
+        <div class="conv-avatar" style="cursor:pointer" onclick="openAgentDetail('${id}')">${a.emoji}</div>
+        <div style="flex:1"><div class="conv-name">${a.name}</div><div class="conv-time">Score ${a.score} · ${BANDLABEL[a.band]}</div></div>
+        <div class="reader-actions">
+            <button class="btn" onclick="doAgentAction('${id}','call')">📞 Llamar</button>
+            <button class="btn" onclick="openAgentDetail('${id}')">Ver perfil ▸</button>
+        </div>`;
+    renderConvBody(id);
+}
+function renderConvBody(id){
+    const a = agentById(id);
+    const msgs = a.thread.map(m=>`<div class="msg ${m.dir==='in'?'in':'out'}">${m.text}<div class="msg-meta"><span class="chan ${m.chan}">${m.chan==='wa'?'WhatsApp':'App'}</span>${m.time}</div></div>`).join('');
+    document.getElementById('readerBody').innerHTML = `
+        <div class="chat-messages">${msgs}</div>
+        <div class="panel-input" style="padding:12px 18px;">
+            <input id="convInput" placeholder="Respondé… (sale por su canal)" onkeydown="if(event.key==='Enter')sendConv()">
+            <button class="send-btn" onclick="sendConv()">📤</button>
+        </div>`;
+}
+function sendConv(){
+    const a = agentById(state.selectedAgent);
+    const inp = document.getElementById('convInput');
+    const text = inp.value.trim(); if(!a||!text) return;
+    const chan = (a.thread.length && a.thread[0].chan==='wa') ? 'wa' : 'app';
+    a.thread.push({ dir:'out', chan, text, time:'Ahora' });
+    logHistory(a, chan==='wa'?'📱 WhatsApp':'💬 Mensaje', text.slice(0,40));
+    renderConvBody(state.selectedAgent);
+    renderBandeja();
+    toast('Enviado · queda en el hilo único');
+}
+
+/* ============================================================
+   ONBOARDING (vista líder)
+   ============================================================ */
+function renderOnboarding(){
+    const news = state.agents.filter(a=>a.isNew);
+    const fleetByStep = [120, 90, 70, 55, 40, 28, 18, 12]; // demo: agentes por paso
+    document.getElementById('obFunnel').innerHTML = ONBOARDING_STEPS.map((s,i)=>{
+        const stuck = i===3; // paso 4 = cuello de botella (demo)
+        return `<div class="ob-stage ${stuck?'alert':''}"><div class="n">${fleetByStep[i]}</div><div class="l">${i+1}. ${s}</div></div>`;
+    }).join('');
+    document.getElementById('obList').innerHTML = news.map(a=>{
+        const pct = Math.round((a.onboardingStep-1)/8*100);
+        const stuck = a.situations.includes('trabado');
+        return `<div class="ob-agent" onclick="openAgentDetail('${a.id}')">
+            <div class="ob-avatar">${a.emoji}</div>
+            <div class="ob-info">
+                <div class="ob-name">${a.name}</div>
+                <div class="ob-step">Paso ${a.onboardingStep}: ${ONBOARDING_STEPS[a.onboardingStep-1]} · ${pct}%</div>
+                <div class="ob-progress"><div class="ob-progress-fill" style="width:${pct}%"></div></div>
+            </div>
+            <span class="ob-flag ${stuck?'stuck':'ok'}">${stuck?'⚠️ Trabado':'En curso'}</span>
+        </div>`;
+    }).join('') || '<div class="empty">No hay agentes nuevos en onboarding.</div>';
+}
+
+/* ============================================================
+   NOTIFICACIONES
+   ============================================================ */
+function toggleNotif(e){
+    e.stopPropagation();
+    const p = document.getElementById('notifPanel');
+    const show = !p.classList.contains('show');
+    p.classList.toggle('show', show);
+    if(show) renderNotif();
+}
+function renderNotif(){
+    const items = state.dayActions.map(a=>{
+        const agent = a.agentId ? agentById(a.agentId) : null;
+        return { urgency:a.urgency, t:a.title, s:(agent?agent.name+' · ':'')+a.reason, unread:a.status==='pending' };
+    });
+    document.getElementById('notifList').innerHTML = items.map(n=>`
+        <div class="notif-item ${n.unread?'unread':''}">
+            <div class="notif-dot ${n.urgency}"></div>
+            <div class="notif-body"><div class="t">${n.t}</div><div class="s">${n.s}</div></div>
+        </div>`).join('');
+}
+function clearNotif(){
+    document.getElementById('bellBadge').style.display = 'none';
+    document.getElementById('notifPanel').classList.remove('show');
+}
+document.addEventListener('click', e=>{
+    const p = document.getElementById('notifPanel');
+    if(p && p.classList.contains('show') && !p.contains(e.target)) p.classList.remove('show');
+});
+
+/* ============================================================
+   ALTA DE AGENTE
+   ============================================================ */
+function openAltaModal(){
+    openModal(`
+        <h3>➕ Alta de agente</h3>
+        <div class="msub">Sumá un nuevo agente</div>
+        <label>Nombre completo</label>
+        <input id="naName" placeholder="Nombre y apellido">
+        <label>WhatsApp</label>
+        <input id="naPhone" placeholder="+1 305 ...">
+        <label>Email</label>
+        <input id="naEmail" placeholder="agente@...">
+        <div class="modal-actions">
+            <button class="btn ghost" onclick="closeModal()">Cancelar</button>
+            <button class="btn primary" onclick="finishAlta()">Crear agente</button>
+        </div>`);
+}
+function finishAlta(){
+    const name = (document.getElementById('naName').value||'').trim();
+    if(!name){ toast('Poné al menos el nombre'); return; }
+    state.agents.push({
+        id: 'a'+(state.agents.length+1)+'x', name, emoji:'🧑', score:50, band:'warning',
+        situations:['nuevo'], inactiveH:0, onboardingStep:1, isNew:true,
+        metrics:{ actividad:5, asistencia:5, cumplimiento:5, interaccion:5 },
+        thread:[], history:[{ type:'➕ Alta', detail:'Agente creado', time:'Ahora' }]
+    });
+    closeModal();
+    toast('✅ Agente creado: '+name);
+    renderEquipo();
+}
+
+/* ============================================================
+   TOAST + INIT
+   ============================================================ */
+let toastTimer;
+function toast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>t.classList.remove('show'), 2600);
+}
+
+document.getElementById('modalOverlay').addEventListener('click', e=>{ if(e.target.id==='modalOverlay') closeModal(); });
+
+renderDia();
+</script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+
+# Prototipos viejos archivados (no publicar)
+_archivo/
+
+# Documentos internos — NO publicar (precios / modelo de negocio / proceso interno)
+PROYECTO.md
+MATRIZ_PRIORIZACION.md
+docs/architect-journey.md

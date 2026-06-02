@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Asistente - Acceso</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+        --bg: #0f1419;
+        --panel: #141823;
+        --grad: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --accent: #667eea;
+        --line: rgba(102,126,234,0.2);
+        --wa: #25d366;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        background: var(--bg);
+        color: #fff;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        position: relative;
+        overflow: hidden;
+    }
+    /* glow de fondo */
+    body::before {
+        content: ''; position: absolute; width: 600px; height: 600px;
+        background: radial-gradient(circle, rgba(102,126,234,0.18), transparent 70%);
+        top: -200px; right: -150px; pointer-events: none;
+    }
+    body::after {
+        content: ''; position: absolute; width: 500px; height: 500px;
+        background: radial-gradient(circle, rgba(118,75,162,0.15), transparent 70%);
+        bottom: -180px; left: -120px; pointer-events: none;
+    }
+
+    .lang-switch { position: absolute; top: 20px; right: 20px; display: flex; gap: 4px; background: rgba(255,255,255,0.05); padding: 4px; border-radius: 10px; z-index: 5; }
+    .lang-btn { border: none; background: transparent; color: #888; padding: 6px 12px; border-radius: 7px; cursor: pointer; font-size: 12px; font-weight: 600; }
+    .lang-btn.active { background: var(--grad); color: #fff; }
+
+    .card {
+        width: 100%; max-width: 400px; background: var(--panel);
+        border: 1px solid var(--line); border-radius: 20px; padding: 34px 28px;
+        box-shadow: 0 24px 60px rgba(0,0,0,0.5); position: relative; z-index: 2;
+    }
+    .brand { text-align: center; margin-bottom: 6px; }
+    .brand-logo {
+        font-size: 28px; font-weight: 800;
+        background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .brand-sub { text-align: center; color: #9aa; font-size: 13px; margin-bottom: 26px; }
+
+    .field { margin-bottom: 16px; }
+    .field label { display: block; font-size: 12px; color: #9aa; margin-bottom: 7px; font-weight: 600; }
+    .input-wrap { position: relative; }
+    .field input {
+        width: 100%; background: rgba(102,126,234,0.08); border: 1px solid var(--line);
+        color: #fff; padding: 13px 14px; border-radius: 10px; font-size: 14px; font-family: inherit;
+    }
+    .field input::placeholder { color: #667; }
+    .field input:focus { outline: none; border-color: var(--accent); background: rgba(102,126,234,0.14); }
+    .toggle-pass { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 16px; opacity: .6; }
+    .toggle-pass:hover { opacity: 1; }
+
+    .row-between { display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; font-size: 12px; }
+    .remember { display: flex; align-items: center; gap: 7px; color: #9aa; cursor: pointer; }
+    .remember input { accent-color: var(--accent); }
+    .link { color: var(--accent); text-decoration: none; }
+    .link:hover { text-decoration: underline; }
+
+    .btn-primary {
+        width: 100%; padding: 14px; border: none; border-radius: 10px; cursor: pointer;
+        background: var(--grad); color: #fff; font-size: 15px; font-weight: 700; transition: all .2s;
+    }
+    .btn-primary:hover { box-shadow: 0 8px 24px rgba(102,126,234,0.45); transform: translateY(-1px); }
+
+    .divider { display: flex; align-items: center; gap: 12px; margin: 22px 0; color: #667; font-size: 12px; }
+    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+
+    .btn-wa {
+        width: 100%; padding: 13px; border: 1px solid var(--wa); border-radius: 10px; cursor: pointer;
+        background: rgba(37,211,102,0.1); color: var(--wa); font-size: 14px; font-weight: 700;
+        display: flex; align-items: center; justify-content: center; gap: 8px; transition: all .2s;
+    }
+    .btn-wa:hover { background: rgba(37,211,102,0.2); }
+
+    .signup { text-align: center; margin-top: 22px; font-size: 13px; color: #9aa; }
+
+    /* demo footer */
+    .demo {
+        margin-top: 26px; padding-top: 18px; border-top: 1px dashed var(--line);
+        text-align: center; font-size: 12px; color: #778;
+    }
+    .demo-label { margin-bottom: 10px; }
+    .demo-roles { display: flex; gap: 10px; }
+    .demo-role {
+        flex: 1; padding: 11px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
+        background: rgba(102,126,234,0.06); color: #ccd; font-size: 13px; font-weight: 600;
+        text-decoration: none; display: block; transition: all .2s;
+    }
+    .demo-role:hover { border-color: var(--accent); background: rgba(102,126,234,0.16); color: #fff; }
+    .demo-role .emoji { font-size: 20px; display: block; margin-bottom: 4px; }
+    .demo-role small { display: block; font-weight: 400; color: #889; font-size: 11px; margin-top: 2px; }
+</style>
+</head>
+<body>
+    <div class="lang-switch">
+        <button class="lang-btn" data-lang="en" onclick="setLang('en')">EN</button>
+        <button class="lang-btn active" data-lang="es" onclick="setLang('es')">ES</button>
+        <button class="lang-btn" data-lang="pt" onclick="setLang('pt')">PT</button>
+    </div>
+
+    <div class="card">
+        <div class="brand">
+            <div class="brand-logo">🎯 Asistente</div>
+        </div>
+        <div class="brand-sub" data-i18n="tagline">Tu equipo comercial, bajo control</div>
+
+        <form onsubmit="return doLogin(event)">
+            <div class="field">
+                <label data-i18n="userLabel">Email o teléfono</label>
+                <div class="input-wrap">
+                    <input type="text" id="user" data-i18n-ph="userPh" placeholder="cecilia@agencia.com">
+                </div>
+            </div>
+            <div class="field">
+                <label data-i18n="passLabel">Contraseña</label>
+                <div class="input-wrap">
+                    <input type="password" id="pass" placeholder="••••••••">
+                    <button type="button" class="toggle-pass" onclick="togglePass()">👁</button>
+                </div>
+            </div>
+
+            <div class="row-between">
+                <label class="remember"><input type="checkbox" checked> <span data-i18n="remember">Recordarme</span></label>
+                <a class="link" href="#" data-i18n="forgot">¿Olvidaste tu contraseña?</a>
+            </div>
+
+            <button type="submit" class="btn-primary" data-i18n="login">Ingresar</button>
+        </form>
+
+        <div class="divider" data-i18n="or">o</div>
+
+        <button class="btn-wa" onclick="waLogin()">
+            <span>📱</span><span data-i18n="waLogin">Recibir código por WhatsApp</span>
+        </button>
+
+        <div class="signup">
+            <span data-i18n="noAccount">¿No tenés cuenta?</span> <a class="link" href="#" data-i18n="contact">Contactá a tu líder</a>
+        </div>
+
+        <!-- DEMO: navegación del prototipo (en producción el rol se detecta solo) -->
+        <div class="demo">
+            <div class="demo-label" data-i18n="demoLabel">Demo · entrá como:</div>
+            <div class="demo-roles">
+                <a class="demo-role" href="dashboard-v5-mi-dia.html">
+                    <span class="emoji">👩‍💼</span><span data-i18n="roleLeader">Líder</span>
+                    <small>Cecilia</small>
+                </a>
+                <a class="demo-role" href="agente.html">
+                    <span class="emoji">🧑‍💻</span><span data-i18n="roleAgent">Agente</span>
+                    <small data-i18n="roleAgentName">María</small>
+                </a>
+            </div>
+        </div>
+    </div>
+
+<script>
+    /* i18n del login — demuestra el requisito multilenguaje (default según preferencia) */
+    const I18N = {
+        es: { tagline:'Tu equipo comercial, bajo control', userLabel:'Email o teléfono', userPh:'cecilia@agencia.com',
+              passLabel:'Contraseña', remember:'Recordarme', forgot:'¿Olvidaste tu contraseña?', login:'Ingresar',
+              or:'o', waLogin:'Recibir código por WhatsApp', noAccount:'¿No tenés cuenta?', contact:'Contactá a tu líder',
+              demoLabel:'Demo · entrá como:', roleLeader:'Líder', roleAgent:'Agente', roleAgentName:'María' },
+        en: { tagline:'Your sales team, under control', userLabel:'Email or phone', userPh:'cecilia@agency.com',
+              passLabel:'Password', remember:'Remember me', forgot:'Forgot your password?', login:'Sign in',
+              or:'or', waLogin:'Get a code via WhatsApp', noAccount:"Don't have an account?", contact:'Contact your leader',
+              demoLabel:'Demo · enter as:', roleLeader:'Leader', roleAgent:'Agent', roleAgentName:'María' },
+        pt: { tagline:'Sua equipe comercial, sob controle', userLabel:'Email ou telefone', userPh:'cecilia@agencia.com',
+              passLabel:'Senha', remember:'Lembrar de mim', forgot:'Esqueceu sua senha?', login:'Entrar',
+              or:'ou', waLogin:'Receber código por WhatsApp', noAccount:'Não tem conta?', contact:'Fale com seu líder',
+              demoLabel:'Demo · entre como:', roleLeader:'Líder', roleAgent:'Agente', roleAgentName:'María' },
+    };
+    function setLang(lang){
+        document.documentElement.lang = lang;
+        document.querySelectorAll('.lang-btn').forEach(b=>b.classList.toggle('active', b.dataset.lang===lang));
+        const dict = I18N[lang];
+        document.querySelectorAll('[data-i18n]').forEach(el=>{ const k=el.dataset.i18n; if(dict[k]) el.textContent=dict[k]; });
+        document.querySelectorAll('[data-i18n-ph]').forEach(el=>{ const k=el.dataset.i18nPh; if(dict[k]) el.placeholder=dict[k]; });
+    }
+    function togglePass(){
+        const p = document.getElementById('pass');
+        p.type = p.type==='password' ? 'text' : 'password';
+    }
+    function doLogin(e){
+        e.preventDefault();
+        // Prototipo: no hay backend. En producción acá se autentica y se rutea según el rol.
+        window.location.href = 'dashboard-v5-mi-dia.html';
+        return false;
+    }
+    function waLogin(){
+        alert('📱 (Demo) Te enviaríamos un código de acceso por WhatsApp.');
+    }
+</script>
+</body>
+</html>

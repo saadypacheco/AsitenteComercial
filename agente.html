@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Asistente - Mi Jornada</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+        --bg: #0f1419; --panel: #141823;
+        --grad: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --accent: #667eea; --danger: #ff6b6b; --warning: #ffa940; --week: #ffd866; --ok: #52c41a;
+        --line: rgba(102,126,234,0.18); --wa: #25d366;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background: var(--bg); color: #fff; min-height: 100vh; }
+    .phone { max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* HEADER */
+    .top { background: rgba(0,0,0,0.4); backdrop-filter: blur(10px); padding: 16px 18px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 50; border-bottom: 1px solid var(--line); }
+    .avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--grad); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+    .hello { flex: 1; }
+    .hello h1 { font-size: 17px; font-weight: 700; }
+    .hello p { font-size: 12px; color: #9aa; }
+    .logout { background: rgba(102,126,234,0.15); border: 1px solid var(--line); color: #9aa; width: 38px; height: 38px; border-radius: 50%; cursor: pointer; font-size: 15px; text-decoration: none; display: flex; align-items: center; justify-content: center; }
+    .logout:hover { color: var(--accent); border-color: var(--accent); }
+
+    /* SCORE STRIP */
+    .score-strip { margin: 16px 18px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px; display: flex; align-items: center; gap: 14px; }
+    .score-ring { width: 60px; height: 60px; border-radius: 50%; background: conic-gradient(var(--ok) 0% 82%, rgba(255,255,255,0.08) 82% 100%); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .score-ring-inner { width: 48px; height: 48px; border-radius: 50%; background: var(--panel); display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800; }
+    .score-info { flex: 1; }
+    .score-info .lbl { font-size: 12px; color: #9aa; }
+    .score-info .band { font-size: 15px; font-weight: 700; color: var(--ok); }
+    .streak { text-align: center; font-size: 11px; color: #9aa; }
+    .streak .big { font-size: 20px; }
+
+    .content { flex: 1; padding: 16px 18px 30px; }
+    .section { display: none; }
+    .section.active { display: block; }
+    .group { font-size: 12px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; margin: 22px 0 10px; }
+    .group:first-child { margin-top: 6px; }
+    .group.now { color: var(--danger); } .group.today { color: var(--warning); } .group.week { color: var(--week); } .group.good { color: var(--ok); }
+
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 15px; margin-bottom: 12px; border-left: 4px solid var(--accent); }
+    .card.now { border-left-color: var(--danger); }
+    .card.today { border-left-color: var(--warning); }
+    .card.week { border-left-color: var(--week); }
+    .card.good { border-left-color: var(--ok); background: linear-gradient(135deg, rgba(82,196,26,0.08), rgba(82,196,26,0.02)); }
+    .card-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+    .card-sub { font-size: 12.5px; color: #9aa; margin-bottom: 10px; }
+
+    .progress { height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; margin-bottom: 10px; }
+    .progress-fill { height: 100%; background: var(--grad); border-radius: 4px; }
+    .deadline { font-size: 12px; color: var(--danger); font-weight: 600; margin-bottom: 10px; }
+
+    .btns { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn { flex: 1; min-width: 110px; padding: 11px; border-radius: 9px; cursor: pointer; font-size: 13px; font-weight: 600; border: 1px solid var(--accent); background: transparent; color: var(--accent); transition: all .2s; }
+    .btn:hover { background: rgba(102,126,234,0.18); }
+    .btn.primary { background: var(--grad); color: #fff; border: none; }
+    .btn.zoom { border-color: #2d8cff; color: #2d8cff; }
+    .btn.help { border-color: var(--line); color: #9aa; }
+
+    /* AGENDA */
+    .day-label { font-size: 13px; font-weight: 700; color: #cdd; margin: 18px 0 8px; }
+    .day-label:first-child { margin-top: 4px; }
+    .agenda-item { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+    .agenda-item:last-child { border-bottom: none; }
+    .agenda-time { font-size: 13px; font-weight: 700; color: var(--accent); width: 52px; flex-shrink: 0; }
+    .agenda-time.late { color: var(--danger); }
+    .agenda-body { flex: 1; }
+    .agenda-body .t { font-size: 13.5px; font-weight: 600; }
+    .agenda-body .s { font-size: 12px; color: #9aa; margin-top: 2px; margin-bottom: 8px; }
+    .agenda-card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 6px 15px; }
+
+    /* RUTA DE APRENDIZAJE (path vertical) */
+    .path { position: relative; padding-left: 40px; margin-top: 8px; }
+    .path::before { content: ''; position: absolute; left: 15px; top: 10px; bottom: 10px; width: 2px; background: var(--line); }
+    .path-step { position: relative; margin-bottom: 12px; }
+    .path-node { position: absolute; left: -40px; top: 2px; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; background: var(--panel); border: 2px solid var(--line); z-index: 1; }
+    .path-step.done .path-node { background: var(--ok); border-color: var(--ok); }
+    .path-step.active .path-node { background: var(--grad); border-color: var(--accent); }
+    .path-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+    .path-step.active .path-card { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+    .path-step.locked .path-card { opacity: .55; }
+    .path-title { font-size: 14px; font-weight: 700; }
+    .path-meta { font-size: 11.5px; color: #9aa; margin-top: 3px; }
+    .path-detail { font-size: 12.5px; color: #cdd; margin-top: 9px; line-height: 1.5; }
+    .path-detail .mat { display: inline-block; background: rgba(102,126,234,.15); color: #aab6ff; font-size: 11px; padding: 2px 8px; border-radius: 8px; margin: 4px 4px 0 0; }
+
+    /* PROGRESO */
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0 6px; }
+    .stat-tile { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+    .stat-tile .big { font-size: 24px; font-weight: 800; }
+    .stat-tile .lbl { font-size: 11px; color: #9aa; margin-top: 4px; }
+    .stat-tile .big.ok { color: var(--ok); }
+    .sb-row { display: flex; align-items: center; gap: 10px; margin-bottom: 11px; font-size: 12.5px; }
+    .sb-label { width: 120px; color: #cdd; }
+    .sb-w { color: #778; font-size: 10px; }
+    .sb-bar { flex: 1; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; }
+    .sb-fill { height: 100%; background: var(--grad); }
+    .sb-val { width: 34px; text-align: right; color: var(--accent); font-weight: 600; }
+
+    /* LOGROS */
+    .badges-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 8px; }
+    .badge-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 8px; text-align: center; }
+    .badge-card.locked { opacity: .38; }
+    .badge-card .e { font-size: 30px; }
+    .badge-card .n { font-size: 11px; margin-top: 6px; color: #cdd; }
+    .rank-row { display: flex; align-items: center; gap: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 11px 14px; margin-bottom: 8px; }
+    .rank-row.me { border-color: var(--accent); background: rgba(102,126,234,.12); }
+    .rank-pos { font-size: 15px; font-weight: 800; width: 26px; color: var(--accent); }
+    .rank-name { flex: 1; font-size: 13.5px; }
+    .rank-score { font-size: 14px; font-weight: 700; }
+
+    /* CHAT */
+    .chat-wrap { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+    .cmsg { max-width: 85%; padding: 10px 13px; border-radius: 12px; font-size: 13.5px; line-height: 1.4; }
+    .cmsg.in { background: var(--panel); border: 1px solid var(--line); align-self: flex-start; }
+    .cmsg.out { background: var(--grad); align-self: flex-end; }
+    .cmsg .meta { font-size: 10px; opacity: .7; margin-top: 4px; }
+    .chat-input { display: flex; gap: 8px; }
+    .chat-input input { flex: 1; background: var(--panel); border: 1px solid var(--line); color: #fff; padding: 12px; border-radius: 10px; font-size: 13.5px; font-family: inherit; }
+    .chat-input input:focus { outline: none; border-color: var(--accent); }
+    .chat-input button { background: var(--grad); border: none; color: #fff; width: 46px; border-radius: 10px; font-size: 18px; cursor: pointer; }
+
+    /* ALERTAS (campanita del agente) */
+    .abell { position: relative; background: rgba(102,126,234,0.15); border: 1px solid var(--line); color: #cdd; width: 38px; height: 38px; border-radius: 50%; cursor: pointer; font-size: 15px; flex-shrink: 0; }
+    .abell-badge { position: absolute; top: -6px; right: -6px; background: var(--danger); color: #fff; min-width: 18px; height: 18px; border-radius: 9px; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; padding: 0 4px; }
+    .alerts-panel { position: fixed; top: 66px; left: 50%; transform: translateX(-50%); width: calc(100% - 36px); max-width: 444px; background: var(--panel); border: 1px solid var(--accent); border-radius: 14px; padding: 8px; box-shadow: 0 16px 50px rgba(0,0,0,.6); z-index: 120; display: none; }
+    .alerts-panel.show { display: block; }
+    .al-head { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; font-size: 13px; font-weight: 700; }
+    .al-clear { background: none; border: none; color: var(--accent); font-size: 11px; cursor: pointer; font-weight: 600; }
+    .al-item { display: flex; gap: 10px; padding: 11px 10px; border-radius: 8px; cursor: pointer; }
+    .al-item:hover { background: rgba(102,126,234,0.1); }
+    .al-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+    .al-dot.now { background: var(--danger); } .al-dot.today { background: var(--warning); } .al-dot.good { background: var(--ok); } .al-dot.info { background: var(--accent); }
+    .al-body .t { font-size: 13px; font-weight: 600; }
+    .al-body .s { font-size: 11px; color: #9aa; margin-top: 2px; }
+
+    /* TAB BAR */
+    .tabbar { position: sticky; bottom: 0; background: rgba(8,10,16,0.96); backdrop-filter: blur(10px); border-top: 1px solid var(--line); display: flex; }
+    .tab { flex: 1; padding: 10px 2px; text-align: center; background: none; border: none; color: #778; cursor: pointer; font-size: 10px; }
+    .tab .ic { font-size: 18px; display: block; margin-bottom: 2px; }
+    .tab.active { color: var(--accent); }
+
+    .fab-help { position: fixed; bottom: 70px; right: calc(50% - 240px + 16px); background: var(--wa); border: none; color: #fff; padding: 12px 16px; border-radius: 30px; font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: 0 8px 20px rgba(37,211,102,0.4); display: flex; gap: 8px; z-index: 40; }
+    @media (max-width: 520px) { .fab-help { right: 16px; } }
+
+    .toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(100px); background: var(--panel); border: 1px solid var(--ok); border-left: 4px solid var(--ok); padding: 13px 20px; border-radius: 10px; font-size: 13px; opacity: 0; transition: all .3s; z-index: 200; }
+</style>
+</head>
+<body>
+    <div class="phone">
+        <!-- HEADER -->
+        <div class="top">
+            <div class="avatar">👩‍💼</div>
+            <div class="hello">
+                <h1>Hola, María 👋</h1>
+                <p id="headerSub">Lunes 2 de junio · Tu jornada de hoy</p>
+            </div>
+            <button class="abell" onclick="toggleAlerts(event)" title="Alertas">🔔<span class="abell-badge" id="aBadge">3</span></button>
+            <a class="logout" href="login.html" title="Salir">⎋</a>
+        </div>
+
+        <!-- PANEL DE ALERTAS DEL AGENTE -->
+        <div class="alerts-panel" id="alertsPanel">
+            <div class="al-head">🔔 Tus alertas <button class="al-clear" onclick="clearAlerts()">Marcar leídas</button></div>
+            <div class="al-item" onclick="document.querySelector('.tab[data-tab=agenda]').click()">
+                <span class="al-dot now"></span>
+                <div class="al-body"><div class="t">Tu práctica vence hoy 17:00</div><div class="s">Llevás 80% · quedan 6 horas</div></div>
+            </div>
+            <div class="al-item" onclick="document.querySelector('.tab[data-tab=agenda]').click()">
+                <span class="al-dot today"></span>
+                <div class="al-body"><div class="t">Capacitación inicial a las 10:00</div><div class="s">Por Zoom · confirmá tu asistencia</div></div>
+            </div>
+            <div class="al-item" onclick="goChat()">
+                <span class="al-dot info"></span>
+                <div class="al-body"><div class="t">💬 Cecilia te escribió</div><div class="s">"Dale, fijate el caso 3 del material…"</div></div>
+            </div>
+            <div class="al-item" onclick="document.querySelector('.tab[data-tab=ruta]').click()">
+                <span class="al-dot info"></span>
+                <div class="al-body"><div class="t">🎯 Desbloqueaste el Paso 4</div><div class="s">Capacitación inicial · ¡seguí avanzando!</div></div>
+            </div>
+            <div class="al-item" onclick="document.querySelector('.tab[data-tab=logros]').click()">
+                <span class="al-dot good"></span>
+                <div class="al-body"><div class="t">🏅 Ganaste la insignia "Comprometido"</div><div class="s">Asistencia perfecta esta semana</div></div>
+            </div>
+        </div>
+
+        <!-- SCORE -->
+        <div class="score-strip">
+            <div class="score-ring"><div class="score-ring-inner">82</div></div>
+            <div class="score-info">
+                <div class="lbl">Tu Score</div>
+                <div class="band">🟢 Saludable</div>
+            </div>
+            <div class="streak"><div class="big">🔥</div>5 días</div>
+        </div>
+
+        <div class="content">
+            <!-- ============ HOY ============ -->
+            <div class="section active" id="sec-hoy">
+                <div class="group now">🔴 Urgente hoy</div>
+                <div class="card now">
+                    <div class="card-title">Terminar práctica de ventas</div>
+                    <div class="card-sub">Te falta poco, ¡dale que llegás!</div>
+                    <div class="progress"><div class="progress-fill" style="width:80%"></div></div>
+                    <div class="deadline">⏰ Vence hoy 17:00 · quedan 6 horas</div>
+                    <div class="btns">
+                        <button class="btn primary" onclick="toast('▶️ Abriendo la práctica…')">Terminar ahora</button>
+                        <button class="btn help" onclick="goChat()">Necesito ayuda</button>
+                    </div>
+                </div>
+
+                <div class="group today">🟠 Hoy · tu agenda</div>
+                <div class="card today">
+                    <div class="agenda-item">
+                        <div class="agenda-time">10:00</div>
+                        <div class="agenda-body">
+                            <div class="t">Capacitación inicial</div>
+                            <div class="s">90 min · por Zoom</div>
+                            <div class="btns"><button class="btn zoom" onclick="toast('🔗 Abriendo Zoom…')">🔗 Entrar a Zoom</button></div>
+                        </div>
+                    </div>
+                    <div class="agenda-item">
+                        <div class="agenda-time">12:00</div>
+                        <div class="agenda-body">
+                            <div class="t">Contactar 5 prospectos</div>
+                            <div class="s">Lista lista para llamar / WhatsApp</div>
+                            <div class="btns"><button class="btn" onclick="toast('📋 Abriendo lista de prospectos…')">Ver lista</button></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="group week">🟡 Esta semana</div>
+                <div class="card week">
+                    <div class="card-title">Paso 4: Capacitación inicial</div>
+                    <div class="card-sub">Tu próximo hito en el camino a la primera venta</div>
+                    <div class="btns"><button class="btn" onclick="go('ruta')">Ver mi ruta</button></div>
+                </div>
+
+                <div class="group good">🟢 ¡Lo estás haciendo bien!</div>
+                <div class="card good">
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <div style="font-size:34px;">🏅</div>
+                        <div>
+                            <div class="card-title">Asistencia perfecta</div>
+                            <div class="card-sub" style="margin:0;">Insignia "Comprometido" · 5/5 esta semana</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============ AGENDA ============ -->
+            <div class="section" id="sec-agenda">
+                <div class="day-label">📅 Hoy · Lunes 2 de junio</div>
+                <div class="agenda-card">
+                    <div class="agenda-item">
+                        <div class="agenda-time">10:00</div>
+                        <div class="agenda-body"><div class="t">Capacitación inicial (Zoom)</div><div class="s">90 min · con tu coach</div>
+                            <div class="btns"><button class="btn zoom" onclick="toast('🔗 Abriendo Zoom…')">🔗 Entrar</button></div></div>
+                    </div>
+                    <div class="agenda-item">
+                        <div class="agenda-time">12:00</div>
+                        <div class="agenda-body"><div class="t">Contactar 5 prospectos</div><div class="s">~30 min · llamada / WhatsApp</div>
+                            <div class="btns"><button class="btn" onclick="toast('📋 Abriendo lista…')">Ver lista</button></div></div>
+                    </div>
+                    <div class="agenda-item">
+                        <div class="agenda-time late">17:00</div>
+                        <div class="agenda-body"><div class="t">⏰ Vence: práctica de ventas</div><div class="s">Llevás 80% · no la dejes pasar</div>
+                            <div class="btns"><button class="btn primary" onclick="toast('▶️ Abriendo la práctica…')">Terminar</button></div></div>
+                    </div>
+                </div>
+
+                <div class="day-label">📅 Mañana · Martes 3</div>
+                <div class="agenda-card">
+                    <div class="agenda-item">
+                        <div class="agenda-time">10:00</div>
+                        <div class="agenda-body"><div class="t">Práctica con tu coach</div><div class="s">60 min · Paso 5 del roadmap</div></div>
+                    </div>
+                    <div class="agenda-item">
+                        <div class="agenda-time">15:00</div>
+                        <div class="agenda-body"><div class="t">1-1 con tu líder</div><div class="s">15 min · seguimiento</div></div>
+                    </div>
+                </div>
+
+                <div class="day-label">📅 Esta semana</div>
+                <div class="agenda-card">
+                    <div class="agenda-item">
+                        <div class="agenda-time">Jue</div>
+                        <div class="agenda-body"><div class="t">Capacitación de productos AIG</div><div class="s">por Zoom · convocatoria pendiente de confirmar</div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============ RUTA DE APRENDIZAJE ============ -->
+            <div class="section" id="sec-ruta">
+                <div class="group">🎯 Tu ruta a la primera venta</div>
+                <div class="card" style="border-left-color:var(--accent);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                        <span style="font-weight:700;">Progreso general</span><span style="color:var(--accent);font-weight:700;">38%</span>
+                    </div>
+                    <div class="progress" style="margin:0;"><div class="progress-fill" style="width:38%"></div></div>
+                </div>
+
+                <div class="path">
+                    <div class="path-step done">
+                        <div class="path-node">✓</div>
+                        <div class="path-card"><div class="path-title">Paso 1 · Perfil</div><div class="path-meta">Completado 30 may · 15 min · 🏅 Iniciado</div></div>
+                    </div>
+                    <div class="path-step done">
+                        <div class="path-node">✓</div>
+                        <div class="path-card"><div class="path-title">Paso 2 · Bienvenida</div><div class="path-meta">Completado 30 may · 20 min · 🏅 Conectado</div></div>
+                    </div>
+                    <div class="path-step done">
+                        <div class="path-node">✓</div>
+                        <div class="path-card"><div class="path-title">Paso 3 · Productos</div><div class="path-meta">Completado 1 jun · 45 min · Quiz 9/10 ✅</div></div>
+                    </div>
+                    <div class="path-step active">
+                        <div class="path-node">🔵</div>
+                        <div class="path-card">
+                            <div class="path-title">Paso 4 · Capacitación inicial</div>
+                            <div class="path-meta">⏰ Hoy 10:00 · 90 min · por Zoom</div>
+                            <div class="path-detail">
+                                Lo que vas a aprender: estructura de una presentación y manejo de objeciones.
+                                <div><span class="mat">📄 Material PDF</span><span class="mat">🎬 Video 12 min</span><span class="mat">📹 Sesión Zoom</span></div>
+                            </div>
+                            <div class="btns" style="margin-top:10px;"><button class="btn primary" onclick="toast('▶️ Continuando el Paso 4…')">Continuar</button><button class="btn zoom" onclick="toast('🔗 Abriendo Zoom…')">🔗 Zoom</button></div>
+                        </div>
+                    </div>
+                    <div class="path-step locked">
+                        <div class="path-node">5</div>
+                        <div class="path-card"><div class="path-title">Paso 5 · Práctica</div><div class="path-meta">Se desbloquea al terminar el Paso 4 · 60 min con coach</div></div>
+                    </div>
+                    <div class="path-step locked">
+                        <div class="path-node">6</div>
+                        <div class="path-card"><div class="path-title">Paso 6 · Primeros prospectos</div><div class="path-meta">Contactar tus primeros 5 prospectos</div></div>
+                    </div>
+                    <div class="path-step locked">
+                        <div class="path-node">7</div>
+                        <div class="path-card"><div class="path-title">Paso 7 · Primera presentación</div><div class="path-meta">Presentación de venta acompañada</div></div>
+                    </div>
+                    <div class="path-step locked">
+                        <div class="path-node">🏁</div>
+                        <div class="path-card"><div class="path-title">Paso 8 · Primera venta 🎉</div><div class="path-meta">El gran objetivo · 🏅 insignia "Primera Venta"</div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============ PROGRESO ============ -->
+            <div class="section" id="sec-progreso">
+                <div class="group">📈 Tu progreso</div>
+                <div class="stats-grid">
+                    <div class="stat-tile"><div class="big ok">82</div><div class="lbl">Score · 🟢 Saludable</div></div>
+                    <div class="stat-tile"><div class="big">38%</div><div class="lbl">Ruta de aprendizaje</div></div>
+                    <div class="stat-tile"><div class="big">🔥 5</div><div class="lbl">Días de racha</div></div>
+                    <div class="stat-tile"><div class="big">12</div><div class="lbl">Días desde tu ingreso</div></div>
+                    <div class="stat-tile"><div class="big">28/30</div><div class="lbl">Tareas completadas</div></div>
+                    <div class="stat-tile"><div class="big">5/5</div><div class="lbl">Asistencia esta semana</div></div>
+                </div>
+
+                <div class="group">🧩 De qué se compone tu Score</div>
+                <div class="card" style="border-left-color:var(--accent);">
+                    <div class="sb-row"><span class="sb-label">Actividad <span class="sb-w">30%</span></span><span class="sb-bar"><span class="sb-fill" style="width:80%"></span></span><span class="sb-val">8/10</span></div>
+                    <div class="sb-row"><span class="sb-label">Asistencia <span class="sb-w">20%</span></span><span class="sb-bar"><span class="sb-fill" style="width:100%"></span></span><span class="sb-val">10/10</span></div>
+                    <div class="sb-row"><span class="sb-label">Cumplimiento <span class="sb-w">30%</span></span><span class="sb-bar"><span class="sb-fill" style="width:70%"></span></span><span class="sb-val">7/10</span></div>
+                    <div class="sb-row" style="margin-bottom:0;"><span class="sb-label">Interacción <span class="sb-w">20%</span></span><span class="sb-bar"><span class="sb-fill" style="width:90%"></span></span><span class="sb-val">9/10</span></div>
+                </div>
+
+                <div class="group">🎯 Tu meta</div>
+                <div class="card" style="border-left-color:var(--ok);">
+                    <div class="card-title">Llegar a tu primera venta</div>
+                    <div class="card-sub" style="margin:6px 0 0;">Vas en el Paso 4 de 8. El promedio del equipo tarda ~21 días — ¡vas en buen camino!</div>
+                </div>
+            </div>
+
+            <!-- ============ LOGROS ============ -->
+            <div class="section" id="sec-logros">
+                <div class="group">🏅 Mis insignias</div>
+                <div class="badges-grid">
+                    <div class="badge-card"><div class="e">🥇</div><div class="n">Iniciado</div></div>
+                    <div class="badge-card"><div class="e">🤝</div><div class="n">Conectado</div></div>
+                    <div class="badge-card"><div class="e">🏅</div><div class="n">Comprometido</div></div>
+                    <div class="badge-card locked"><div class="e">🎯</div><div class="n">1ª práctica</div></div>
+                    <div class="badge-card locked"><div class="e">💰</div><div class="n">1ª venta</div></div>
+                    <div class="badge-card locked"><div class="e">🔥</div><div class="n">En racha x10</div></div>
+                </div>
+                <div class="group">🏆 Ranking de tu grupo</div>
+                <div class="rank-row"><span class="rank-pos">1</span><span class="rank-name">Roberto S.</span><span class="rank-score">92</span></div>
+                <div class="rank-row"><span class="rank-pos">2</span><span class="rank-name">Andrés M.</span><span class="rank-score">85</span></div>
+                <div class="rank-row me"><span class="rank-pos">3</span><span class="rank-name">Vos (María) ⭐</span><span class="rank-score">82</span></div>
+                <div class="rank-row"><span class="rank-pos">4</span><span class="rank-name">Lucía R.</span><span class="rank-score">74</span></div>
+                <div class="rank-row"><span class="rank-pos">5</span><span class="rank-name">Diego T.</span><span class="rank-score">68</span></div>
+            </div>
+
+            <!-- ============ CHAT (vía FAB) ============ -->
+            <div class="section" id="sec-chat">
+                <div class="group">💬 Chat con Cecilia (tu líder)</div>
+                <div class="chat-wrap" id="agentChat">
+                    <div class="cmsg in">¡Hola María! ¿Cómo venís con la práctica de hoy?<div class="meta">Cecilia · 09:15</div></div>
+                    <div class="cmsg out">Hola! Bien, voy 80%. Tengo una duda con una objeción<div class="meta">Vos · 09:40</div></div>
+                    <div class="cmsg in">Dale, fijate el caso 3 del material. Si no, te llamo 💪<div class="meta">Cecilia · 09:42</div></div>
+                </div>
+                <div class="chat-input">
+                    <input id="agentMsg" placeholder="Escribile a tu líder…" onkeydown="if(event.key==='Enter')sendToLeader()">
+                    <button onclick="sendToLeader()">📤</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB BAR -->
+        <div class="tabbar">
+            <button class="tab active" data-tab="hoy" onclick="go('hoy',this)"><span class="ic">🏠</span>Hoy</button>
+            <button class="tab" data-tab="agenda" onclick="go('agenda',this)"><span class="ic">📅</span>Agenda</button>
+            <button class="tab" data-tab="ruta" onclick="go('ruta',this)"><span class="ic">🎯</span>Ruta</button>
+            <button class="tab" data-tab="progreso" onclick="go('progreso',this)"><span class="ic">📈</span>Progreso</button>
+            <button class="tab" data-tab="logros" onclick="go('logros',this)"><span class="ic">🏅</span>Logros</button>
+        </div>
+    </div>
+
+    <button class="fab-help" onclick="goChat()">💬 Mi líder</button>
+    <div class="toast" id="toast"></div>
+
+<script>
+    function go(tab, el){
+        document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+        document.getElementById('sec-'+tab).classList.add('active');
+        document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===tab));
+        window.scrollTo(0,0);
+    }
+    function goChat(){
+        document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+        document.getElementById('sec-chat').classList.add('active');
+        document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+        window.scrollTo(0,0);
+    }
+    function sendToLeader(){
+        const inp = document.getElementById('agentMsg');
+        const text = inp.value.trim(); if(!text) return;
+        const wrap = document.getElementById('agentChat');
+        const div = document.createElement('div');
+        div.className = 'cmsg out';
+        div.innerHTML = text + '<div class="meta">Vos · ahora</div>';
+        wrap.appendChild(div);
+        inp.value = '';
+        wrap.scrollTop = wrap.scrollHeight;
+        toast('💬 Mensaje enviado a Cecilia');
+    }
+    function toggleAlerts(e){ e.stopPropagation(); document.getElementById('alertsPanel').classList.toggle('show'); }
+    function clearAlerts(){ document.getElementById('aBadge').style.display='none'; document.getElementById('alertsPanel').classList.remove('show'); }
+    document.addEventListener('click', e=>{ const p=document.getElementById('alertsPanel'); if(p && p.classList.contains('show') && !p.contains(e.target) && !e.target.closest('.abell')) p.classList.remove('show'); });
+    let tt;
+    function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.style.opacity='1'; t.style.transform='translateX(-50%) translateY(0)'; clearTimeout(tt); tt=setTimeout(()=>{t.style.opacity='0'; t.style.transform='translateX(-50%) translateY(100px)';},2600); }
+</script>
+</body>
+</html>
