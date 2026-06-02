@@ -1,4 +1,4 @@
-# 🎯 Asistente — Sales Leadership Assistant
+# 🎯 Assistant — Sales Leadership Assistant
 
 > The operating system for sales leaders: know **what to do today** and run your whole team from one place. Simple, from the phone.
 

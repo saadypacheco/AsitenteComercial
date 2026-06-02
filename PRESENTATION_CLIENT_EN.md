@@ -4,7 +4,7 @@
 **Version:** 1.0 · June 2026
 **Status:** Clickable prototype + phased development plan
 
-> *Working name: "Asistente". Final commercial name to be defined with the client.*
+> *Working name: "Assistant". Final commercial name to be defined with the client.*
 
 ---
 

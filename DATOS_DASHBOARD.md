@@ -1,4 +1,4 @@
-# Datos que alimentan el Dashboard - Asistente
+# Datos que alimentan el Dashboard - Assistant
 
 **Qué es:** inventario de la información que necesita cada parte del dashboard para funcionar.
 **Para qué sirve:** define el modelo de datos, qué se carga a mano vs qué se calcula, y qué integraciones hacen falta. Es la base para diseñar la base de datos y validar con el cliente (ver PREGUNTAS_DESCUBRIMIENTO.md).

@@ -1,10 +1,10 @@
-# Asistente Comercial — Propuesta y Visión
+# Assistant — Propuesta y Visión
 
 **Para:** presentación al cliente
 **Versión:** 1.0 · Junio 2026
 **Estado:** Prototipo navegable + plan de desarrollo por fases
 
-> *Nombre de trabajo: "Asistente". El nombre comercial final se define con el cliente.*
+> *Nombre de trabajo: "Assistant". El nombre comercial final se define con el cliente.*
 
 ---
 

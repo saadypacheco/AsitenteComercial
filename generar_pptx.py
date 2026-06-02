@@ -111,7 +111,7 @@ def topbar(s):
 def footer(s, label=True):
     _n[0] += 1
     f = tb(s, 0.7, SH-0.5, SW-1.4, 0.3, anchor=MSO_ANCHOR.MIDDLE)
-    para(f, [("Asistente · Proposal 2026", 9, DIM, False),
+    para(f, [("Assistant · Proposal 2026", 9, DIM, False),
              ("        " + f"{_n[0]} / {TOTAL}", 9, DIM, False)], first=True)
 
 def section_head(s, kicker, title, sub=None):
@@ -181,7 +181,7 @@ deco.rotation = 18
 tf = tb(s, 0.9, 2.0, 9.5, 0.5)
 para(tf, "SALES LEADERSHIP  ·  DIGITAL ASSISTANT", 13, CYAN, True, first=True)
 t = tb(s, 0.9, 2.5, 10.5, 1.3)
-para(t, "Asistente", 58, WHITE, True, first=True)
+para(t, "Assistant", 58, WHITE, True, first=True)
 tg = tb(s, 0.9, 3.85, 9.8, 1.4)
 para(tg, "The operating system for sales leaders. Know what to do today — "
          "and act on your whole team from one place. Simple, from the phone.",
