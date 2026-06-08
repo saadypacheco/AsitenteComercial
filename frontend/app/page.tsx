@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
-// La raíz lleva al dashboard del día (única vista de F-001 por ahora).
+// La raíz lleva al dashboard ejecutivo "¡Hola Cecilia!" (vista principal).
+// El dashboard del día (móvil) sigue disponible en /hoy.
 export default function Home() {
-  redirect("/hoy");
+  redirect("/inicio");
 }

@@ -53,7 +53,7 @@ services:
     # Instala solo lo necesario para servir el dashboard (sin la pila pesada de IA).
     command: >
       sh -c "pip install --quiet --root-user-action=ignore
-      fastapi 'uvicorn[standard]' 'psycopg[binary]' structlog pydantic pydantic-settings &&
+      fastapi 'uvicorn[standard]' 'psycopg[binary]' structlog pydantic pydantic-settings litellm &&
       uvicorn app.main:app --host 0.0.0.0 --port 8002"
     ports:
       - "127.0.0.1:8002:8002"

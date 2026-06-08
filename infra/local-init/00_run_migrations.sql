@@ -4,3 +4,5 @@
 \i /migrations/0003_rls.sql
 \i /migrations/0004_event_catalog.sql
 \i /migrations/0005_daily_views.sql
+\i /migrations/0006_gestion_core.sql
+\i /migrations/0007_executive.sql
