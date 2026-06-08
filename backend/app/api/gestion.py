@@ -52,6 +52,8 @@ def list_agentes(tenant: str = Depends(require_tenant)) -> list:
     return _rows(
         "select a.id, a.nombre, a.apellido, a.celular, a.email, a.estado, a.ciudad, "
         "a.region, a.idioma, a.superior_id, a.lat, a.lng, "
+        "(select count(*) from pendientes p where p.agente_id = a.id and p.estado <> 'cerrado') as abiertas, "
+        "(select count(*) from pendientes p where p.agente_id = a.id and p.estado = 'cerrado') as cerrados, "
         "nullif(trim(coalesce(s.nombre,'') || ' ' || coalesce(s.apellido,'')), '') as superior "
         "from agentes a left join agentes s on s.id = a.superior_id "
         "where a.tenant_id = %s and a.estado <> 'baja' "
@@ -225,7 +227,8 @@ def list_eventos(tenant: str = Depends(require_tenant), lang: str = "es") -> lis
     detalle = "coalesce(description_en, description)" if en else "description"
     return _rows(
         f"select id, type as tipo, status, {titulo} as titulo, {detalle} as detalle, "
-        "importance as nivel, created_at from commercial_events "
+        "importance as nivel, round(coalesce(confidence,0)*100)::int as probabilidad, "
+        "coalesce(valor,0)::int as potencial, created_at from commercial_events "
         "where tenant_id = %s order by created_at desc",
         (tenant,),
     )

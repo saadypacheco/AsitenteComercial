@@ -43,6 +43,8 @@ export type Agente = {
   superior: string | null;
   lat: number | null;
   lng: number | null;
+  abiertas: number;
+  cerrados: number;
 };
 
 export type AgenteInput = {
@@ -104,6 +106,8 @@ export type Evento = {
   titulo: string | null;
   detalle: string | null;
   nivel: string | null;
+  probabilidad: number;
+  potencial: number;
   created_at: string;
 };
 

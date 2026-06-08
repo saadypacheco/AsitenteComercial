@@ -212,6 +212,10 @@ export const es = {
     agEmpty: "No hay agentes cargados.",
     agCount: "agentes",
     onMap: "en el mapa",
+    agActivos: "activos",
+    agSaturados: "saturados",
+    agOpenItems: "pendientes abiertos",
+    agSaturada: "Saturada",
     estadoAgente: { activo: "Activo", inactivo: "Inactivo" },
     // Grupos
     grpEmpty: "No hay grupos.",
@@ -225,6 +229,12 @@ export const es = {
     evDismiss: "Descartar",
     evReopen: "Reabrir",
     evStatus: { open: "Abierto", in_progress: "En proceso", done: "Resuelto", dismissed: "Descartado" },
+    evCount: "eventos",
+    evOpenCount: "abiertas",
+    evTotalPotential: "potencial total",
+    evCloseProb: "prob. cierre",
+    evPotential: "potencial",
+    evFilterAll: "Todos",
     // Capacitaciones
     capEmpty: "No hay capacitaciones.",
     capAttendees: "asistentes",

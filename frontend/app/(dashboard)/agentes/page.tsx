@@ -83,19 +83,22 @@ export default function AgentesPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 md:px-8">
-      <div className="mb-5 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-ink">{dict.inicio.nav.agentes}</h1>
-          {agentes && (
-            <p className="mt-0.5 text-sm text-muted">
-              {agentes.length} {t.agCount} · {conMapa} {t.onMap}
-            </p>
-          )}
-        </div>
+      <div className="mb-4 flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-ink">{dict.inicio.nav.agentes}</h1>
         <button onClick={startNew} className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white shadow-card">
           + {t.newBtn}
         </button>
       </div>
+
+      {/* Stats ejecutivos */}
+      {agentes && (
+        <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Card className="border-t-[3px] border-t-brand p-4"><p className="text-2xl font-bold text-brand">{agentes.length}</p><p className="text-[11px] text-muted">{t.agCount}</p></Card>
+          <Card className="border-t-[3px] border-t-ok p-4"><p className="text-2xl font-bold text-ok">{agentes.filter((a) => a.estado === "activo").length}</p><p className="text-[11px] text-muted">{t.agActivos}</p></Card>
+          <Card className="border-t-[3px] border-t-danger p-4"><p className="text-2xl font-bold text-danger">{agentes.filter((a) => a.abiertas >= 3).length}</p><p className="text-[11px] text-muted">{t.agSaturados}</p></Card>
+          <Card className="border-t-[3px] border-t-line p-4"><p className="text-2xl font-bold text-ink">{conMapa}</p><p className="text-[11px] text-muted">{t.onMap}</p></Card>
+        </div>
+      )}
 
       {/* Mapa */}
       <Card className="mb-5 overflow-hidden p-0">
@@ -152,13 +155,20 @@ export default function AgentesPage() {
                   <p className="text-xs text-muted">{a.ciudad}{a.region ? `, ${a.region}` : ""}</p>
                 </div>
               </div>
-              <Badge tone={a.estado === "activo" ? "ok" : "warning"}>
-                {a.estado === "activo" ? t.estadoAgente.activo : t.estadoAgente.inactivo}
-              </Badge>
+              <div className="flex shrink-0 flex-col items-end gap-1">
+                <Badge tone={a.estado === "activo" ? "ok" : "warning"}>
+                  {a.estado === "activo" ? t.estadoAgente.activo : t.estadoAgente.inactivo}
+                </Badge>
+                {a.abiertas >= 3 && <Badge tone="danger">{t.agSaturada}</Badge>}
+              </div>
             </div>
             <div className="mt-3 space-y-1 text-sm text-ink2">
               {a.celular && <p>📱 {a.celular}</p>}
               {a.email && <p className="truncate">✉️ {a.email}</p>}
+              <p className="flex items-center gap-3 pt-1 text-xs text-muted">
+                <span><span className={`font-bold ${a.abiertas >= 3 ? "text-danger" : "text-ink"}`}>{a.abiertas}</span> {t.agOpenItems}</span>
+                <span>· <span className="font-bold text-ok">{a.cerrados}</span> {dict.command.deals}</span>
+              </p>
               {a.superior && <p className="text-xs text-muted">↳ {t.fSuperior}: {a.superior}</p>}
             </div>
             <div className="mt-3 flex gap-2 border-t border-line pt-3">
