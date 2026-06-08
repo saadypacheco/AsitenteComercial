@@ -42,14 +42,72 @@ def _exec(sql: str, params: tuple = ()):
         return row
 
 
-# ── Agentes (lista básica; el CRUD completo + mapa va en gestion de agentes) ──
+# ── Agentes (lista + mapa + CRUD) ─────────────────────────────────────────────
+ESTADOS_AGENTE = ("activo", "inactivo", "baja")
+
+
 @router.get("/gestion/agentes")
 def list_agentes(tenant: str = Depends(require_tenant)) -> list:
+    """Agentes activos/inactivos con datos de contacto + coordenadas para el mapa."""
     return _rows(
-        "select id, nombre, apellido, estado from agentes "
-        "where tenant_id = %s and estado <> 'baja' order by nombre, apellido",
+        "select a.id, a.nombre, a.apellido, a.celular, a.email, a.estado, a.ciudad, "
+        "a.region, a.idioma, a.superior_id, a.lat, a.lng, "
+        "nullif(trim(coalesce(s.nombre,'') || ' ' || coalesce(s.apellido,'')), '') as superior "
+        "from agentes a left join agentes s on s.id = a.superior_id "
+        "where a.tenant_id = %s and a.estado <> 'baja' "
+        "order by a.nombre, a.apellido",
         (tenant,),
     )
+
+
+class AgenteBody(BaseModel):
+    nombre: str
+    apellido: str | None = None
+    celular: str | None = None
+    email: str | None = None
+    ciudad: str | None = None
+    region: str | None = None
+    superior_id: str | None = None
+    estado: str = "activo"
+    lat: float | None = None
+    lng: float | None = None
+
+
+@router.post("/gestion/agentes")
+def create_agente(body: AgenteBody, tenant: str = Depends(require_tenant)) -> dict:
+    if not body.nombre.strip():
+        raise HTTPException(status_code=400, detail="El nombre es obligatorio")
+    row = _exec(
+        "insert into agentes (tenant_id, nombre, apellido, celular, email, ciudad, region, "
+        "superior_id, estado, lat, lng, origen_alta) "
+        "values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'manual') returning id",
+        (tenant, body.nombre.strip(), body.apellido, body.celular, body.email, body.ciudad,
+         body.region, body.superior_id or None, body.estado, body.lat, body.lng),
+    )
+    return {"id": str(row[0])}
+
+
+@router.patch("/gestion/agentes/{aid}")
+def update_agente(aid: str, body: AgenteBody, tenant: str = Depends(require_tenant)) -> dict:
+    if body.estado not in ESTADOS_AGENTE:
+        raise HTTPException(status_code=400, detail="Estado inválido")
+    _exec(
+        "update agentes set nombre=%s, apellido=%s, celular=%s, email=%s, ciudad=%s, region=%s, "
+        "superior_id=%s, estado=%s, lat=%s, lng=%s where id=%s and tenant_id=%s",
+        (body.nombre.strip(), body.apellido, body.celular, body.email, body.ciudad, body.region,
+         body.superior_id or None, body.estado, body.lat, body.lng, aid, tenant),
+    )
+    return {"ok": True}
+
+
+@router.post("/gestion/agentes/{aid}/baja")
+def baja_agente(aid: str, tenant: str = Depends(require_tenant)) -> dict:
+    """Baja lógica: estado='baja' + fecha_baja (no se borra, conserva historial)."""
+    _exec(
+        "update agentes set estado='baja', fecha_baja=current_date where id=%s and tenant_id=%s",
+        (aid, tenant),
+    )
+    return {"ok": True}
 
 
 # ── Pendientes / acciones ─────────────────────────────────────────────────────

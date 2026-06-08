@@ -9,3 +9,4 @@
 \i /migrations/0008_auth_and_tenant.sql
 \i /migrations/0009_executive_i18n.sql
 \i /migrations/0010_seed_i18n.sql
+\i /migrations/0011_agentes_geo.sql
