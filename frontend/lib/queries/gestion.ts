@@ -6,6 +6,9 @@ export type AgenteOption = { id: string; nombre: string; apellido: string | null
 export type Pendiente = {
   id: string;
   titulo: string;
+  cliente: string | null;
+  vip: boolean;
+  horas: number;
   tipo: string;
   prioridad: "critico" | "alto" | "medio" | "bajo";
   estado: "pendiente" | "en_proceso" | "cerrado";
@@ -16,7 +19,7 @@ export type Pendiente = {
 };
 
 export type PendientesResp = {
-  progreso: { cerrados: number; abiertos: number; total: number; pct: number };
+  progreso: { cerrados: number; abiertos: number; criticos: number; sin_asignar: number; total: number; pct: number };
   items: Pendiente[];
 };
 
@@ -160,11 +163,18 @@ export async function createPendiente(body: {
   if (!res.ok) throw new Error(`crear pendiente: ${res.status}`);
 }
 
-export async function updatePendienteEstado(id: string, estado: string): Promise<void> {
+type PendientePatch = { estado?: string; agente_id?: string; prioridad?: string; clear_agente?: boolean };
+
+export async function patchPendiente(id: string, body: PendientePatch): Promise<void> {
   const res = await authFetch(`/gestion/pendientes/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ estado }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`actualizar pendiente: ${res.status}`);
 }
+
+export const updatePendienteEstado = (id: string, estado: string) => patchPendiente(id, { estado });
+export const reasignarPendiente = (id: string, agente_id: string) =>
+  patchPendiente(id, agente_id ? { agente_id } : { clear_agente: true });
+export const escalarPendiente = (id: string) => patchPendiente(id, { prioridad: "critico" });

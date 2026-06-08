@@ -116,16 +116,20 @@ def list_pendientes(tenant: str = Depends(require_tenant), lang: str = "es") -> 
     en = lang == "en"
     prog = _rows(
         "select count(*) filter (where estado = 'cerrado') as cerrados, "
-        "count(*) filter (where estado <> 'cerrado') as abiertos, count(*) as total "
-        "from pendientes where tenant_id = %s",
+        "count(*) filter (where estado <> 'cerrado') as abiertos, "
+        "count(*) filter (where estado <> 'cerrado' and prioridad = 'critico') as criticos, "
+        "count(*) filter (where estado <> 'cerrado' and agente_id is null) as sin_asignar, "
+        "count(*) as total from pendientes where tenant_id = %s",
         (tenant,),
     )[0]
     total = prog["total"] or 1
     prog["pct"] = round(prog["cerrados"] / total * 100)
     titulo_expr = "coalesce(p.titulo_en, p.titulo)" if en else "p.titulo"
+    cliente_expr = "coalesce(p.cliente_en, p.cliente)" if en else "p.cliente"
     items = _rows(
-        f"select p.id, {titulo_expr} as titulo, p.tipo, p.prioridad, p.estado, "
-        "p.created_at, p.fecha_cierre, p.agente_id, "
+        f"select p.id, {titulo_expr} as titulo, {cliente_expr} as cliente, p.vip, "
+        "p.tipo, p.prioridad, p.estado, p.created_at, p.fecha_cierre, p.agente_id, "
+        "round(extract(epoch from now()-p.created_at)/3600)::int as horas, "
         "nullif(trim(coalesce(a.nombre,'') || ' ' || coalesce(a.apellido,'')), '') as agente "
         "from pendientes p left join agentes a on a.id = p.agente_id "
         "where p.tenant_id = %s and p.estado <> 'cerrado' "
@@ -158,19 +162,34 @@ def create_pendiente(body: PendienteCreate, tenant: str = Depends(require_tenant
 
 
 class PendienteUpdate(BaseModel):
-    estado: str
+    estado: str | None = None
+    agente_id: str | None = None       # reasignar
+    prioridad: str | None = None       # escalar
+    clear_agente: bool = False         # desasignar explícito
 
 
 @router.patch("/gestion/pendientes/{pid}")
 def update_pendiente(pid: str, body: PendienteUpdate, tenant: str = Depends(require_tenant)) -> dict:
-    if body.estado not in ESTADOS:
-        raise HTTPException(status_code=400, detail="Estado inválido")
-    _exec(
-        "update pendientes set estado = %s, "
-        "fecha_cierre = case when %s = 'cerrado' then now() else null end "
-        "where id = %s and tenant_id = %s",
-        (body.estado, body.estado, pid, tenant),
-    )
+    sets, params = [], []
+    if body.estado is not None:
+        if body.estado not in ESTADOS:
+            raise HTTPException(status_code=400, detail="Estado inválido")
+        sets.append("estado = %s")
+        params.append(body.estado)
+        sets.append("fecha_cierre = case when %s = 'cerrado' then now() else null end")
+        params.append(body.estado)
+    if body.prioridad is not None:
+        if body.prioridad not in PRIORIDADES:
+            raise HTTPException(status_code=400, detail="Prioridad inválida")
+        sets.append("prioridad = %s")
+        params.append(body.prioridad)
+    if body.agente_id is not None or body.clear_agente:
+        sets.append("agente_id = %s")
+        params.append(None if body.clear_agente else body.agente_id)
+    if not sets:
+        return {"ok": True}
+    params += [pid, tenant]
+    _exec(f"update pendientes set {', '.join(sets)} where id = %s and tenant_id = %s", tuple(params))
     return {"ok": True}
 
 
