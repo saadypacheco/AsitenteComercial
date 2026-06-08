@@ -7,14 +7,14 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { formatTime } from "@/lib/format";
-import { DEFAULT_LOCALE, getDictionary, type Locale } from "@/lib/i18n";
+import { useLocale } from "@/lib/locale-context";
 import { getChatDetail, type MessageDetail } from "@/lib/queries/chatDetail";
 
 export default function ChatDetailPage({ params }: { params: { chatId: string } }) {
-  const [locale] = useState<Locale>(DEFAULT_LOCALE);
+  const { locale, t: dict } = useLocale();
+  const t = dict.today;
   const [msgs, setMsgs] = useState<MessageDetail[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const t = getDictionary(locale).today;
 
   useEffect(() => {
     getChatDetail(params.chatId).then(setMsgs).catch((e) => setError(e.message));

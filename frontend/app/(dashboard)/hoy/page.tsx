@@ -10,21 +10,18 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { AccentCard, Card, Kpi, Pill, SectionLabel, WiringNote } from "@/components/ui";
-import { requireAuth } from "@/lib/auth";
 import { formatTime } from "@/lib/format";
-import { DEFAULT_LOCALE, getDictionary, getStoredLocale, storeLocale, type Locale } from "@/lib/i18n";
+import { useLocale } from "@/lib/locale-context";
 import { getDailySummary, type DailySummary } from "@/lib/queries/daily";
 
 export default function HoyPage() {
-  const [locale, setLocale] = useState<Locale>(DEFAULT_LOCALE);
+  const { locale, t: dict } = useLocale();
+  const t = dict.today;
   const [data, setData] = useState<DailySummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const t = getDictionary(locale).today;
 
   useEffect(() => {
-    requireAuth();
-    setLocale(getStoredLocale());
     getDailySummary().then(setData).catch((e) => setError(e.message));
   }, []);
 
@@ -32,20 +29,10 @@ export default function HoyPage() {
 
   return (
     <main className="mx-auto max-w-md px-4 pb-12 pt-6">
-      {/* Header con marca en gradiente */}
-      <header className="mb-5 flex items-start justify-between">
-        <div>
-          <h1 className="text-gradient text-2xl font-bold">{t.title}</h1>
-          <p className="mt-0.5 text-sm text-muted">{t.subtitle}</p>
-          {data && <p className="mt-1 text-xs text-faint">{data.fecha_et} · ET</p>}
-        </div>
-        <button
-          onClick={() => { const n = locale === "es" ? "en" : "es"; setLocale(n); storeLocale(n); }}
-          className="shrink-0 rounded-full border border-line bg-white px-3 py-1 text-xs font-semibold text-muted shadow-card"
-          aria-label="toggle language"
-        >
-          {locale === "es" ? "EN" : "ES"}
-        </button>
+      <header className="mb-5">
+        <h1 className="text-gradient text-2xl font-bold">{t.title}</h1>
+        <p className="mt-0.5 text-sm text-muted">{t.subtitle}</p>
+        {data && <p className="mt-1 text-xs text-faint">{data.fecha_et} · ET</p>}
       </header>
 
       {error && (

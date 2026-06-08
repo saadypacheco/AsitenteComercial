@@ -42,6 +42,8 @@ export const en: typeof es = {
     role: "Commercial Lead",
     logout: "Log out",
     newBadge: "NEW",
+    soon: "Soon",
+    menu: "Menu",
     searchPlaceholder: "Search messages, people, groups, pending items, events and more…",
     searchBtn: "Search",
     searchEmptyPre: "No results for",

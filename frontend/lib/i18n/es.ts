@@ -46,6 +46,8 @@ export const es = {
     role: "Líder Comercial",
     logout: "Salir",
     newBadge: "NUEVO",
+    soon: "Pronto",
+    menu: "Menú",
     searchPlaceholder: "Buscar mensajes, personas, grupos, pendientes, eventos y más…",
     searchBtn: "Buscar",
     searchEmptyPre: "Sin resultados para",
