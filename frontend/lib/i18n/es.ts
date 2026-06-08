@@ -184,6 +184,23 @@ export const es = {
     agCount: "agentes",
     onMap: "en el mapa",
     estadoAgente: { activo: "Activo", inactivo: "Inactivo" },
+    // Grupos
+    grpEmpty: "No hay grupos.",
+    grpMsgs: "mensajes (7d)",
+    grpLast: "último",
+    grpEstado: { activo: "Activo", atencion: "Atención", inactivo: "Inactivo" },
+    grpAct: { alta: "Alta", media: "Media", baja: "Baja" },
+    // Eventos comerciales
+    evEmpty: "No hay eventos comerciales.",
+    evResolve: "Resolver",
+    evDismiss: "Descartar",
+    evReopen: "Reabrir",
+    evStatus: { open: "Abierto", in_progress: "En proceso", done: "Resuelto", dismissed: "Descartado" },
+    // Capacitaciones
+    capEmpty: "No hay capacitaciones.",
+    capAttendees: "asistentes",
+    capInstructor: "Instructor",
+    capEstado: { programada: "Programada", en_curso: "En curso", finalizada: "Finalizada", cancelada: "Cancelada" },
   },
   eventTypes: {
     venta: "Venta",

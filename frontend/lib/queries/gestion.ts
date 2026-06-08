@@ -84,6 +84,62 @@ export async function bajaAgente(id: string): Promise<void> {
   if (!res.ok) throw new Error(`baja agente: ${res.status}`);
 }
 
+// ── Grupos · Eventos · Capacitaciones ────────────────────────────────────────
+export type Grupo = {
+  id: string;
+  nombre: string | null;
+  tipo: string;
+  mensajes_7d: number;
+  mensajes_total: number;
+  ultimo: string | null;
+};
+
+export type Evento = {
+  id: string;
+  tipo: string;
+  status: "open" | "in_progress" | "done" | "dismissed";
+  titulo: string | null;
+  detalle: string | null;
+  nivel: string | null;
+  created_at: string;
+};
+
+export type Capacitacion = {
+  id: string;
+  nombre: string;
+  estado: "programada" | "en_curso" | "finalizada" | "cancelada";
+  fecha: string | null;
+  instructor: string | null;
+  asistentes: number;
+};
+
+export async function getGrupos(lang = "es"): Promise<Grupo[]> {
+  const res = await authFetch(`/gestion/grupos?lang=${lang}`);
+  if (!res.ok) throw new Error(`grupos: ${res.status}`);
+  return res.json();
+}
+
+export async function getEventos(lang = "es"): Promise<Evento[]> {
+  const res = await authFetch(`/gestion/eventos?lang=${lang}`);
+  if (!res.ok) throw new Error(`eventos: ${res.status}`);
+  return res.json();
+}
+
+export async function updateEventoStatus(id: string, status: string): Promise<void> {
+  const res = await authFetch(`/gestion/eventos/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status }),
+  });
+  if (!res.ok) throw new Error(`evento: ${res.status}`);
+}
+
+export async function getCapacitaciones(lang = "es"): Promise<Capacitacion[]> {
+  const res = await authFetch(`/gestion/capacitaciones?lang=${lang}`);
+  if (!res.ok) throw new Error(`capacitaciones: ${res.status}`);
+  return res.json();
+}
+
 export async function getPendientes(lang = "es"): Promise<PendientesResp> {
   const res = await authFetch(`/gestion/pendientes?lang=${lang}`);
   if (!res.ok) throw new Error(`pendientes: ${res.status}`);

@@ -178,3 +178,61 @@ def update_pendiente(pid: str, body: PendienteUpdate, tenant: str = Depends(requ
 def delete_pendiente(pid: str, tenant: str = Depends(require_tenant)) -> dict:
     _exec("delete from pendientes where id = %s and tenant_id = %s", (pid, tenant))
     return {"ok": True}
+
+
+# ── Grupos (actividad de chats; provienen de la captura, solo lectura) ─────────
+@router.get("/gestion/grupos")
+def list_grupos(tenant: str = Depends(require_tenant), lang: str = "es") -> list:
+    name_expr = "coalesce(c.name_en, c.name)" if lang == "en" else "c.name"
+    return _rows(
+        f"select c.id, {name_expr} as nombre, c.type as tipo, "
+        "(select count(*) from messages m where m.chat_id = c.id and m.tenant_id = %s "
+        " and m.wa_timestamp >= now() - interval '7 days') as mensajes_7d, "
+        "(select count(*) from messages m where m.chat_id = c.id and m.tenant_id = %s) as mensajes_total, "
+        "(select max(m.wa_timestamp) from messages m where m.chat_id = c.id and m.tenant_id = %s) as ultimo "
+        "from chats c where c.tenant_id = %s order by mensajes_7d desc",
+        (tenant, tenant, tenant, tenant),
+    )
+
+
+# ── Eventos comerciales (lista + cambiar estado) ──────────────────────────────
+EVENTO_STATUS = ("open", "in_progress", "done", "dismissed")
+
+
+@router.get("/gestion/eventos")
+def list_eventos(tenant: str = Depends(require_tenant), lang: str = "es") -> list:
+    en = lang == "en"
+    titulo = "coalesce(title_en, title)" if en else "title"
+    detalle = "coalesce(description_en, description)" if en else "description"
+    return _rows(
+        f"select id, type as tipo, status, {titulo} as titulo, {detalle} as detalle, "
+        "importance as nivel, created_at from commercial_events "
+        "where tenant_id = %s order by created_at desc",
+        (tenant,),
+    )
+
+
+class EventoUpdate(BaseModel):
+    status: str
+
+
+@router.patch("/gestion/eventos/{eid}")
+def update_evento(eid: str, body: EventoUpdate, tenant: str = Depends(require_tenant)) -> dict:
+    if body.status not in EVENTO_STATUS:
+        raise HTTPException(status_code=400, detail="Estado inválido")
+    _exec("update commercial_events set status = %s where id = %s and tenant_id = %s", (body.status, eid, tenant))
+    return {"ok": True}
+
+
+# ── Capacitaciones (lista con asistencia) ─────────────────────────────────────
+@router.get("/gestion/capacitaciones")
+def list_capacitaciones(tenant: str = Depends(require_tenant), lang: str = "es") -> list:
+    nombre = "coalesce(k.nombre_en, k.nombre)" if lang == "en" else "k.nombre"
+    return _rows(
+        f"select k.id, {nombre} as nombre, k.estado, k.fecha, "
+        "nullif(trim(coalesce(a.nombre,'') || ' ' || coalesce(a.apellido,'')), '') as instructor, "
+        "(select count(*) from capacitacion_asistencia x where x.capacitacion_id = k.id and x.asistio) as asistentes "
+        "from capacitaciones k left join agentes a on a.id = k.instructor_id "
+        "where k.tenant_id = %s order by k.fecha desc nulls last",
+        (tenant,),
+    )
