@@ -48,6 +48,31 @@ export async function login(email: string, password: string): Promise<void> {
   setSession(data.access_token, data.user);
 }
 
+/** Pide un magic link. En dev el backend devuelve el link para probar sin email. */
+export async function requestMagicLink(
+  email: string,
+): Promise<{ ok: boolean; link?: string; ttl_minutes: number }> {
+  const res = await fetch(`${API}/auth/magic-link/request`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) throw new Error("No se pudo generar el enlace");
+  return res.json();
+}
+
+/** Canjea el token del magic link por una sesión. */
+export async function verifyMagicLink(token: string): Promise<void> {
+  const res = await fetch(`${API}/auth/magic-link/verify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+  if (!res.ok) throw new Error("Enlace inválido o expirado");
+  const data = (await res.json()) as { access_token: string; user: SessionUser };
+  setSession(data.access_token, data.user);
+}
+
 /** fetch con Bearer; ante 401 limpia sesión y manda a /login. */
 export async function authFetch(path: string, opts: RequestInit = {}): Promise<Response> {
   const token = getToken();

@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import { Avatar, Badge, Donut, Gauge, Sparkline, ToneDot } from "@/components/executive";
 import { Card } from "@/components/ui";
 import { getUser, logout, requireAuth, type SessionUser } from "@/lib/auth";
-import { DEFAULT_LOCALE, getDictionary, type Locale } from "@/lib/i18n";
+import { DEFAULT_LOCALE, getDictionary, getStoredLocale, storeLocale, type Locale } from "@/lib/i18n";
 import {
   askAi,
   getAiSummary,
@@ -67,6 +67,7 @@ export default function InicioPage() {
 
   useEffect(() => {
     requireAuth();
+    setLocale(getStoredLocale());
     setUser(getUser());
     getExecutive().then(setData).catch((e) => setError(e.message));
     getAiSummary()
@@ -127,7 +128,7 @@ export default function InicioPage() {
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setLocale(locale === "es" ? "en" : "es")}
+              onClick={() => { const n = locale === "es" ? "en" : "es"; setLocale(n); storeLocale(n); }}
               className="rounded-full border border-line bg-white px-3 py-1 text-xs font-semibold text-muted shadow-card"
               aria-label="toggle language"
             >

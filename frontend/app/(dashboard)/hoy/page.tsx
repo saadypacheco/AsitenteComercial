@@ -12,7 +12,7 @@ import { useEffect, useState } from "react";
 import { AccentCard, Card, Kpi, Pill, SectionLabel, WiringNote } from "@/components/ui";
 import { requireAuth } from "@/lib/auth";
 import { formatTime } from "@/lib/format";
-import { DEFAULT_LOCALE, getDictionary, type Locale } from "@/lib/i18n";
+import { DEFAULT_LOCALE, getDictionary, getStoredLocale, storeLocale, type Locale } from "@/lib/i18n";
 import { getDailySummary, type DailySummary } from "@/lib/queries/daily";
 
 export default function HoyPage() {
@@ -24,6 +24,7 @@ export default function HoyPage() {
 
   useEffect(() => {
     requireAuth();
+    setLocale(getStoredLocale());
     getDailySummary().then(setData).catch((e) => setError(e.message));
   }, []);
 
@@ -39,7 +40,7 @@ export default function HoyPage() {
           {data && <p className="mt-1 text-xs text-faint">{data.fecha_et} · ET</p>}
         </div>
         <button
-          onClick={() => setLocale(locale === "es" ? "en" : "es")}
+          onClick={() => { const n = locale === "es" ? "en" : "es"; setLocale(n); storeLocale(n); }}
           className="shrink-0 rounded-full border border-line bg-white px-3 py-1 text-xs font-semibold text-muted shadow-card"
           aria-label="toggle language"
         >

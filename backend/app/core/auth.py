@@ -58,6 +58,25 @@ def _decode(token: str) -> dict:
     return pyjwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
 
 
+def make_magic_token(user: dict) -> str:
+    """Token de un solo propósito ('magic'), corto, para login sin contraseña."""
+    payload = {
+        "sub": str(user["id"]),
+        "email": user["email"],
+        "tenant_id": str(user["tenant_id"]),
+        "purpose": "magic",
+        "exp": int(time.time()) + settings.magic_ttl_minutes * 60,
+    }
+    return pyjwt.encode(payload, settings.jwt_secret, algorithm="HS256")
+
+
+def decode_magic_token(token: str) -> dict:
+    payload = _decode(token)
+    if payload.get("purpose") != "magic":
+        raise ValueError("token no es de tipo magic")
+    return payload
+
+
 def require_tenant(creds: HTTPAuthorizationCredentials | None = Depends(_bearer)) -> str:
     """Dependencia: exige Bearer válido y devuelve el tenant_id del token."""
     if not creds:

@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     # Auth — JWT self-contained (sin depender de Supabase Auth en local).
     jwt_secret: str = "mentorcomercial-dev-secret-change-in-prod"
     jwt_ttl_hours: int = 168               # 7 días
+    magic_ttl_minutes: int = 15            # validez del magic link
+    frontend_url: str = "http://localhost:3002"   # para armar el magic link
     # Usuario líder por defecto que se siembra al arrancar (solo dev).
     default_lider_email: str = "cecilia@demo.com"
     default_lider_password: str = "demo1234"
