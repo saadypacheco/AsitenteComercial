@@ -181,7 +181,7 @@ export default function LoginPage() {
         {heroLayers}
         <div className="relative z-10 flex items-center gap-2">
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/15 backdrop-blur">▮▮</span>
-          <span className="text-sm font-semibold tracking-wide">mentorcomercial</span>
+          <span className="text-sm font-semibold tracking-wide">{t.brand}</span>
         </div>
         <div className="relative z-10">
           <h1 className="text-6xl font-bold leading-tight">
@@ -191,7 +191,7 @@ export default function LoginPage() {
           </h1>
           <p className="mt-4 max-w-sm text-base leading-relaxed text-white/85">{t.heroText}</p>
         </div>
-        <div className="relative z-10 text-xs text-white/60">© 2026 mentorcomercial · {t.footer}</div>
+        <div className="relative z-10 text-xs text-white/60">© 2026 {t.brand} · {t.footer}</div>
       </section>
 
       {/* ── Formulario (columna derecha en desktop · tarjeta flotante en móvil) ── */}
@@ -200,7 +200,7 @@ export default function LoginPage() {
         <div className="mb-6 text-center text-white md:hidden">
           <div className="mb-3 flex items-center justify-center gap-2">
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/15 backdrop-blur">▮▮</span>
-            <span className="text-sm font-semibold tracking-wide">mentorcomercial</span>
+            <span className="text-sm font-semibold tracking-wide">{t.brand}</span>
           </div>
           <h1 className="text-3xl font-bold leading-tight">
             {t.welcome} Cecilia

@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "mentorcomercial",
+  title: "Asistente Comercial",
   description: "Inteligencia comercial sobre WhatsApp",
 };
 

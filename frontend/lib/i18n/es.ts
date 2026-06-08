@@ -106,6 +106,7 @@ export const es = {
     ],
   },
   login: {
+    brand: "Asistente Comercial", // marca amigable (depende del idioma)
     welcome: "Bienvenida",        // "Bienvenida Cecilia"
     heroText:
       "Tu panel de inteligencia comercial sobre WhatsApp: el pulso del día, tus pendientes, las oportunidades detectadas y el ranking de tu equipo, en un solo lugar.",
