@@ -67,11 +67,13 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen md:grid md:grid-cols-2">
       {/* ── Panel izquierdo: hero de marca ─────────────────────────────── */}
-      <section className="relative flex min-h-[34vh] flex-col justify-between overflow-hidden bg-brand p-8 text-white md:min-h-screen md:p-12">
-        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url('/login-hero.jpg')" }} />
-        <div className="absolute inset-0 bg-gradient-to-br from-brand/85 via-brand/80 to-brand-2/85" />
-        <div className="absolute -left-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
-        <div className="absolute -bottom-20 right-0 h-72 w-72 rounded-full bg-brand-2/30 blur-3xl" />
+      <section className="relative flex min-h-[34vh] flex-col justify-between overflow-hidden bg-[#0b1020] p-8 text-white md:min-h-screen md:p-12">
+        {/* Foto de fondo (cambiá a login-hero.jpg / login-hero2.jpg si preferís otra) */}
+        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url('/login-hero3.jpg')" }} />
+        {/* Tinte de marca sutil (multiply) + scrim para legibilidad — SIN tapar la foto */}
+        <div className="absolute inset-0 bg-brand/25 mix-blend-multiply" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0b1020]/80 via-[#0b1020]/20 to-transparent" />
+        <div className="absolute -bottom-20 right-0 h-72 w-72 rounded-full bg-brand-2/20 blur-3xl" />
 
         <div className="relative z-10 flex items-center gap-2">
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/15 backdrop-blur">▮▮</span>
