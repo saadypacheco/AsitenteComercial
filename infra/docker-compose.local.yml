@@ -1,0 +1,86 @@
+# mentorcomercial · stack LOCAL para ver el MVP corriendo (no es prod).
+#
+# Levanta Postgres (con pgvector) + backend FastAPI + frontend Next.js (dev).
+# NO incluye WAHA ni worker: los datos se SIEMBRAN (ver infra/local-init/) para
+# poder ver el dashboard sin un bridge real. La cola usa el fallback de tabla.
+#
+# Puertos elegidos para NO chocar con otros proyectos de la máquina:
+#   - frontend: 3002   (3000 lo usa buscarjobs)
+#   - backend:  8002
+#   - postgres: 54330  (54322-54325 ocupados por otros stacks locales)
+#
+# Uso:
+#   docker compose -f infra/docker-compose.local.yml up -d
+#   abrir http://localhost:3002/hoy
+#   bajar:  docker compose -f infra/docker-compose.local.yml down       (conserva datos)
+#           docker compose -f infra/docker-compose.local.yml down -v    (borra datos)
+
+name: mentorcomercial-local
+
+services:
+  db:
+    image: pgvector/pgvector:pg15
+    container_name: mc-local-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: mentorcomercial
+    ports:
+      - "127.0.0.1:54330:5432"
+    volumes:
+      - ../backend/migrations:/migrations:ro       # las migraciones reales (las incluye el init)
+      - ./local-init:/docker-entrypoint-initdb.d:ro # corre 1 sola vez al crear el volumen
+      - mc_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d mentorcomercial"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    image: python:3.12-slim
+    container_name: mc-local-backend
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ../backend:/app
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/mentorcomercial
+      QUEUE_BACKEND: table
+      BUSINESS_TZ: America/New_York
+    # Instala solo lo necesario para servir el dashboard (sin la pila pesada de IA).
+    command: >
+      sh -c "pip install --quiet --root-user-action=ignore
+      fastapi 'uvicorn[standard]' 'psycopg[binary]' structlog pydantic pydantic-settings &&
+      uvicorn app.main:app --host 0.0.0.0 --port 8002"
+    ports:
+      - "127.0.0.1:8002:8002"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    image: node:20-alpine
+    container_name: mc-local-frontend
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ../frontend:/app
+      - mc_node_modules:/app/node_modules
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8002
+      # En bind-mounts de Windows→Linux, inotify NO propaga eventos de archivo, así que
+      # el watcher de Next no recompila al editar. Polling de Webpack lo resuelve (HMR real).
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+    command: sh -c "npm install && npm run dev -- -p 3002 -H 0.0.0.0"
+    ports:
+      - "127.0.0.1:3002:3002"
+    depends_on:
+      - backend
+
+volumes:
+  mc_pgdata:
+  mc_node_modules:

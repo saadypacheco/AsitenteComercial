@@ -1,0 +1,28 @@
+[project]
+name = "mentorcomercial-backend"
+version = "0.1.0"
+description = "Captura WhatsApp + memoria comercial · FastAPI"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.111",
+  "uvicorn[standard]>=0.30",
+  "pydantic>=2.7",
+  "pydantic-settings>=2.3",
+  "httpx>=0.27",
+  "supabase>=2.5",            # cliente Supabase (Postgres + Storage)
+  "psycopg[binary]>=3.1",     # acceso directo a Postgres para pgmq (cola durable)
+  "litellm>=1.40",            # gateway LLM (Gemini por defecto, cambiable)
+  "faster-whisper>=1.0",      # transcripción self-hosted, multi-idioma
+  "structlog>=24.1",          # logs estructurados con traceid (lesson KB)
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.2",
+  "pytest-asyncio>=0.23",
+  "ruff>=0.4",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"

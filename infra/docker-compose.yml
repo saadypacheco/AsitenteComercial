@@ -1,0 +1,51 @@
+# mentorcomercial · infra autogestionada (VPS Hostinger + Docker)
+# Stack: Supabase self-hosted + bridge WAHA + backend FastAPI + worker.
+# NOTA: Supabase self-hosted real se despliega con su propio repo/compose
+#       (github.com/supabase/supabase → docker/). Acá se referencia como servicio
+#       externo y se levantan SOLO los componentes propios + el bridge.
+#       Para F0 single-node; HA/réplica en F2.
+
+services:
+  waha:
+    image: devlikeapro/waha:latest
+    container_name: mc-waha
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"          # SOLO localhost — nunca público
+    environment:
+      - WHATSAPP_API_KEY=${WAHA_API_KEY}
+      - WHATSAPP_DEFAULT_ENGINE=NOWEB
+      - WHATSAPP_HOOK_URL=http://backend:8002/ingest/webhook
+      - WHATSAPP_HOOK_EVENTS=message,message.any,session.status
+      - WHATSAPP_HOOK_HMAC_KEY=${WEBHOOK_SECRET}
+      - WHATSAPP_DOWNLOAD_MEDIA=true
+    volumes:
+      - waha_sessions:/app/.sessions      # la sesión sobrevive reinicios (backup!)
+      - waha_media:/app/.media
+    networks: [mcnet]
+
+  backend:
+    build: ../backend
+    container_name: mc-backend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8002:8002"
+    env_file: ../backend/.env
+    networks: [mcnet]
+    depends_on: [waha]
+
+  worker:
+    build: ../backend
+    container_name: mc-worker
+    restart: unless-stopped
+    command: ["python", "-m", "app.services.worker"]
+    env_file: ../backend/.env
+    networks: [mcnet]
+    depends_on: [backend]
+
+volumes:
+  waha_sessions:
+  waha_media:
+
+networks:
+  mcnet:

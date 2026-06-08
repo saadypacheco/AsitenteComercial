@@ -1,0 +1,33 @@
+"""mentorcomercial · API de captura + memoria comercial.
+
+Arranque local:  uvicorn app.main:app --reload --port 8002
+(Hostinger usa 8000=tienda, 8001=dentales → mentorcomercial = 8002)
+"""
+import structlog
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.api import dashboard, health, webhook
+from app.core.config import settings
+
+logger = structlog.get_logger()
+
+app = FastAPI(title="mentorcomercial API", version="0.1.0")
+
+# CORS: el dashboard (Next.js) llama a estos endpoints desde el navegador.
+# En dev abrimos todo; en prod se restringe al dominio del frontend.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"] if settings.environment == "development" else [],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(health.router, tags=["health"])
+app.include_router(webhook.router, prefix="/ingest", tags=["captura"])
+app.include_router(dashboard.router, tags=["dashboard"])
+
+
+@app.on_event("startup")
+async def startup() -> None:
+    logger.info("api.startup", service="mentorcomercial")

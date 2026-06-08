@@ -1,0 +1,6 @@
+-- Corre las migraciones REALES del proyecto (montadas en /migrations).
+-- Se saltea 0002 (pgmq): en local la cola usa el fallback de tabla (01_queue_local.sql).
+\i /migrations/0001_init.sql
+\i /migrations/0003_rls.sql
+\i /migrations/0004_event_catalog.sql
+\i /migrations/0005_daily_views.sql
