@@ -1,52 +1,32 @@
 "use client";
 
-// DASHBOARD EJECUTIVO "¡Hola Cecilia!" (Producto ②). El chrome (sidebar/topbar/
-// idioma) lo provee el layout del panel; esta página es solo el contenido. Datos
-// reales filtrados por tenant (FR-009), localizados por el backend (FR-010).
+// INICIO — Centro de Control Comercial Inteligente. Responde de un vistazo: cómo
+// está el equipo, qué clientes requieren atención, qué oportunidades hay, qué
+// resolver hoy y qué recomienda la IA. Datos reales (rebanada F-002) + derivados.
 import { useEffect, useState } from "react";
 
-import { Avatar, Badge, Donut, Gauge, Sparkline, ToneDot } from "@/components/executive";
+import { Avatar, Badge, Sparkline, ToneDot } from "@/components/executive";
 import { Card } from "@/components/ui";
 import { getUser } from "@/lib/auth";
 import { useLocale } from "@/lib/locale-context";
-import {
-  askAi,
-  getAiSummary,
-  getExecutive,
-  search,
-  type AiBullet,
-  type Executive,
-  type SearchHit,
-  type Tone,
-} from "@/lib/queries/executive";
-import { type Locale } from "@/lib/i18n";
+import { askAi, getCommand, search, type Command, type SearchHit, type Tone } from "@/lib/queries/executive";
 
 const CHIP_KEYS = ["mensajes", "audios", "imagenes", "personas", "pendientes", "eventos", "grupos", "capacitaciones"] as const;
-const ESTADO_TONE: Record<string, Tone> = { activo: "ok", atencion: "warning", inactivo: "danger" };
+const BORDER: Record<Tone, string> = { brand: "border-t-brand", ok: "border-t-ok", danger: "border-t-danger", warning: "border-t-warning", neutral: "border-t-line" };
+const TXT: Record<Tone, string> = { brand: "text-brand", ok: "text-ok", danger: "text-danger", warning: "text-warning", neutral: "text-ink" };
+const PRIO_TONE: Record<string, Tone> = { alta: "danger", media: "warning", baja: "ok", critico: "danger", alto: "warning" };
 const NIVEL_TONE: Record<string, Tone> = { alto: "danger", medio: "warning", bajo: "ok" };
 
-const MESES: Record<Locale, string[]> = {
-  es: ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"],
-  en: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
-};
-function fechaLarga(iso: string, locale: Locale): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  const mes = MESES[locale][(m ?? 1) - 1];
-  return locale === "es" ? `${d} de ${mes} de ${y}` : `${mes} ${d}, ${y}`;
-}
-function hora(ts: string, locale: Locale): string {
-  return new Date(ts).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+function money(n: number) {
+  return "$" + (n ?? 0).toLocaleString("en-US");
 }
 
 export default function InicioPage() {
   const { locale, t: dict } = useLocale();
-  const t = dict.inicio;
+  const t = dict.command;
 
-  const [user, setUser] = useState<string>("Cecilia");
-  const [data, setData] = useState<Executive | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [bullets, setBullets] = useState<AiBullet[] | null>(null);
-  const [aiSource, setAiSource] = useState<string>("");
+  const [user, setUser] = useState("Cecilia");
+  const [c, setC] = useState<Command | null>(null);
 
   const [chip, setChip] = useState<string>("mensajes");
   const [q, setQ] = useState("");
@@ -56,22 +36,9 @@ export default function InicioPage() {
   const [respuesta, setRespuesta] = useState<{ answer: string; source: string } | null>(null);
   const [pensando, setPensando] = useState(false);
 
-  const estadoLabel: Record<string, string> = { activo: t.estadoActivo, atencion: t.estadoAtencion, inactivo: t.estadoInactivo };
-  const actLabel: Record<string, string> = { alta: t.actAlta, media: t.actMedia, baja: t.actBaja };
-  const nivelLabel: Record<string, string> = { alto: t.nivelAlto, medio: t.nivelMedio, bajo: t.nivelBajo };
-
   useEffect(() => setUser(getUser()?.nombre ?? "Cecilia"), []);
-
-  // Recarga los datos cuando cambia el idioma (el backend localiza el contenido).
   useEffect(() => {
-    getExecutive(locale).then(setData).catch((e) => setError(e.message));
-    setBullets(null);
-    getAiSummary(locale)
-      .then((r) => {
-        setBullets(r.bullets);
-        setAiSource(r.source);
-      })
-      .catch(() => setBullets([]));
+    getCommand(locale).then(setC).catch(() => setC(null));
   }, [locale]);
 
   async function runSearch() {
@@ -84,61 +51,75 @@ export default function InicioPage() {
     setRespuesta(await askAi(texto, locale).catch(() => ({ answer: "—", source: "error" })));
     setPensando(false);
   }
+  const hace = (h: number) => (locale === "es" ? `hace ${h}h` : `${h}h ago`);
+  const nivelLabel: Record<string, string> = { alto: dict.inicio.nivelAlto, medio: dict.inicio.nivelMedio, bajo: dict.inicio.nivelBajo };
+
+  const k = c?.kpis;
+  const kpis = k
+    ? [
+        { icon: "💬", label: t.kpiConversaciones, value: k.conversaciones.value, delta: k.conversaciones.delta, tone: k.conversaciones.tono },
+        { icon: "💵", label: t.kpiVentas, value: k.ventas.value, delta: k.ventas.delta, tone: k.ventas.tono, sub: k.ventas.valor ? money(k.ventas.valor) : undefined },
+        { icon: "🚨", label: t.kpiCriticos, value: k.criticos.value, delta: null, tone: k.criticos.tono },
+        { icon: "⚠️", label: t.kpiRiesgo, value: k.riesgo.value, delta: null, tone: k.riesgo.tono },
+        { icon: "🟢", label: t.kpiConectados, value: `${k.conectados.value}/${k.conectados.total}`, delta: null, tone: k.conectados.tono },
+      ]
+    : [];
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-6 md:px-8">
-      {error && <p className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-danger">{error}</p>}
-
-      <header className="mb-6">
+    <div className="mx-auto w-full max-w-6xl px-4 py-6 md:px-8">
+      <header className="mb-5">
         <h1 className="text-2xl font-bold text-ink">
-          {t.hello} {user}! <span className="text-brand">👋</span>
+          {dict.inicio.hello} {user}! <span className="text-brand">👋</span>
         </h1>
-        <p className="mt-0.5 text-sm text-muted">
-          {data ? `${t.todaySummary} ${fechaLarga(data.fecha_et, locale)}` : t.loading}
-        </p>
+        <p className="mt-0.5 text-sm text-muted">{dict.inicio.todaySummary} {new Date().toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric" })}</p>
       </header>
 
-      {/* Buscador + chips */}
-      <Card className="mb-6 p-4">
+      {/* ── KPIs ──────────────────────────────────────────────────────────── */}
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        {kpis.map((x) => (
+          <div key={x.label} className={`rounded-2xl border border-line border-t-[3px] bg-white p-4 shadow-card ${BORDER[x.tone]}`}>
+            <div className="flex items-center justify-between">
+              <span className="text-lg">{x.icon}</span>
+              {x.delta != null && (
+                <span className={`text-xs font-bold ${x.delta >= 0 ? "text-ok" : "text-danger"}`}>
+                  {x.delta >= 0 ? "▲" : "▼"} {Math.abs(x.delta)}%
+                </span>
+              )}
+            </div>
+            <p className={`mt-2 text-2xl font-bold leading-none ${TXT[x.tone]}`}>{x.value}</p>
+            <p className="mt-1 text-[11px] leading-tight text-muted">{x.label}</p>
+            {x.sub && <p className="mt-0.5 text-[11px] font-semibold text-ok">{x.sub}</p>}
+          </div>
+        ))}
+        {!c && Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-24 animate-pulse rounded-2xl bg-white shadow-card" />)}
+      </div>
+
+      {/* ── Buscador global ───────────────────────────────────────────────── */}
+      <Card className="mb-5 p-4">
         <div className="flex gap-2">
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && runSearch()}
-            placeholder={t.searchPlaceholder}
-            className="w-full rounded-lg bg-soft px-4 py-2.5 text-sm text-ink placeholder:text-faint focus:outline-none"
-          />
-          <button onClick={runSearch} className="shrink-0 rounded-lg bg-brand px-4 text-sm font-semibold text-white">
-            {t.searchBtn}
-          </button>
+          <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && runSearch()}
+            placeholder={locale === "es" ? "Buscar mensajes, clientes, teléfonos, grupos, eventos o pendientes…" : "Search messages, clients, phones, groups, events or pending items…"}
+            className="w-full rounded-lg bg-soft px-4 py-2.5 text-sm text-ink placeholder:text-faint focus:outline-none" />
+          <button onClick={runSearch} className="shrink-0 rounded-lg bg-brand px-5 text-sm font-semibold text-white">{dict.inicio.searchBtn}</button>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
-          {CHIP_KEYS.map((c) => (
-            <button
-              key={c}
-              onClick={() => setChip(c)}
-              className={`rounded-full border px-3 py-1 text-xs font-medium ${
-                chip === c ? "border-brand bg-brand-soft text-brand" : "border-line text-muted hover:bg-soft"
-              }`}
-            >
-              {t.chips[c]}
+          {CHIP_KEYS.map((x) => (
+            <button key={x} onClick={() => setChip(x)}
+              className={`rounded-full border px-3 py-1 text-xs font-medium ${chip === x ? "border-brand bg-brand-soft text-brand" : "border-line text-muted hover:bg-soft"}`}>
+              {dict.inicio.chips[x]}
             </button>
           ))}
         </div>
         {hits !== null && (
           <div className="mt-3 border-t border-line pt-3">
             {hits.length === 0 ? (
-              <p className="text-sm text-muted">
-                {t.searchEmptyPre} “{q}”. {t.searchEmptyPost}
-              </p>
+              <p className="text-sm text-muted">{dict.inicio.searchEmptyPre} “{q}”. {dict.inicio.searchEmptyPost}</p>
             ) : (
               <ul className="space-y-2">
-                {hits.slice(0, 8).map((h) => (
+                {hits.slice(0, 6).map((h) => (
                   <li key={h.message_id} className="rounded-lg bg-soft px-3 py-2 text-sm">
                     <span className="text-ink">{h.texto}</span>
-                    <span className="mt-0.5 block text-xs text-muted">
-                      {h.remitente} · {h.chat}
-                    </span>
+                    <span className="mt-0.5 block text-xs text-muted">{h.remitente} · {h.chat}</span>
                   </li>
                 ))}
               </ul>
@@ -147,232 +128,157 @@ export default function InicioPage() {
         )}
       </Card>
 
-      {data && (
-        <div className="space-y-4">
-          {/* Fila 1: Resumen IA + Salud */}
-          <div className="grid gap-4 md:grid-cols-3">
-            <Card className="p-5 md:col-span-2">
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-brand">
-                  ✦ {t.execSummary}
-                </h2>
-                {aiSource && <Badge tone={aiSource === "ia" ? "ok" : "neutral"}>{aiSource === "ia" ? t.srcIa : t.srcAuto}</Badge>}
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <ul className="space-y-2.5">
-                  {(bullets ?? []).map((b, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-ink2">
-                      <span className="mt-1.5">
-                        <ToneDot tone={b.tono} />
-                      </span>
-                      <span>{b.texto}</span>
-                    </li>
-                  ))}
-                  {bullets === null && <li className="text-sm text-muted">{t.analyzing}</li>}
-                </ul>
-                <div className="rounded-xl bg-soft p-3">
-                  <div className="mb-1 flex items-center justify-between text-xs text-muted">
-                    <span>{t.activity7d}</span>
-                    {data.pulso.delta_pct !== null && (
-                      <Badge tone={data.pulso.delta_pct >= 0 ? "ok" : "danger"}>
-                        {data.pulso.delta_pct >= 0 ? "+" : ""}
-                        {data.pulso.delta_pct}%
-                      </Badge>
-                    )}
-                  </div>
-                  <Sparkline data={data.pulso.serie_7d} />
-                  <p className="mt-1 text-xs text-faint">
-                    {data.pulso.mensajes_hoy} {t.msgsToday} · {data.pulso.grupos_activos} {t.groupsActive}
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="flex flex-col items-center justify-center p-5">
-              <h2 className="mb-2 self-start text-sm font-bold uppercase tracking-wide text-brand">{t.health}</h2>
-              <Gauge score={data.salud.score} label={data.salud.label} tono={data.salud.tono} />
-              <p className="mt-1 text-center text-xs text-muted">{t.healthHint}</p>
-            </Card>
-          </div>
-
-          {/* Fila 2: Alertas · Oportunidades · Pendientes */}
-          <div className="grid gap-4 md:grid-cols-3">
-            <Card className="p-5">
-              <h2 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-danger">
-                {t.alerts}
-                <span className="rounded-full bg-danger px-2 py-0.5 text-[10px] text-white">{data.alertas.length}</span>
-              </h2>
-              <ul className="space-y-3">
-                {data.alertas.map((a, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <span className="mt-1">
-                      <ToneDot tone={a.tono} />
-                    </span>
-                    <span>
-                      <span className="block text-sm font-semibold text-ink">{a.titulo}</span>
-                      <span className="block text-xs text-muted">{a.detalle}</span>
-                    </span>
-                  </li>
-                ))}
-                {data.alertas.length === 0 && <li className="text-sm text-muted">{t.noAlerts}</li>}
-              </ul>
-            </Card>
-
-            <Card className="p-5">
-              <h2 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-brand">
-                {t.opportunities}
-                <span className="rounded-full bg-brand px-2 py-0.5 text-[10px] text-white">{data.oportunidades.length}</span>
-              </h2>
-              <ul className="space-y-3">
-                {data.oportunidades.map((o, i) => (
-                  <li key={i} className="flex items-start justify-between gap-2">
-                    <span>
-                      <span className="block text-sm font-semibold text-ink">{o.titulo}</span>
-                      <span className="block text-xs text-muted">{o.detalle}</span>
-                    </span>
-                    <Badge tone={NIVEL_TONE[o.nivel] ?? "neutral"}>{nivelLabel[o.nivel] ?? o.nivel}</Badge>
-                  </li>
-                ))}
-                {data.oportunidades.length === 0 && <li className="text-sm text-muted">—</li>}
-              </ul>
-            </Card>
-
-            <Card className="p-5">
-              <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-brand">{t.pending}</h2>
-              <Donut
-                total={data.pendientes.total}
-                segments={[
-                  { value: data.pendientes.criticos, tone: "danger", label: t.pendCritical },
-                  { value: data.pendientes.en_proceso, tone: "warning", label: t.pendInProgress },
-                  { value: data.pendientes.pendientes, tone: "brand", label: t.pendPending },
-                ]}
-              />
-            </Card>
-          </div>
-
-          {/* Fila 3: Ranking · Grupos */}
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card className="p-5">
-              <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-brand">{t.ranking}</h2>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs text-faint">
-                    <th className="pb-2 font-medium">{t.thAgent}</th>
-                    <th className="pb-2 text-right font-medium">{t.thInter}</th>
-                    <th className="pb-2 text-right font-medium">{t.thClosed}</th>
-                    <th className="pb-2 text-right font-medium">{t.thShare}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.ranking.map((a, i) => (
-                    <tr key={a.nombre} className="border-t border-line">
-                      <td className="py-2">
-                        <span className="flex items-center gap-2">
-                          <span className="w-4 text-xs font-bold text-faint">{i + 1}</span>
-                          <Avatar name={a.nombre} />
-                          <span className="font-medium text-ink">{a.nombre}</span>
-                        </span>
-                      </td>
-                      <td className="py-2 text-right tabular-nums text-ink2">{a.interacciones}</td>
-                      <td className="py-2 text-right tabular-nums text-ink2">{a.pendientes_cerrados}</td>
-                      <td className="py-2 text-right font-semibold text-brand">{a.participacion}%</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </Card>
-
-            <Card className="p-5">
-              <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-brand">{t.groups}</h2>
-              <ul className="space-y-3">
-                {data.grupos.map((g) => (
-                  <li key={g.nombre} className="flex items-center justify-between">
-                    <span className="flex items-center gap-2">
-                      <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-soft text-brand">#</span>
-                      <span className="font-medium text-ink">{g.nombre}</span>
-                    </span>
-                    <span className="flex items-center gap-3">
-                      <Badge tone={ESTADO_TONE[g.estado]}>{estadoLabel[g.estado]}</Badge>
-                      <span className="flex items-center gap-1 text-xs text-muted">
-                        <ToneDot tone={g.actividad === "alta" ? "ok" : g.actividad === "media" ? "warning" : "danger"} />
-                        {actLabel[g.actividad]}
-                      </span>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          </div>
-
-          {/* Fila 4: Timeline · Preguntale a la IA */}
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card className="p-5">
-              <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-brand">{t.timeline}</h2>
-              <ul className="space-y-4">
-                {data.timeline.map((e, i) => (
-                  <li key={i} className="flex gap-3">
-                    <span className="mt-1 shrink-0">
-                      <ToneDot tone={e.tono} />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-faint">{hora(e.ts, locale)}</span>
-                        <Badge tone={e.tono}>{e.tipo}</Badge>
-                      </span>
-                      <span className="mt-0.5 block text-sm font-semibold text-ink">{e.titulo}</span>
-                      {e.detalle && <span className="block text-xs text-muted">{e.detalle}</span>}
-                    </span>
-                  </li>
-                ))}
-                {data.timeline.length === 0 && <li className="text-sm text-muted">{t.noEvents}</li>}
-              </ul>
-            </Card>
-
-            <Card className="p-5">
-              <h2 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-brand">
-                ✦ {t.askAi} <Badge tone="brand">BETA</Badge>
-              </h2>
-              {respuesta && (
-                <div className="mb-3 rounded-xl bg-brand-soft p-3 text-sm text-ink2">
-                  {respuesta.answer}
-                  <span className="mt-1 block text-xs text-faint">
-                    {respuesta.source === "ia" ? t.answeredIa : t.answeredAuto}
-                  </span>
-                </div>
-              )}
-              <div className="mb-3 flex flex-wrap gap-2">
-                {t.questions.map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => preguntar(p)}
-                    className="rounded-full border border-line px-3 py-1 text-xs text-muted hover:bg-soft"
-                  >
-                    {p}
-                  </button>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <input
-                  value={pregunta}
-                  onChange={(e) => setPregunta(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && preguntar(pregunta)}
-                  placeholder={t.askPlaceholder}
-                  className="w-full rounded-lg bg-soft px-4 py-2.5 text-sm text-ink placeholder:text-faint focus:outline-none"
-                />
-                <button
-                  onClick={() => preguntar(pregunta)}
-                  disabled={pensando}
-                  className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand text-white disabled:opacity-50"
-                >
-                  {pensando ? "…" : "➤"}
-                </button>
-              </div>
-            </Card>
-          </div>
-
-          <p className="pt-2 text-center text-xs text-faint">{t.autoRefresh}</p>
+      {/* ── Recomendaciones IA (hero) ─────────────────────────────────────── */}
+      <Card className="mb-5 overflow-hidden">
+        <div className="bg-gradient-to-r from-brand to-brand-2 px-5 py-3">
+          <h2 className="text-sm font-bold text-white">🧠 {t.iaFor} {user}</h2>
         </div>
-      )}
+        <div className="grid gap-px bg-line sm:grid-cols-2">
+          {c?.recomendaciones.map((r, i) => (
+            <div key={i} className="flex items-start gap-3 bg-white p-4">
+              <ToneDot tone={r.tono} />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold text-ink">{r.accion}</p>
+                  <Badge tone={PRIO_TONE[r.prioridad] ?? "neutral"}>{t.prio[r.prioridad as keyof typeof t.prio] ?? r.prioridad}</Badge>
+                </div>
+                <p className="mt-0.5 text-sm text-muted">{r.motivo}</p>
+              </div>
+            </div>
+          ))}
+          {c && c.recomendaciones.length === 0 && <div className="bg-white p-6 text-sm text-muted">{t.noRecs}</div>}
+          {!c && <div className="bg-white p-6 text-sm text-muted">…</div>}
+        </div>
+      </Card>
+
+      {/* ── Estado del equipo · Alertas críticas ──────────────────────────── */}
+      <div className="mb-5 grid gap-4 lg:grid-cols-2">
+        <Card className="p-5">
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-brand">👥 {t.team}</h2>
+          <ul className="space-y-3">
+            {c?.equipo.map((e) => (
+              <li key={e.id} className="flex items-center justify-between gap-3">
+                <span className="flex min-w-0 items-center gap-2">
+                  <Avatar name={e.nombre} />
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium text-ink">{e.nombre}</span>
+                    <span className="block text-xs text-muted">
+                      {e.estado === "excelente" ? `${e.cerrados} ${t.deals}` : `${e.abiertas} ${t.openConv}`}
+                    </span>
+                  </span>
+                </span>
+                <Badge tone={e.tono}>{t.estadoEquipo[e.estado as keyof typeof t.estadoEquipo] ?? e.estado}</Badge>
+              </li>
+            ))}
+          </ul>
+        </Card>
+
+        <Card className="p-5">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-danger">
+            🚨 {t.alerts}
+            <span className="rounded-full bg-danger px-2 py-0.5 text-[10px] text-white">{c?.alertas.length ?? 0}</span>
+          </h2>
+          <ul className="space-y-2.5">
+            {c?.alertas.map((a) => (
+              <li key={a.id} className="rounded-xl border border-line border-l-4 border-l-danger bg-white p-3 shadow-card">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="flex items-center gap-1.5 font-semibold text-ink">
+                      {a.cliente}
+                      {a.vip && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-700">★ {t.vip}</span>}
+                    </p>
+                    <p className="text-xs text-muted">{a.titulo}</p>
+                    <p className="mt-1 text-xs text-faint">
+                      ⏱ {hace(a.horas)} · {t.responsible}: {a.responsable ?? t.noResponsible}
+                    </p>
+                  </div>
+                  <button className="shrink-0 rounded-lg bg-brand-soft px-2.5 py-1 text-xs font-semibold text-brand">{t.quickAct}</button>
+                </div>
+              </li>
+            ))}
+            {c && c.alertas.length === 0 && <li className="text-sm text-muted">🎉</li>}
+          </ul>
+        </Card>
+      </div>
+
+      {/* ── Top Agentes · Oportunidades IA ────────────────────────────────── */}
+      <div className="mb-5 grid gap-4 lg:grid-cols-2">
+        <Card className="p-5">
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-brand">🏆 {t.topAgents}</h2>
+          <ul className="space-y-2">
+            {c?.ranking.map((r, i) => (
+              <li key={r.nombre} className="flex items-center gap-3 rounded-xl px-2 py-1.5 hover:bg-soft">
+                <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-bold ${i === 0 ? "bg-amber-100 text-amber-700" : i === 1 ? "bg-slate-100 text-slate-600" : i === 2 ? "bg-orange-100 text-orange-700" : "text-faint"}`}>
+                  {i + 1}
+                </span>
+                <Avatar name={r.nombre} />
+                <span className="min-w-0 flex-1 truncate font-medium text-ink">{r.nombre}</span>
+                <span className="shrink-0 text-right text-xs">
+                  <span className="block font-bold text-ink">{r.ventas} <span className="font-normal text-muted">{t.sales.toLowerCase()}</span></span>
+                  <span className="block text-brand">{r.conversiones}% {t.conversions.toLowerCase()}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+
+        <Card className="p-5">
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-brand">✦ {t.opps}</h2>
+          <ul className="space-y-3">
+            {c?.oportunidades.map((o) => (
+              <li key={o.id} className="rounded-xl border border-line bg-white p-3 shadow-card">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-semibold text-ink">{o.titulo}</p>
+                  {o.nivel && <Badge tone={NIVEL_TONE[o.nivel] ?? "neutral"}>{nivelLabel[o.nivel] ?? o.nivel}</Badge>}
+                </div>
+                {o.producto && <p className="text-xs text-muted">{o.producto}</p>}
+                <div className="mt-2 flex items-center justify-between gap-3">
+                  <div className="flex-1">
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-soft">
+                      <div className="h-full rounded-full bg-brand" style={{ width: `${o.probabilidad}%` }} />
+                    </div>
+                    <p className="mt-0.5 text-[11px] text-muted">{o.probabilidad}% {t.closeProb}</p>
+                  </div>
+                  {o.potencial > 0 && <span className="shrink-0 text-sm font-bold text-ok">{money(o.potencial)}</span>}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      </div>
+
+      {/* ── Actividad · Preguntale a la IA ────────────────────────────────── */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card className="p-5">
+          <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-brand">📈 {t.activity}</h2>
+          {c && <Sparkline data={c.actividad.serie_7d} />}
+          <p className="mt-1 text-xs text-faint">{c?.actividad.total_7d ?? 0} {t.messages7d}</p>
+        </Card>
+
+        <Card className="p-5">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-brand">
+            ✦ {dict.inicio.askAi} <Badge tone="brand">BETA</Badge>
+          </h2>
+          {respuesta && (
+            <div className="mb-3 rounded-xl bg-brand-soft p-3 text-sm text-ink2">
+              {respuesta.answer}
+              <span className="mt-1 block text-xs text-faint">{respuesta.source === "ia" ? dict.inicio.answeredIa : dict.inicio.answeredAuto}</span>
+            </div>
+          )}
+          <div className="mb-3 flex flex-wrap gap-2">
+            {dict.inicio.questions.map((p) => (
+              <button key={p} onClick={() => preguntar(p)} className="rounded-full border border-line px-3 py-1 text-xs text-muted hover:bg-soft">{p}</button>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <input value={pregunta} onChange={(e) => setPregunta(e.target.value)} onKeyDown={(e) => e.key === "Enter" && preguntar(pregunta)}
+              placeholder={dict.inicio.askPlaceholder} className="w-full rounded-lg bg-soft px-4 py-2.5 text-sm text-ink placeholder:text-faint focus:outline-none" />
+            <button onClick={() => preguntar(pregunta)} disabled={pensando} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand text-white disabled:opacity-50">
+              {pensando ? "…" : "➤"}
+            </button>
+          </div>
+        </Card>
+      </div>
     </div>
   );
 }

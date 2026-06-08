@@ -7,7 +7,7 @@ import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, dashboard, gestion, health, webhook
+from app.api import auth, command, dashboard, gestion, health, webhook
 from app.core import auth as authcore
 from app.core.config import settings
 
@@ -29,6 +29,7 @@ app.include_router(auth.router, tags=["auth"])
 app.include_router(webhook.router, prefix="/ingest", tags=["captura"])
 app.include_router(dashboard.router, tags=["dashboard"])
 app.include_router(gestion.router, tags=["gestion"])
+app.include_router(command.router, tags=["command"])
 
 
 @app.on_event("startup")

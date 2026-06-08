@@ -45,6 +45,29 @@ export type SearchHit = {
 
 export type AiBullet = { tono: Tone; texto: string };
 
+// ── Centro de Control (Inicio rediseñado) ────────────────────────────────────
+export type Command = {
+  kpis: {
+    conversaciones: { value: number; delta: number | null; tono: Tone };
+    ventas: { value: number; valor: number; delta: number | null; tono: Tone };
+    criticos: { value: number; tono: Tone };
+    riesgo: { value: number; tono: Tone };
+    conectados: { value: number; total: number; tono: Tone };
+  };
+  recomendaciones: { prioridad: string; tono: Tone; accion: string; motivo: string }[];
+  equipo: { id: string; nombre: string; abiertas: number; cerrados: number; crit: number; estado: string; tono: Tone }[];
+  ranking: { nombre: string; interacciones: number; ventas: number; conversiones: number }[];
+  alertas: { id: string; cliente: string; titulo: string; prioridad: string; vip: boolean; horas: number; responsable: string | null }[];
+  oportunidades: { id: string; titulo: string; producto: string | null; nivel: string | null; probabilidad: number; potencial: number }[];
+  actividad: { serie_7d: number[]; total_7d: number };
+};
+
+export async function getCommand(lang = "es"): Promise<Command> {
+  const res = await authFetch(`/dashboard/command?lang=${lang}`);
+  if (!res.ok) throw new Error(`command: ${res.status}`);
+  return res.json();
+}
+
 export async function getExecutive(lang = "es"): Promise<Executive> {
   const res = await authFetch(`/dashboard/executive?lang=${lang}`);
   if (!res.ok) throw new Error(`executive: ${res.status}`);
