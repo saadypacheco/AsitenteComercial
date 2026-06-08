@@ -6,3 +6,4 @@
 \i /migrations/0005_daily_views.sql
 \i /migrations/0006_gestion_core.sql
 \i /migrations/0007_executive.sql
+\i /migrations/0008_auth_and_tenant.sql

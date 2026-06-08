@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { AccentCard, Card, Kpi, Pill, SectionLabel, WiringNote } from "@/components/ui";
+import { requireAuth } from "@/lib/auth";
 import { formatTime } from "@/lib/format";
 import { DEFAULT_LOCALE, getDictionary, type Locale } from "@/lib/i18n";
 import { getDailySummary, type DailySummary } from "@/lib/queries/daily";
@@ -22,6 +23,7 @@ export default function HoyPage() {
   const t = getDictionary(locale).today;
 
   useEffect(() => {
+    requireAuth();
     getDailySummary().then(setData).catch((e) => setError(e.message));
   }, []);
 

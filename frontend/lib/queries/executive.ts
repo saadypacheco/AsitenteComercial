@@ -1,7 +1,8 @@
 // Lecturas del DASHBOARD EJECUTIVO "¡Hola Cecilia!" (Producto ②).
 // Todo sale del backend FastAPI (mismo patrón que daily.ts): un agregado por
 // pantalla + buscador + endpoints de IA (LiteLLM con fallback determinista).
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8002";
+// Vía authFetch → adjunta el Bearer y filtra por el tenant del token (FR-009).
+import { authFetch } from "@/lib/auth";
 
 export type Tone = "brand" | "danger" | "warning" | "ok" | "neutral";
 
@@ -45,19 +46,19 @@ export type SearchHit = {
 export type AiBullet = { tono: Tone; texto: string };
 
 export async function getExecutive(): Promise<Executive> {
-  const res = await fetch(`${API}/dashboard/executive`, { cache: "no-store" });
+  const res = await authFetch("/dashboard/executive");
   if (!res.ok) throw new Error(`executive: ${res.status}`);
   return (await res.json()) as Executive;
 }
 
 export async function getAiSummary(): Promise<{ bullets: AiBullet[]; source: string }> {
-  const res = await fetch(`${API}/dashboard/ai/summary`, { cache: "no-store" });
+  const res = await authFetch("/dashboard/ai/summary");
   if (!res.ok) throw new Error(`ai/summary: ${res.status}`);
   return res.json();
 }
 
 export async function askAi(question: string): Promise<{ answer: string; source: string }> {
-  const res = await fetch(`${API}/dashboard/ai/ask`, {
+  const res = await authFetch("/dashboard/ai/ask", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ question }),
@@ -67,10 +68,8 @@ export async function askAi(question: string): Promise<{ answer: string; source:
 }
 
 export async function search(q: string, tipo: string): Promise<SearchHit[]> {
-  const url = new URL(`${API}/dashboard/search`);
-  url.searchParams.set("q", q);
-  url.searchParams.set("tipo", tipo);
-  const res = await fetch(url.toString(), { cache: "no-store" });
+  const qs = new URLSearchParams({ q, tipo }).toString();
+  const res = await authFetch(`/dashboard/search?${qs}`);
   if (!res.ok) throw new Error(`search: ${res.status}`);
   return res.json();
 }

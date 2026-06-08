@@ -11,9 +11,10 @@ Ref: specs/001-captura-whatsapp-bd/contracts/dashboard-api.md
 import json
 
 import structlog
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from app.core.auth import require_tenant
 from app.core.config import settings
 
 router = APIRouter()
@@ -36,15 +37,15 @@ def _query_scalar(sql: str, params: tuple | None = None):
 
 
 @router.get("/dashboard/daily")
-def daily_summary() -> dict:
+def daily_summary(tenant: str = Depends(require_tenant)) -> dict:
     """Resumen del día (sección hecho): volumen, por grupo, lo más reciente."""
-    return _query_scalar("select daily_summary()") or {}
+    return _query_scalar("select daily_summary(%s)", (tenant,)) or {}
 
 
 @router.get("/dashboard/chat/{chat_id}")
-def chat_detail(chat_id: str) -> list:
+def chat_detail(chat_id: str, tenant: str = Depends(require_tenant)) -> list:
     """Detalle de un chat HOY (ventana ET)."""
-    return _query_scalar("select daily_chat_detail(%s)", (chat_id,)) or []
+    return _query_scalar("select daily_chat_detail(%s, %s)", (chat_id, tenant)) or []
 
 
 # =============================================================================
@@ -54,17 +55,17 @@ def chat_detail(chat_id: str) -> list:
 
 
 @router.get("/dashboard/executive")
-def executive() -> dict:
+def executive(tenant: str = Depends(require_tenant)) -> dict:
     """Todo lo que pinta el dashboard ejecutivo en una sola consulta agregada."""
-    return _query_scalar("select executive_summary()") or {}
+    return _query_scalar("select executive_summary(%s)", (tenant,)) or {}
 
 
 @router.get("/dashboard/search")
-def search(q: str = "", tipo: str = "mensajes") -> list:
+def search(q: str = "", tipo: str = "mensajes", tenant: str = Depends(require_tenant)) -> list:
     """Buscador global sobre mensajes + transcripciones (FR-021), filtrable por tipo."""
     if not q.strip():
         return []
-    return _query_scalar("select search_everything(%s, %s)", (q.strip(), tipo)) or []
+    return _query_scalar("select search_everything(%s, %s, %s)", (q.strip(), tipo, tenant)) or []
 
 
 # ── Bloques de IA: LiteLLM (Gemini) con FALLBACK determinista ────────────────
@@ -118,9 +119,9 @@ def _deterministic_bullets(d: dict) -> list[dict]:
 
 
 @router.get("/dashboard/ai/summary")
-async def ai_summary() -> dict:
+async def ai_summary(tenant: str = Depends(require_tenant)) -> dict:
     """Resumen ejecutivo IA. Redacta con el LLM; si no hay key, usa reglas."""
-    data = _query_scalar("select executive_summary()") or {}
+    data = _query_scalar("select executive_summary(%s)", (tenant,)) or {}
     bullets = _deterministic_bullets(data)
     facts = json.dumps({k: data.get(k) for k in ("pulso", "pendientes", "grupos", "oportunidades")},
                        ensure_ascii=False)
@@ -141,9 +142,9 @@ class AskBody(BaseModel):
 
 
 @router.post("/dashboard/ai/ask")
-async def ai_ask(body: AskBody) -> dict:
+async def ai_ask(body: AskBody, tenant: str = Depends(require_tenant)) -> dict:
     """Preguntale a la IA: responde con el LLM sobre los datos reales del día."""
-    data = _query_scalar("select executive_summary()") or {}
+    data = _query_scalar("select executive_summary(%s)", (tenant,)) or {}
     facts = json.dumps(data, ensure_ascii=False, default=str)
     llm = await _llm_json(
         "Sos el asistente de inteligencia comercial de la líder. Respondé la pregunta "

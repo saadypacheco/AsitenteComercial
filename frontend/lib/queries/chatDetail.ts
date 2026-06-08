@@ -1,6 +1,6 @@
 // T026 [US2] — Detalle de un chat HOY (ventana ET). Lee del backend FastAPI.
 // Ref: contracts/dashboard-api.md §2
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8002";
+import { authFetch } from "@/lib/auth";
 
 export type MessageDetail = {
   message_id: string;
@@ -13,7 +13,7 @@ export type MessageDetail = {
 };
 
 export async function getChatDetail(chatId: string): Promise<MessageDetail[]> {
-  const res = await fetch(`${API}/dashboard/chat/${chatId}`, { cache: "no-store" });
+  const res = await authFetch(`/dashboard/chat/${chatId}`);
   if (!res.ok) throw new Error(`chatDetail: ${res.status}`);
   return (await res.json()) as MessageDetail[];
 }

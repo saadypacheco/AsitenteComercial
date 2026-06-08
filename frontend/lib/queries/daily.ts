@@ -3,7 +3,7 @@
 // evita exigir Auth/PostgREST de Supabase en local y resuelve el acceso sin login).
 // El backend aplica la ventana ET (FR-018) vía la función SQL daily_summary().
 // Ref: contracts/dashboard-api.md §1
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8002";
+import { authFetch } from "@/lib/auth";
 
 export type ChatActivity = {
   chat_id: string;
@@ -31,7 +31,7 @@ export type DailySummary = {
 };
 
 export async function getDailySummary(): Promise<DailySummary> {
-  const res = await fetch(`${API}/dashboard/daily`, { cache: "no-store" });
+  const res = await authFetch("/dashboard/daily");
   if (!res.ok) throw new Error(`daily: ${res.status}`);
   return (await res.json()) as DailySummary;
 }

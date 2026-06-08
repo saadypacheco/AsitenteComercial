@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     waha_api_key: str = ""
     webhook_secret: str = ""              # HMAC para validar el webhook entrante
 
+    # Auth — JWT self-contained (sin depender de Supabase Auth en local).
+    jwt_secret: str = "mentorcomercial-dev-secret-change-in-prod"
+    jwt_ttl_hours: int = 168               # 7 días
+    # Usuario líder por defecto que se siembra al arrancar (solo dev).
+    default_lider_email: str = "cecilia@demo.com"
+    default_lider_password: str = "demo1234"
+
     # IA — Gemini por defecto vía LiteLLM, cambiable a cualquier proveedor
     llm_model: str = "gemini/gemini-2.0-flash"
     gemini_api_key: str = ""

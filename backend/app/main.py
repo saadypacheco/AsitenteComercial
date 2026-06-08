@@ -7,7 +7,8 @@ import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import dashboard, health, webhook
+from app.api import auth, dashboard, health, webhook
+from app.core import auth as authcore
 from app.core.config import settings
 
 logger = structlog.get_logger()
@@ -24,10 +25,12 @@ app.add_middleware(
 )
 
 app.include_router(health.router, tags=["health"])
+app.include_router(auth.router, tags=["auth"])
 app.include_router(webhook.router, prefix="/ingest", tags=["captura"])
 app.include_router(dashboard.router, tags=["dashboard"])
 
 
 @app.on_event("startup")
 async def startup() -> None:
+    authcore.ensure_default_user()
     logger.info("api.startup", service="mentorcomercial")
