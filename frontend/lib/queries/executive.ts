@@ -45,20 +45,20 @@ export type SearchHit = {
 
 export type AiBullet = { tono: Tone; texto: string };
 
-export async function getExecutive(): Promise<Executive> {
-  const res = await authFetch("/dashboard/executive");
+export async function getExecutive(lang = "es"): Promise<Executive> {
+  const res = await authFetch(`/dashboard/executive?lang=${lang}`);
   if (!res.ok) throw new Error(`executive: ${res.status}`);
   return (await res.json()) as Executive;
 }
 
-export async function getAiSummary(): Promise<{ bullets: AiBullet[]; source: string }> {
-  const res = await authFetch("/dashboard/ai/summary");
+export async function getAiSummary(lang = "es"): Promise<{ bullets: AiBullet[]; source: string }> {
+  const res = await authFetch(`/dashboard/ai/summary?lang=${lang}`);
   if (!res.ok) throw new Error(`ai/summary: ${res.status}`);
   return res.json();
 }
 
-export async function askAi(question: string): Promise<{ answer: string; source: string }> {
-  const res = await authFetch("/dashboard/ai/ask", {
+export async function askAi(question: string, lang = "es"): Promise<{ answer: string; source: string }> {
+  const res = await authFetch(`/dashboard/ai/ask?lang=${lang}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ question }),

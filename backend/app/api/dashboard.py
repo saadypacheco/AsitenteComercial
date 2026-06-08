@@ -55,9 +55,10 @@ def chat_detail(chat_id: str, tenant: str = Depends(require_tenant)) -> list:
 
 
 @router.get("/dashboard/executive")
-def executive(tenant: str = Depends(require_tenant)) -> dict:
+def executive(tenant: str = Depends(require_tenant), lang: str = "es") -> dict:
     """Todo lo que pinta el dashboard ejecutivo en una sola consulta agregada."""
-    return _query_scalar("select executive_summary(%s)", (tenant,)) or {}
+    lang = "en" if lang == "en" else "es"
+    return _query_scalar("select executive_summary(%s, %s)", (tenant, lang)) or {}
 
 
 @router.get("/dashboard/search")
@@ -95,41 +96,53 @@ async def _llm_json(system: str, user: str) -> dict | None:
         return None
 
 
-def _deterministic_bullets(d: dict) -> list[dict]:
+def _deterministic_bullets(d: dict, lang: str = "es") -> list[dict]:
+    en = lang == "en"
     pulso, pend = d.get("pulso", {}), d.get("pendientes", {})
     grupos, op = d.get("grupos", []), d.get("oportunidades", [])
     out: list[dict] = []
     delta = pulso.get("delta_pct")
     if delta is not None:
-        out.append({"tono": "brand",
-                    "texto": f"La actividad {'aumentó' if delta >= 0 else 'bajó'} "
-                             f"un {abs(delta)}% respecto a ayer."})
+        if en:
+            out.append({"tono": "brand",
+                        "texto": f"Activity {'rose' if delta >= 0 else 'fell'} {abs(delta)}% vs yesterday."})
+        else:
+            out.append({"tono": "brand",
+                        "texto": f"La actividad {'aumentó' if delta >= 0 else 'bajó'} "
+                                 f"un {abs(delta)}% respecto a ayer."})
     if op:
-        out.append({"tono": "ok", "texto": f"Se detectaron {len(op)} oportunidades comerciales."})
+        out.append({"tono": "ok",
+                    "texto": f"Detected {len(op)} commercial opportunities." if en
+                             else f"Se detectaron {len(op)} oportunidades comerciales."})
     if grupos:
         top = grupos[0]
         total = sum(g.get("mensajes_7d", 0) for g in grupos) or 1
+        pct = round(top.get("mensajes_7d", 0) / total * 100)
         out.append({"tono": "ok",
-                    "texto": f"El grupo {top.get('nombre')} generó el "
-                             f"{round(top.get('mensajes_7d', 0) / total * 100)}% de las interacciones."})
+                    "texto": f"Group {top.get('nombre')} generated {pct}% of interactions." if en
+                             else f"El grupo {top.get('nombre')} generó el {pct}% de las interacciones."})
     crit = pend.get("criticos", 0)
     if crit:
-        out.append({"tono": "warning", "texto": f"Existen {crit} pendientes críticos sin resolver."})
+        out.append({"tono": "warning",
+                    "texto": f"There are {crit} unresolved critical pending items." if en
+                             else f"Existen {crit} pendientes críticos sin resolver."})
     return out
 
 
 @router.get("/dashboard/ai/summary")
-async def ai_summary(tenant: str = Depends(require_tenant)) -> dict:
+async def ai_summary(tenant: str = Depends(require_tenant), lang: str = "es") -> dict:
     """Resumen ejecutivo IA. Redacta con el LLM; si no hay key, usa reglas."""
-    data = _query_scalar("select executive_summary(%s)", (tenant,)) or {}
-    bullets = _deterministic_bullets(data)
+    lang = "en" if lang == "en" else "es"
+    data = _query_scalar("select executive_summary(%s, %s)", (tenant, lang)) or {}
+    bullets = _deterministic_bullets(data, lang)
     facts = json.dumps({k: data.get(k) for k in ("pulso", "pendientes", "grupos", "oportunidades")},
                        ensure_ascii=False)
+    idioma = "English" if lang == "en" else "español"
     llm = await _llm_json(
-        "Sos el analista comercial de una líder de seguros. A partir de los datos JSON, "
-        "devolvé un resumen ejecutivo del día como JSON: {\"bullets\":[{\"tono\":"
-        "\"brand|ok|warning|danger\",\"texto\":\"...\"}]}. 3 a 4 bullets, en español, "
-        "concretos y accionables. Solo JSON.",
+        f"Sos el analista comercial de una líder de seguros. A partir de los datos JSON, "
+        f"devolvé un resumen ejecutivo del día como JSON: {{\"bullets\":[{{\"tono\":"
+        f"\"brand|ok|warning|danger\",\"texto\":\"...\"}}]}}. 3 a 4 bullets, EN {idioma}, "
+        f"concretos y accionables. Solo JSON.",
         facts,
     )
     if llm and isinstance(llm.get("bullets"), list) and llm["bullets"]:
@@ -142,24 +155,35 @@ class AskBody(BaseModel):
 
 
 @router.post("/dashboard/ai/ask")
-async def ai_ask(body: AskBody, tenant: str = Depends(require_tenant)) -> dict:
+async def ai_ask(body: AskBody, tenant: str = Depends(require_tenant), lang: str = "es") -> dict:
     """Preguntale a la IA: responde con el LLM sobre los datos reales del día."""
-    data = _query_scalar("select executive_summary(%s)", (tenant,)) or {}
+    lang = "en" if lang == "en" else "es"
+    data = _query_scalar("select executive_summary(%s, %s)", (tenant, lang)) or {}
     facts = json.dumps(data, ensure_ascii=False, default=str)
+    idioma = "English" if lang == "en" else "español"
     llm = await _llm_json(
-        "Sos el asistente de inteligencia comercial de la líder. Respondé la pregunta "
-        "USANDO solo los datos JSON provistos. Devolvé JSON: {\"answer\":\"...\"}. "
-        "Respuesta breve en español. Si el dato no está, decilo. Solo JSON.",
+        f"Sos el asistente de inteligencia comercial de la líder. Respondé la pregunta "
+        f"USANDO solo los datos JSON provistos. Devolvé JSON: {{\"answer\":\"...\"}}. "
+        f"Respuesta breve en {idioma}. Si el dato no está, decilo. Solo JSON.",
         f"DATOS:\n{facts}\n\nPREGUNTA: {body.question}",
     )
     if llm and llm.get("answer"):
         return {"answer": llm["answer"], "source": "ia"}
-    # Fallback determinista: resumen de los datos + nota honesta.
+    # Fallback determinista localizado.
     p, pend = data.get("pulso", {}), data.get("pendientes", {})
-    answer = (
-        f"Hoy hubo {p.get('mensajes_hoy', 0)} mensajes en {p.get('grupos_activos', 0)} grupos. "
-        f"Hay {pend.get('total', 0)} pendientes abiertos ({pend.get('criticos', 0)} críticos) "
-        f"y {len(data.get('oportunidades', []))} oportunidades detectadas. "
-        "(Respuesta automática sobre los datos — configurá GEMINI_API_KEY para respuestas con IA.)"
-    )
+    nop = len(data.get("oportunidades", []))
+    if lang == "en":
+        answer = (
+            f"Today there were {p.get('mensajes_hoy', 0)} messages across "
+            f"{p.get('grupos_activos', 0)} groups. There are {pend.get('total', 0)} open pending "
+            f"items ({pend.get('criticos', 0)} critical) and {nop} detected opportunities. "
+            "(Automatic answer over the data — set GEMINI_API_KEY for AI answers.)"
+        )
+    else:
+        answer = (
+            f"Hoy hubo {p.get('mensajes_hoy', 0)} mensajes en {p.get('grupos_activos', 0)} grupos. "
+            f"Hay {pend.get('total', 0)} pendientes abiertos ({pend.get('criticos', 0)} críticos) "
+            f"y {nop} oportunidades detectadas. "
+            "(Respuesta automática sobre los datos — configurá GEMINI_API_KEY para respuestas con IA.)"
+        )
     return {"answer": answer, "source": "reglas"}

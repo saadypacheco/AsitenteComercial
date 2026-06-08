@@ -67,16 +67,22 @@ export default function InicioPage() {
 
   useEffect(() => {
     requireAuth();
-    setLocale(getStoredLocale());
     setUser(getUser());
-    getExecutive().then(setData).catch((e) => setError(e.message));
-    getAiSummary()
+    setLocale(getStoredLocale());
+  }, []);
+
+  // Recarga los datos cuando cambia el idioma (el backend localiza salud/alertas/
+  // timeline/bullets según el lang).
+  useEffect(() => {
+    getExecutive(locale).then(setData).catch((e) => setError(e.message));
+    setBullets(null);
+    getAiSummary(locale)
       .then((r) => {
         setBullets(r.bullets);
         setAiSource(r.source);
       })
       .catch(() => setBullets([]));
-  }, []);
+  }, [locale]);
 
   async function runSearch() {
     if (!q.trim()) return;
@@ -85,7 +91,7 @@ export default function InicioPage() {
   async function preguntar(texto: string) {
     setPregunta(texto);
     setPensando(true);
-    setRespuesta(await askAi(texto).catch(() => ({ answer: "—", source: "error" })));
+    setRespuesta(await askAi(texto, locale).catch(() => ({ answer: "—", source: "error" })));
     setPensando(false);
   }
 
