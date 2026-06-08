@@ -143,6 +143,28 @@ export const es = {
     invalid: "El enlace es inválido o expiró.",
     requestNew: "Pedir un enlace nuevo",
   },
+  gestion: {
+    newBtn: "Nuevo",
+    save: "Guardar",
+    cancel: "Cancelar",
+    saving: "Guardando…",
+    loading: "Cargando…",
+    // Pendientes
+    progress: "Progreso del día",
+    completedOf: "completados de", // "37 completados de 46"
+    newPending: "Nuevo pendiente",
+    fTitulo: "Título",
+    fTipo: "Tipo",
+    fPrioridad: "Prioridad",
+    fAgente: "Agente",
+    unassigned: "Sin asignar",
+    take: "Tomar",
+    close: "Cerrar",
+    emptyPending: "No hay pendientes abiertos. 🎉",
+    estado: { pendiente: "Pendiente", en_proceso: "En proceso", cerrado: "Cerrado" },
+    prioridad: { critico: "Crítico", alto: "Alto", medio: "Medio", bajo: "Bajo" },
+    tipo: { seguimiento: "Seguimiento", reclamo: "Reclamo", consulta: "Consulta", tarea: "Tarea", oportunidad: "Oportunidad" },
+  },
   eventTypes: {
     venta: "Venta",
     objecion: "Objeción",
