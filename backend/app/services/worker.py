@@ -18,7 +18,7 @@ import asyncio
 import structlog
 
 from app.core.config import settings
-from app.services import queue
+from app.services import processing, queue
 
 logger = structlog.get_logger()
 
@@ -33,9 +33,12 @@ def _process_job(job: queue.QueueJob) -> None:
     (las inserciones aguas abajo usan claves naturales / on conflict).
     """
     message_id = job.payload.get("message_id")
+    tenant_id = job.payload.get("tenant_id")
     logger.info("worker.job", message_id=message_id, attempts=job.attempts)
+    # US4: clasificación + extracción de eventos comerciales (reglas; LLM si hay key).
+    if message_id and tenant_id:
+        processing.process_message(message_id, tenant_id)
     # TODO(US3): if message.type == 'audio' → transcription.transcribe → insert transcriptions
-    # TODO(US4): extracción de eventos vía ai.extract_events → commercial_events + event_sources
 
 
 def _run_once() -> int:

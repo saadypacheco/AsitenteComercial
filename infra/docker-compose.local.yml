@@ -81,6 +81,28 @@ services:
     depends_on:
       - backend
 
+  # Worker de procesamiento (US4): consume la cola y, por cada mensaje capturado,
+  # clasifica (importancia/categoría) y extrae eventos comerciales por reglas
+  # (determinista, funciona sin Gemini). Reusa el código del backend montado.
+  worker:
+    image: python:3.12-slim
+    container_name: mc-local-worker
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ../backend:/app
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/mentorcomercial
+      QUEUE_BACKEND: table
+    command: >
+      sh -c "pip install --quiet --root-user-action=ignore
+      'psycopg[binary]' structlog pydantic pydantic-settings &&
+      python -m app.services.worker"
+    depends_on:
+      db:
+        condition: service_healthy
+
   # Bridge WhatsApp (WAHA) — ANDAMIAJE listo para enchufar el número observador.
   # Sin número aún: el contenedor levanta y queda esperando que se inicie una sesión
   # y se escanee el QR. Postea cada evento al webhook del backend (/ingest/webhook).
