@@ -18,7 +18,7 @@ const NAV: { key: NavKey; href: string | null }[] = [
   { key: "grupos", href: "/grupos" },
   { key: "eventos", href: "/eventos" },
   { key: "capacitaciones", href: "/capacitaciones" },
-  { key: "mensajes", href: null },
+  { key: "mensajes", href: "/mensajes" },
   { key: "reportes", href: null },
   { key: "iaInsights", href: null },
   { key: "ajustes", href: null },

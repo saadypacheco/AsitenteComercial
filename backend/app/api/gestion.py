@@ -246,6 +246,32 @@ def update_evento(eid: str, body: EventoUpdate, tenant: str = Depends(require_te
     return {"ok": True}
 
 
+# ── Mensajes capturados (feed) ────────────────────────────────────────────────
+@router.get("/gestion/mensajes")
+def list_mensajes(tenant: str = Depends(require_tenant), lang: str = "es", tipo: str = "all", q: str = "") -> list:
+    chat = "coalesce(c.name_en, c.name)" if lang == "en" else "c.name"
+    where = ["m.tenant_id = %s"]
+    params: list = [tenant]
+    if tipo == "text":
+        where.append("m.type = 'text'")
+    elif tipo == "audio":
+        where.append("m.type = 'audio'")
+    elif tipo == "image":
+        where.append("m.type = 'image'")
+    if q.strip():
+        where.append("(m.body ilike %s or tr.text ilike %s)")
+        params += [f"%{q.strip()}%", f"%{q.strip()}%"]
+    return _rows(
+        f"select m.id, m.type as tipo, coalesce(m.body, tr.text) as texto, m.wa_timestamp as ts, "
+        f"{chat} as chat, ct.display_name as remitente, (tr.message_id is not null) as transcripto "
+        "from messages m join chats c on c.id = m.chat_id "
+        "left join contacts ct on ct.id = m.sender_id "
+        "left join transcriptions tr on tr.message_id = m.id "
+        f"where {' and '.join(where)} order by m.wa_timestamp desc limit 80",
+        tuple(params),
+    )
+
+
 # ── Capacitaciones (lista con asistencia) ─────────────────────────────────────
 @router.get("/gestion/capacitaciones")
 def list_capacitaciones(tenant: str = Depends(require_tenant), lang: str = "es") -> list:

@@ -264,6 +264,9 @@ export const es = {
     iaSaturados: "Agentes saturados",
     iaOpps: "Oportunidades detectadas",
     iaFirst: "Resolver primero",
+    msgEmpty: "No hay mensajes capturados.",
+    msgSearch: "Buscar en mensajes y transcripciones…",
+    msgTranscribed: "transcripción",
   },
   eventTypes: {
     venta: "Venta",

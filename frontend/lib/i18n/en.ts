@@ -253,6 +253,9 @@ export const en: typeof es = {
     iaSaturados: "Overloaded agents",
     iaOpps: "Detected opportunities",
     iaFirst: "Resolve first",
+    msgEmpty: "No captured messages.",
+    msgSearch: "Search messages and transcriptions…",
+    msgTranscribed: "transcription",
   },
   eventTypes: {
     venta: "Sale",

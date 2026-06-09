@@ -147,6 +147,23 @@ export async function getCapacitaciones(lang = "es"): Promise<Capacitacion[]> {
   return res.json();
 }
 
+export type Mensaje = {
+  id: string;
+  tipo: string;
+  texto: string | null;
+  ts: string;
+  chat: string | null;
+  remitente: string | null;
+  transcripto: boolean;
+};
+
+export async function getMensajes(lang = "es", tipo = "all", q = ""): Promise<Mensaje[]> {
+  const qs = new URLSearchParams({ lang, tipo, q }).toString();
+  const res = await authFetch(`/gestion/mensajes?${qs}`);
+  if (!res.ok) throw new Error(`mensajes: ${res.status}`);
+  return res.json();
+}
+
 export async function getPendientes(lang = "es"): Promise<PendientesResp> {
   const res = await authFetch(`/gestion/pendientes?lang=${lang}`);
   if (!res.ok) throw new Error(`pendientes: ${res.status}`);
