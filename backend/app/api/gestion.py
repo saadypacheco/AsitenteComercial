@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from app.core.auth import require_tenant
 from app.core.config import settings
+from app.services import zoom
 
 router = APIRouter()
 logger = structlog.get_logger()
@@ -330,6 +331,28 @@ def capacitacion_programa(tenant: str = Depends(require_tenant), lang: str = "es
         "etapas": etapas, "agentes": agentes, "calendario": calendario,
         "alertas": alertas, "notificaciones": notificaciones,
     }
+
+
+class SyncAsistenciaBody(BaseModel):
+    # Modo andamiaje (sin credenciales Zoom): lista simulada de participantes.
+    simular: list[dict] | None = None  # [{"email": "...", "minutos": 45}, ...]
+
+
+@router.post("/gestion/capacitaciones/{cid}/sync-asistencia")
+def sync_asistencia(cid: str, body: SyncAsistenciaBody | None = None, tenant: str = Depends(require_tenant)) -> dict:
+    """Concilia la asistencia de una capacitación desde Zoom (o simulada si no hay
+    credenciales). Marca asistencia por agente (match por email)."""
+    cap = _rows("select id, zoom_meeting_id from capacitaciones where id = %s and tenant_id = %s", (cid, tenant))
+    if not cap:
+        raise HTTPException(status_code=404, detail="Capacitación no encontrada")
+
+    participantes = zoom.fetch_participants(cap[0]["zoom_meeting_id"]) if zoom.enabled() else None
+    source = "zoom"
+    if participantes is None:
+        participantes = (body.simular if body else None) or []
+        source = "simulado"
+    marcados = zoom.reconcile(cid, tenant, participantes, settings.zoom_min_minutos)
+    return {"ok": True, "source": source, "participantes": len(participantes), "marcados": marcados}
 
 
 @router.get("/gestion/capacitaciones")

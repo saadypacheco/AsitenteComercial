@@ -40,6 +40,13 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     # openai_api_key / anthropic_api_key: completar si se cambia de proveedor
 
+    # Zoom — asistencia automática (Server-to-Server OAuth). Vacío = no configurado:
+    # la reconciliación funciona en modo simulado (andamiaje, sin credenciales).
+    zoom_account_id: str = ""
+    zoom_client_id: str = ""
+    zoom_client_secret: str = ""
+    zoom_min_minutos: int = 30             # minutos presentes para contar "asistió"
+
     # Transcripción self-hosted (multi-idioma)
     whisper_model: str = "small"          # tiny/base/small/medium/large-v3
     whisper_device: str = "cpu"           # 'cuda' si hay GPU
