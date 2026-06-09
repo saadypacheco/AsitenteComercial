@@ -11,3 +11,4 @@
 \i /migrations/0010_seed_i18n.sql
 \i /migrations/0011_agentes_geo.sql
 \i /migrations/0012_command_center.sql
+\i /migrations/0013_capacitacion_ruta.sql

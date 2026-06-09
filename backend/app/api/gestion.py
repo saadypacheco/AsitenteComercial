@@ -273,6 +273,65 @@ def list_mensajes(tenant: str = Depends(require_tenant), lang: str = "es", tipo:
 
 
 # ── Capacitaciones (lista con asistencia) ─────────────────────────────────────
+@router.get("/gestion/capacitacion/programa")
+def capacitacion_programa(tenant: str = Depends(require_tenant), lang: str = "es") -> dict:
+    """Ruta de capacitación: progreso global, etapas (funnel), progreso por agente,
+    calendario de sesiones, alertas y notificaciones."""
+    en = lang == "en"
+    nombre_e = "coalesce(e.nombre_en, e.nombre)" if en else "e.nombre"
+
+    etapas = _rows(
+        f"select e.id, {nombre_e} as nombre, e.descripcion, e.orden, "
+        "(select count(*) from etapa_progreso p where p.etapa_id=e.id and p.estado='completado') as completados, "
+        "(select count(*) from etapa_progreso p where p.etapa_id=e.id and p.estado='en_curso') as en_curso, "
+        "(select count(*) from etapa_progreso p where p.etapa_id=e.id and p.estado='pendiente') as pendientes "
+        "from capacitacion_etapas e where e.tenant_id=%s order by e.orden", (tenant,),
+    )
+    total_etapas = len(etapas) or 1
+    n_ag = _rows("select count(distinct agente_id) as n from etapa_progreso where tenant_id=%s", (tenant,))[0]["n"] or 1
+    comp = _rows("select count(*) as n from etapa_progreso where tenant_id=%s and estado='completado'", (tenant,))[0]["n"]
+    total = total_etapas * n_ag
+    for e in etapas:
+        e["pct"] = round(e["completados"] / n_ag * 100) if n_ag else 0
+
+    agentes = _rows(
+        f"select trim(a.nombre || ' ' || coalesce(a.apellido,'')) as nombre, "
+        "(select count(*) from etapa_progreso p where p.agente_id=a.id and p.estado='completado') as completados, "
+        f"(select {nombre_e} from etapa_progreso p join capacitacion_etapas e on e.id=p.etapa_id "
+        " where p.agente_id=a.id and p.estado='en_curso' order by e.orden limit 1) as etapa_actual "
+        "from agentes a where a.tenant_id=%s and a.estado<>'baja' "
+        "and exists (select 1 from etapa_progreso p where p.agente_id=a.id) "
+        "order by completados desc", (tenant,),
+    )
+    for a in agentes:
+        a["pct"] = round(a["completados"] / total_etapas * 100) if total_etapas else 0
+
+    cap_n = "coalesce(k.nombre_en, k.nombre)" if en else "k.nombre"
+    calendario = _rows(
+        f"select k.id, {cap_n} as nombre, k.estado, k.fecha, "
+        "(select count(*) from capacitacion_asistencia x where x.capacitacion_id=k.id and x.asistio) as asistentes "
+        "from capacitaciones k where k.tenant_id=%s and k.fecha is not null order by k.fecha", (tenant,),
+    )
+    alertas = [
+        {"titulo": k["nombre"], "tono": "warning",
+         "detalle": "No attendees confirmed" if en else "Sin asistentes confirmados"}
+        for k in calendario if k["estado"] in ("programada", "en_curso") and k["asistentes"] == 0
+    ]
+    notificaciones = _rows(
+        f"select trim(a.nombre || ' ' || coalesce(a.apellido,'')) as agente, {nombre_e} as etapa, p.completado_at as ts "
+        "from etapa_progreso p join agentes a on a.id=p.agente_id join capacitacion_etapas e on e.id=p.etapa_id "
+        "where p.tenant_id=%s and p.estado='completado' and p.completado_at is not null "
+        "order by p.completado_at desc limit 6", (tenant,),
+    )
+
+    return {
+        "programa": {"nombre": "Commercial Onboarding Path" if en else "Ruta de Onboarding Comercial", "total_etapas": len(etapas)},
+        "progreso": {"completados": comp, "total": total, "pct": round(comp / total * 100) if total else 0},
+        "etapas": etapas, "agentes": agentes, "calendario": calendario,
+        "alertas": alertas, "notificaciones": notificaciones,
+    }
+
+
 @router.get("/gestion/capacitaciones")
 def list_capacitaciones(tenant: str = Depends(require_tenant), lang: str = "es") -> list:
     nombre = "coalesce(k.nombre_en, k.nombre)" if lang == "en" else "k.nombre"

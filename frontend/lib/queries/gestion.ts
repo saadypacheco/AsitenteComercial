@@ -147,6 +147,22 @@ export async function getCapacitaciones(lang = "es"): Promise<Capacitacion[]> {
   return res.json();
 }
 
+export type Programa = {
+  programa: { nombre: string; total_etapas: number };
+  progreso: { completados: number; total: number; pct: number };
+  etapas: { id: string; nombre: string; descripcion: string | null; orden: number; completados: number; en_curso: number; pendientes: number; pct: number }[];
+  agentes: { nombre: string; completados: number; etapa_actual: string | null; pct: number }[];
+  calendario: { id: string; nombre: string; estado: string; fecha: string | null; asistentes: number }[];
+  alertas: { titulo: string; detalle: string; tono: string }[];
+  notificaciones: { agente: string; etapa: string; ts: string }[];
+};
+
+export async function getProgramaCapacitacion(lang = "es"): Promise<Programa> {
+  const res = await authFetch(`/gestion/capacitacion/programa?lang=${lang}`);
+  if (!res.ok) throw new Error(`programa: ${res.status}`);
+  return res.json();
+}
+
 export type Mensaje = {
   id: string;
   tipo: string;
