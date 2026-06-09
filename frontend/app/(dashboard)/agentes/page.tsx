@@ -5,6 +5,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 
+import { AgentTree } from "@/components/agent-tree";
 import { Avatar, Badge } from "@/components/executive";
 import { Card } from "@/components/ui";
 import { useLocale } from "@/lib/locale-context";
@@ -34,6 +35,7 @@ export default function AgentesPage() {
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<AgenteInput>(EMPTY);
+  const [view, setView] = useState<"lista" | "jerarquia">("lista");
 
   function reload() {
     getAgentes().then(setAgentes).catch(() => setAgentes([]));
@@ -142,8 +144,25 @@ export default function AgentesPage() {
         </Card>
       )}
 
-      {/* Lista */}
+      {/* Vista: Lista / Jerarquía */}
+      <div className="mb-4 flex gap-2">
+        {(["lista", "jerarquia"] as const).map((v) => (
+          <button key={v} onClick={() => setView(v)}
+            className={`rounded-full border px-3 py-1 text-xs font-medium ${view === v ? "border-brand bg-brand-soft text-brand" : "border-line text-muted hover:bg-soft"}`}>
+            {v === "lista" ? t.agViewList : t.agViewTree}
+          </button>
+        ))}
+      </div>
+
       {agentes && agentes.length === 0 && <Card className="px-4 py-16 text-center text-muted">{t.agEmpty}</Card>}
+
+      {view === "jerarquia" && agentes && (
+        <Card className="p-4">
+          <AgentTree agentes={agentes} labels={{ activo: t.estadoAgente.activo, inactivo: t.estadoAgente.inactivo, saturada: t.agSaturada }} />
+        </Card>
+      )}
+
+      {view === "lista" && (
       <div className="grid gap-3 sm:grid-cols-2">
         {agentes?.map((a) => (
           <Card key={a.id} className="p-4">
@@ -178,6 +197,7 @@ export default function AgentesPage() {
           </Card>
         ))}
       </div>
+      )}
     </div>
   );
 }

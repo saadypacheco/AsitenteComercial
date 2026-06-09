@@ -240,6 +240,9 @@ export const es = {
     agSaturados: "saturados",
     agOpenItems: "pendientes abiertos",
     agSaturada: "Saturada",
+    agViewList: "Lista",
+    agViewTree: "Jerarquía",
+    agNoSuperior: "Dirección",
     estadoAgente: { activo: "Activo", inactivo: "Inactivo" },
     // Grupos
     grpEmpty: "No hay grupos.",
