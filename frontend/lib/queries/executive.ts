@@ -68,6 +68,13 @@ export async function getCommand(lang = "es"): Promise<Command> {
   return res.json();
 }
 
+export type ConfigStatus = { ia_enabled: boolean; llm_model: string; environment: string };
+export async function getConfigStatus(): Promise<ConfigStatus> {
+  const res = await authFetch("/config/status");
+  if (!res.ok) throw new Error(`config: ${res.status}`);
+  return res.json();
+}
+
 export async function getExecutive(lang = "es"): Promise<Executive> {
   const res = await authFetch(`/dashboard/executive?lang=${lang}`);
   if (!res.ok) throw new Error(`executive: ${res.status}`);

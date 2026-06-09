@@ -20,8 +20,8 @@ const NAV: { key: NavKey; href: string | null }[] = [
   { key: "capacitaciones", href: "/capacitaciones" },
   { key: "mensajes", href: "/mensajes" },
   { key: "reportes", href: "/reportes" },
-  { key: "iaInsights", href: null },
-  { key: "ajustes", href: null },
+  { key: "iaInsights", href: "/ia-insights" },
+  { key: "ajustes", href: "/ajustes" },
 ];
 
 export function Shell({ children }: { children: ReactNode }) {

@@ -11,8 +11,19 @@ from fastapi import APIRouter, Depends
 
 from app.api.gestion import _rows
 from app.core.auth import require_tenant
+from app.core.config import settings
 
 router = APIRouter()
+
+
+@router.get("/config/status")
+def config_status(tenant: str = Depends(require_tenant)) -> dict:
+    """Estado de configuración para Ajustes: si la IA real está activa, entorno."""
+    return {
+        "ia_enabled": bool(settings.gemini_api_key),
+        "llm_model": settings.llm_model,
+        "environment": settings.environment,
+    }
 
 TODAY = "date_trunc('day', now())"
 YEST = "date_trunc('day', now()) - interval '1 day'"
