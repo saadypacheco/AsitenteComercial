@@ -132,6 +132,17 @@ export const en: typeof es = {
     noRecs: "No recommendations right now. All under control. 🎉",
     prio: { alta: "High", media: "Medium", baja: "Low" },
   },
+  reportes: {
+    weeklyActivity: "Weekly activity",
+    salesByAgent: "Sales by agent",
+    eventsByType: "Events by type",
+    oppsPipeline: "Opportunity pipeline",
+    teamSummary: "Team summary",
+    totalPotential: "Total potential",
+    openOpps: "open opportunities",
+    deals: "sales",
+    messages: "messages",
+  },
   login: {
     brand: "Commercial Assistant", // friendly brand (locale-dependent)
     welcome: "Welcome",           // "Welcome Cecilia"

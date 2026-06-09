@@ -136,6 +136,17 @@ export const es = {
     noRecs: "Sin recomendaciones por ahora. Todo bajo control. 🎉",
     prio: { alta: "Alta", media: "Media", baja: "Baja" },
   },
+  reportes: {
+    weeklyActivity: "Actividad semanal",
+    salesByAgent: "Ventas por agente",
+    eventsByType: "Eventos por tipo",
+    oppsPipeline: "Pipeline de oportunidades",
+    teamSummary: "Resumen del equipo",
+    totalPotential: "Potencial total",
+    openOpps: "oportunidades abiertas",
+    deals: "ventas",
+    messages: "mensajes",
+  },
   login: {
     brand: "Asistente Comercial", // marca amigable (depende del idioma)
     welcome: "Bienvenida",        // "Bienvenida Cecilia"
