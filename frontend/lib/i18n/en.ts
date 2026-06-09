@@ -194,6 +194,17 @@ export const en: typeof es = {
     badgeHalf: "Halfway there",
     badgeDone: "Path complete",
     logout: "Log out",
+    tabHoy: "Today",
+    tabAgenda: "Schedule",
+    nextStep: "Your next stage",
+    todaySessions: "Today's sessions",
+    upcoming: "Upcoming sessions",
+    joinZoom: "Join Zoom",
+    ranking: "Group ranking",
+    you: "You",
+    noSessions: "No upcoming sessions.",
+    goodJob: "You're doing great!",
+    keepGoing: "Keep moving along your path 💪",
   },
   login: {
     brand: "Commercial Assistant", // friendly brand (locale-dependent)

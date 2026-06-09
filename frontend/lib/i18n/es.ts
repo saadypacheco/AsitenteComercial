@@ -198,6 +198,17 @@ export const es = {
     badgeHalf: "A mitad de camino",
     badgeDone: "Ruta completa",
     logout: "Salir",
+    tabHoy: "Hoy",
+    tabAgenda: "Agenda",
+    nextStep: "Tu próxima etapa",
+    todaySessions: "Sesiones de hoy",
+    upcoming: "Próximas sesiones",
+    joinZoom: "Entrar a Zoom",
+    ranking: "Ranking del grupo",
+    you: "Vos",
+    noSessions: "Sin sesiones próximas.",
+    goodJob: "¡Lo estás haciendo bien!",
+    keepGoing: "Seguí avanzando en tu ruta 💪",
   },
   login: {
     brand: "Asistente Comercial", // marca amigable (depende del idioma)

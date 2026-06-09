@@ -119,6 +119,39 @@ def agente_avanzar(ctx: dict = Depends(authcore.require_agent)) -> dict:
     return {"ok": True, "completada": actual["orden"], "abierta": siguiente["orden"] if siguiente else None}
 
 
+@router.get("/agente/agenda")
+def agente_agenda(ctx: dict = Depends(authcore.require_agent), lang: str = "es") -> list:
+    """Próximas sesiones de capacitación (con Zoom) para la agenda del agente."""
+    nombre = "coalesce(nombre_en, nombre)" if lang == "en" else "nombre"
+    return _rows(
+        f"select id, {nombre} as nombre, fecha, duracion_min, zoom_url, estado "
+        "from capacitaciones where tenant_id = %s and fecha is not null "
+        "and fecha >= now() - interval '12 hours' order by fecha limit 10",
+        (ctx["tenant_id"],),
+    )
+
+
+@router.get("/agente/ranking")
+def agente_ranking(ctx: dict = Depends(authcore.require_agent)) -> list:
+    """Ranking del grupo por avance de la ruta (Score derivado). Marca 'yo'."""
+    aid, tenant = ctx["agente_id"], ctx["tenant_id"]
+    total = _rows("select count(*) as n from capacitacion_etapas where tenant_id = %s", (tenant,))[0]["n"] or 1
+    rows = _rows(
+        "select a.id, trim(a.nombre || ' ' || coalesce(a.apellido,'')) as nombre, "
+        "(select count(*) from etapa_progreso p where p.agente_id=a.id and p.estado='completado') as completadas "
+        "from agentes a where a.tenant_id = %s and a.estado <> 'baja' "
+        "and exists (select 1 from etapa_progreso p where p.agente_id=a.id)", (tenant,),
+    )
+    for r in rows:
+        pct = round(r["completadas"] / total * 100)
+        r["score"] = min(100, round(60 + pct * 0.4))
+        r["yo"] = str(r["id"]) == str(aid)
+    rows.sort(key=lambda x: x["score"], reverse=True)
+    for i, r in enumerate(rows):
+        r["pos"] = i + 1
+    return rows
+
+
 @router.get("/agente/me")
 def agente_me(ctx: dict = Depends(authcore.require_agent), lang: str = "es") -> dict:
     aid, tenant = ctx["agente_id"], ctx["tenant_id"]

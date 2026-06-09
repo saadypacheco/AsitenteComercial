@@ -46,3 +46,33 @@ export async function avanzar(): Promise<void> {
   const res = await authFetch("/agente/ruta/avanzar", { method: "POST" });
   if (!res.ok) throw new Error(`avanzar: ${res.status}`);
 }
+
+export type Sesion = {
+  id: string;
+  nombre: string;
+  fecha: string;
+  duracion_min: number;
+  zoom_url: string | null;
+  estado: string;
+};
+
+export type RankItem = {
+  id: string;
+  nombre: string;
+  completadas: number;
+  score: number;
+  yo: boolean;
+  pos: number;
+};
+
+export async function getAgenda(lang = "es"): Promise<Sesion[]> {
+  const res = await authFetch(`/agente/agenda?lang=${lang}`);
+  if (!res.ok) throw new Error(`agenda: ${res.status}`);
+  return res.json();
+}
+
+export async function getRanking(): Promise<RankItem[]> {
+  const res = await authFetch("/agente/ranking");
+  if (!res.ok) throw new Error(`ranking: ${res.status}`);
+  return res.json();
+}
