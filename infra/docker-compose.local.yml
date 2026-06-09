@@ -81,6 +81,37 @@ services:
     depends_on:
       - backend
 
+  # Bridge WhatsApp (WAHA) — ANDAMIAJE listo para enchufar el número observador.
+  # Sin número aún: el contenedor levanta y queda esperando que se inicie una sesión
+  # y se escanee el QR. Postea cada evento al webhook del backend (/ingest/webhook).
+  # Dashboard WAHA en http://localhost:4500 (API key: local-dev-key).
+  #
+  # Para conectar un número (cuando llegue el descartable):
+  #   1) abrir http://localhost:4500, iniciar sesión 'default' y escanear el QR.
+  #   2) anotar el JID del número (p.ej. 5491122334455@c.us) y setear el tenant:
+  #        update tenants set ia_wa_jid='<jid>' where name='Demo Líder';
+  #      (la captura solo acepta eventos cuya 'session' = ese número — Principio I)
+  #   3) meter ese número a los grupos a observar. Listo: entran a /mensajes solos.
+  waha:
+    image: devlikeapro/waha:latest
+    container_name: mc-local-waha
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4500:3000"          # SOLO localhost (puerto 3000 interno de WAHA)
+    environment:
+      WHATSAPP_API_KEY: local-dev-key
+      WHATSAPP_DEFAULT_ENGINE: NOWEB
+      WHATSAPP_HOOK_URL: http://backend:8002/ingest/webhook
+      WHATSAPP_HOOK_EVENTS: message,message.any,session.status
+      WHATSAPP_DOWNLOAD_MEDIA: "true"
+    volumes:
+      - mc_waha_sessions:/app/.sessions
+      - mc_waha_media:/app/.media
+    depends_on:
+      - backend
+
 volumes:
   mc_pgdata:
   mc_node_modules:
+  mc_waha_sessions:
+  mc_waha_media:

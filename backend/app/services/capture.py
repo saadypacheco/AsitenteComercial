@@ -13,7 +13,7 @@ Ref: specs/001-captura-whatsapp-bd/contracts/webhook-waha.md
 """
 import structlog
 
-from app.db.repository import CaptureRepo, SupabaseRepo
+from app.db.repository import CaptureRepo, get_capture_repo
 from app.models.waha import NON_PROCESSED_TYPES, WahaEvent, WahaMessagePayload
 from app.services import queue
 
@@ -34,7 +34,7 @@ def handle_message(event_dict: dict, repo: CaptureRepo | None = None) -> dict:
     Es SÍNCRONO a propósito (accesos a BD bloqueantes); el webhook lo corre en un
     thread para no bloquear el event loop.
     """
-    repo = repo or SupabaseRepo()
+    repo = repo or get_capture_repo()
     event = WahaEvent.model_validate(event_dict)
 
     # Principio I: la sesión DEBE ser el número observador de algún tenant.
