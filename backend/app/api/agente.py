@@ -1,0 +1,139 @@
+"""App del agente (Producto ③): login por magic link + su ruta de aprendizaje.
+
+El agente entra con su celular o email (magic link, sin contraseña — encaja con el
+bajo nivel técnico). La sesión lleva rol='agente' + agente_id; cada endpoint
+devuelve SOLO lo del agente autenticado.
+"""
+import structlog
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+
+from app.api.gestion import _exec, _rows
+from app.core import auth as authcore
+from app.core.config import settings
+
+router = APIRouter()
+logger = structlog.get_logger()
+
+
+# ── Auth del agente (magic link) ──────────────────────────────────────────────
+class AgenteRequest(BaseModel):
+    identifier: str  # celular o email
+
+
+class AgenteVerify(BaseModel):
+    token: str
+
+
+@router.post("/agente/auth/request")
+def agente_request(body: AgenteRequest) -> dict:
+    """Genera un magic link para el agente. Responde ok siempre (no filtra)."""
+    ag = authcore.get_agente_by_identifier(body.identifier)
+    resp: dict = {"ok": True, "ttl_minutes": settings.magic_ttl_minutes}
+    if ag:
+        token = authcore.make_magic_token({
+            "id": ag["id"], "email": ag.get("email") or ag.get("celular") or str(ag["id"]),
+            "tenant_id": ag["tenant_id"], "agente_id": ag["id"],
+        })
+        if settings.environment == "development":
+            resp["link"] = f"{settings.frontend_url}/agente/magic?token={token}"
+    return resp
+
+
+@router.post("/agente/auth/verify")
+def agente_verify(body: AgenteVerify) -> dict:
+    try:
+        payload = authcore.decode_magic_token(body.token)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=401, detail="Enlace inválido o expirado") from exc
+    aid = payload.get("agente_id")
+    if not aid:
+        raise HTTPException(status_code=401, detail="Enlace no es de agente")
+    rows = _rows("select id, tenant_id, nombre, apellido, email, celular from agentes where id = %s and estado <> 'baja'", (aid,))
+    if not rows:
+        raise HTTPException(status_code=401, detail="Agente no válido")
+    a = rows[0]
+    token = authcore.make_token({
+        "id": a["id"], "email": a.get("email") or a.get("celular") or str(a["id"]),
+        "tenant_id": a["tenant_id"], "nombre": a["nombre"], "rol": "agente", "agente_id": a["id"],
+    })
+    return {"access_token": token, "agente": {"nombre": a["nombre"], "apellido": a["apellido"]}}
+
+
+# ── Datos de la ruta del agente autenticado ──────────────────────────────────
+def _ruta(aid: str, tenant: str, en: bool) -> dict:
+    nombre_e = "coalesce(e.nombre_en, e.nombre)" if en else "e.nombre"
+    etapas = _rows(
+        f"select e.id, {nombre_e} as nombre, e.descripcion, e.orden, "
+        "coalesce(p.estado, 'pendiente') as estado, p.completado_at "
+        "from capacitacion_etapas e "
+        "left join etapa_progreso p on p.etapa_id = e.id and p.agente_id = %s "
+        "where e.tenant_id = %s order by e.orden",
+        (aid, tenant),
+    )
+    total = len(etapas) or 1
+    completadas = sum(1 for e in etapas if e["estado"] == "completado")
+    actual = next((e for e in etapas if e["estado"] == "en_curso"), None)
+    return {"etapas": etapas, "total": len(etapas), "completadas": completadas,
+            "pct": round(completadas / total * 100), "actual_orden": actual["orden"] if actual else None}
+
+
+@router.get("/agente/ruta")
+def agente_ruta(ctx: dict = Depends(authcore.require_agent), lang: str = "es") -> dict:
+    return _ruta(ctx["agente_id"], ctx["tenant_id"], lang == "en")
+
+
+@router.post("/agente/ruta/avanzar")
+def agente_avanzar(ctx: dict = Depends(authcore.require_agent)) -> dict:
+    """Completa la etapa en curso y abre la siguiente (idempotente por etapa)."""
+    aid, tenant = ctx["agente_id"], ctx["tenant_id"]
+    r = _ruta(aid, tenant, False)
+    actual = next((e for e in r["etapas"] if e["estado"] == "en_curso"), None)
+    if not actual:
+        # si no hay 'en_curso', abrir la primera pendiente
+        actual = next((e for e in r["etapas"] if e["estado"] == "pendiente"), None)
+        if actual:
+            _exec(
+                "insert into etapa_progreso (tenant_id, agente_id, etapa_id, estado) values (%s,%s,%s,'en_curso') "
+                "on conflict (agente_id, etapa_id) do update set estado='en_curso'",
+                (tenant, aid, actual["id"]),
+            )
+            return {"ok": True, "abierta": actual["orden"]}
+        return {"ok": True, "completa": True}
+
+    # completar la actual
+    _exec(
+        "insert into etapa_progreso (tenant_id, agente_id, etapa_id, estado, completado_at) "
+        "values (%s,%s,%s,'completado', now()) on conflict (agente_id, etapa_id) "
+        "do update set estado='completado', completado_at=now()",
+        (tenant, aid, actual["id"]),
+    )
+    # abrir la siguiente
+    siguiente = next((e for e in r["etapas"] if e["orden"] == actual["orden"] + 1), None)
+    if siguiente:
+        _exec(
+            "insert into etapa_progreso (tenant_id, agente_id, etapa_id, estado) values (%s,%s,%s,'en_curso') "
+            "on conflict (agente_id, etapa_id) do update set estado='en_curso'",
+            (tenant, aid, siguiente["id"]),
+        )
+    return {"ok": True, "completada": actual["orden"], "abierta": siguiente["orden"] if siguiente else None}
+
+
+@router.get("/agente/me")
+def agente_me(ctx: dict = Depends(authcore.require_agent), lang: str = "es") -> dict:
+    aid, tenant = ctx["agente_id"], ctx["tenant_id"]
+    a = _rows(
+        "select nombre, apellido, ciudad, region, fecha_alta, "
+        "(current_date - fecha_alta) as dias_desde_alta "
+        "from agentes where id = %s", (aid,),
+    )[0]
+    r = _ruta(aid, tenant, lang == "en")
+    # Score derivado (demo): base + avance de ruta. El motor de Score real es del Producto ②.
+    score = min(100, round(60 + r["pct"] * 0.4))
+    cerrados = _rows("select count(*) as n from pendientes where agente_id=%s and estado='cerrado'", (aid,))[0]["n"]
+    return {
+        "nombre": a["nombre"], "apellido": a["apellido"], "ciudad": a["ciudad"],
+        "dias_desde_alta": a["dias_desde_alta"], "score": score,
+        "ruta_pct": r["pct"], "etapas_completadas": r["completadas"], "etapas_total": r["total"],
+        "tareas_cerradas": cerrados,
+    }

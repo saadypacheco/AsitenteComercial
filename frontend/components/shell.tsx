@@ -33,7 +33,12 @@ export function Shell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     requireAuth();
-    setUser(getUser());
+    const u = getUser();
+    if (u?.rol === "agente") {
+      window.location.href = "/agente"; // un agente no entra al panel de la líder
+      return;
+    }
+    setUser(u);
   }, []);
 
   useEffect(() => setOpen(false), [pathname]); // cerrar drawer al navegar

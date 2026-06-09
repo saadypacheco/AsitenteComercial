@@ -36,12 +36,12 @@ begin
   on conflict do nothing;
 
   -- AGENTES (jerarquía variable: María líder; Juan/Ana bajo María; Luis/Sofía bajo Juan)
-  insert into agentes (id, tenant_id, contact_id, nombre, apellido, celular, estado, superior_id, ciudad, origen_alta) values
-    (e1, t, b1, 'María', 'López', '5491111', 'activo', null, 'Miami',  'manual'),
-    (e2, t, b2, 'Juan',  'Pérez', '5492222', 'activo', e1,   'Miami',  'manual'),
-    (e3, t, b3, 'Ana',   'Torres','5493333', 'activo', e1,   'Orlando','csv'),
-    (e4, t, b4, 'Luis',  'Gómez', '5494444', 'activo', e2,   'Tampa',  'csv'),
-    (e5, t, b5, 'Sofía', 'Ruíz',  '5495555', 'activo', e2,   'Miami',  'capacitacion')
+  insert into agentes (id, tenant_id, contact_id, nombre, apellido, celular, email, estado, superior_id, ciudad, origen_alta) values
+    (e1, t, b1, 'María', 'López', '5491111', 'maria@demo.com', 'activo', null, 'Miami',  'manual'),
+    (e2, t, b2, 'Juan',  'Pérez', '5492222', 'juan@demo.com',  'activo', e1,   'Miami',  'manual'),
+    (e3, t, b3, 'Ana',   'Torres','5493333', 'ana@demo.com',   'activo', e1,   'Orlando','csv'),
+    (e4, t, b4, 'Luis',  'Gómez', '5494444', 'luis@demo.com',  'activo', e2,   'Tampa',  'csv'),
+    (e5, t, b5, 'Sofía', 'Ruíz',  '5495555', 'sofia@demo.com', 'activo', e2,   'Miami',  'capacitacion')
   on conflict do nothing;
 
   -- ACTIVIDAD REAL: mensajes en 7 días por agente → alimenta ranking/grupos.

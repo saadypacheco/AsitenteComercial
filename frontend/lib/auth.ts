@@ -37,6 +37,31 @@ export function requireAuth() {
   if (typeof window !== "undefined" && !getToken()) window.location.href = "/login";
 }
 
+/** Guard de la app del agente: exige sesión con rol 'agente'. */
+export function requireAgent() {
+  if (typeof window === "undefined") return;
+  if (!getToken() || getUser()?.rol !== "agente") window.location.href = "/agente/login";
+}
+
+/** Pide un magic link para el agente (por celular o email). Dev devuelve el link. */
+export async function requestAgentMagic(identifier: string): Promise<{ ok: boolean; link?: string; ttl_minutes: number }> {
+  const res = await fetch(`${API}/agente/auth/request`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ identifier }),
+  });
+  if (!res.ok) throw new Error("No se pudo generar el enlace");
+  return res.json();
+}
+
+/** Canjea el magic link del agente por una sesión (rol 'agente'). */
+export async function verifyAgentMagic(token: string): Promise<void> {
+  const res = await fetch(`${API}/agente/auth/verify`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }),
+  });
+  if (!res.ok) throw new Error("Enlace inválido o expirado");
+  const data = (await res.json()) as { access_token: string; agente: { nombre: string } };
+  setSession(data.access_token, { email: "", nombre: data.agente.nombre, rol: "agente" });
+}
+
 export async function login(email: string, password: string): Promise<void> {
   const res = await fetch(`${API}/auth/login`, {
     method: "POST",

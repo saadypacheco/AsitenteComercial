@@ -51,6 +51,8 @@ def make_token(user: dict) -> str:
         "rol": user.get("rol", "lider"),
         "exp": int(time.time()) + settings.jwt_ttl_hours * 3600,
     }
+    if user.get("agente_id"):
+        payload["agente_id"] = str(user["agente_id"])
     return pyjwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
 
@@ -67,6 +69,9 @@ def make_magic_token(user: dict) -> str:
         "purpose": "magic",
         "exp": int(time.time()) + settings.magic_ttl_minutes * 60,
     }
+    if user.get("agente_id"):
+        payload["agente_id"] = str(user["agente_id"])
+        payload["rol"] = "agente"
     return pyjwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
 
@@ -94,6 +99,37 @@ def current_user(creds: HTTPAuthorizationCredentials | None = Depends(_bearer)) 
         return _decode(creds.credentials)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=401, detail="Token inválido o expirado") from exc
+
+
+def require_agent(creds: HTTPAuthorizationCredentials | None = Depends(_bearer)) -> dict:
+    """Dependencia para la app del agente: exige rol 'agente' y devuelve sus ids."""
+    if not creds:
+        raise HTTPException(status_code=401, detail="No autenticado")
+    try:
+        p = _decode(creds.credentials)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=401, detail="Token inválido o expirado") from exc
+    if p.get("rol") != "agente" or not p.get("agente_id"):
+        raise HTTPException(status_code=403, detail="Acceso restringido a agentes")
+    return {"agente_id": p["agente_id"], "tenant_id": p["tenant_id"], "nombre": p.get("nombre")}
+
+
+def get_agente_by_identifier(identifier: str) -> dict | None:
+    """Busca un agente por email o celular (para emitir su magic link)."""
+    ident = (identifier or "").strip()
+    if not ident:
+        return None
+    with _connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            "select id, tenant_id, nombre, apellido, email, celular from agentes "
+            "where (lower(email) = lower(%s) or celular = %s) and estado <> 'baja' limit 1",
+            (ident, ident),
+        )
+        row = cur.fetchone()
+        if not row:
+            return None
+        cols = ["id", "tenant_id", "nombre", "apellido", "email", "celular"]
+        return dict(zip(cols, row))
 
 
 # ── Acceso a la tabla de usuarios (psycopg directo, como el resto del backend) ─
