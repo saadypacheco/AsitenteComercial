@@ -8,7 +8,7 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from app.core.auth import require_tenant, scoped_agente_ids, view_ctx
+from app.core.auth import assert_agente_in_scope, require_owner, require_tenant, scoped_agente_ids, view_ctx
 from app.core.config import settings
 from app.services import zoom
 
@@ -87,23 +87,32 @@ class AgenteBody(BaseModel):
 
 
 @router.post("/gestion/agentes")
-def create_agente(body: AgenteBody, tenant: str = Depends(require_tenant)) -> dict:
+def create_agente(body: AgenteBody, ctx: dict = Depends(view_ctx)) -> dict:
     if not body.nombre.strip():
         raise HTTPException(status_code=400, detail="El nombre es obligatorio")
+    tenant, scope_root = ctx["tenant_id"], ctx["scope_root"]
+    superior = body.superior_id or None
+    if scope_root:  # líder: el nuevo agente debe quedar dentro de su equipo
+        scope = scoped_agente_ids(tenant, scope_root) or []
+        if not superior or str(superior) not in scope:
+            superior = scope_root            # cuelga del propio líder
     row = _exec(
         "insert into agentes (tenant_id, nombre, apellido, celular, email, ciudad, region, "
         "superior_id, estado, lat, lng, origen_alta) "
         "values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'manual') returning id",
         (tenant, body.nombre.strip(), body.apellido, body.celular, body.email, body.ciudad,
-         body.region, body.superior_id or None, body.estado, body.lat, body.lng),
+         body.region, superior, body.estado, body.lat, body.lng),
     )
     return {"id": str(row[0])}
 
 
 @router.patch("/gestion/agentes/{aid}")
-def update_agente(aid: str, body: AgenteBody, tenant: str = Depends(require_tenant)) -> dict:
+def update_agente(aid: str, body: AgenteBody, ctx: dict = Depends(view_ctx)) -> dict:
     if body.estado not in ESTADOS_AGENTE:
         raise HTTPException(status_code=400, detail="Estado inválido")
+    tenant, scope_root = ctx["tenant_id"], ctx["scope_root"]
+    assert_agente_in_scope(tenant, scope_root, aid)                 # el agente es de su equipo
+    assert_agente_in_scope(tenant, scope_root, body.superior_id)    # no lo mueve fuera del equipo
     _exec(
         "update agentes set nombre=%s, apellido=%s, celular=%s, email=%s, ciudad=%s, region=%s, "
         "superior_id=%s, estado=%s, lat=%s, lng=%s where id=%s and tenant_id=%s",
@@ -114,8 +123,10 @@ def update_agente(aid: str, body: AgenteBody, tenant: str = Depends(require_tena
 
 
 @router.post("/gestion/agentes/{aid}/baja")
-def baja_agente(aid: str, tenant: str = Depends(require_tenant)) -> dict:
+def baja_agente(aid: str, ctx: dict = Depends(view_ctx)) -> dict:
     """Baja lógica: estado='baja' + fecha_baja (no se borra, conserva historial)."""
+    tenant = ctx["tenant_id"]
+    assert_agente_in_scope(tenant, ctx["scope_root"], aid)
     _exec(
         "update agentes set estado='baja', fecha_baja=current_date where id=%s and tenant_id=%s",
         (aid, tenant),
@@ -165,11 +176,13 @@ class PendienteCreate(BaseModel):
 
 
 @router.post("/gestion/pendientes")
-def create_pendiente(body: PendienteCreate, tenant: str = Depends(require_tenant)) -> dict:
+def create_pendiente(body: PendienteCreate, ctx: dict = Depends(view_ctx)) -> dict:
     if not body.titulo.strip():
         raise HTTPException(status_code=400, detail="El título es obligatorio")
     if body.tipo not in TIPOS or body.prioridad not in PRIORIDADES:
         raise HTTPException(status_code=400, detail="Tipo o prioridad inválidos")
+    tenant = ctx["tenant_id"]
+    assert_agente_in_scope(tenant, ctx["scope_root"], body.agente_id)   # asigna dentro de su equipo
     row = _exec(
         "insert into pendientes (tenant_id, agente_id, titulo, tipo, prioridad, estado, creado_por) "
         "values (%s, %s, %s, %s, %s, 'pendiente', 'human') returning id",
@@ -186,7 +199,15 @@ class PendienteUpdate(BaseModel):
 
 
 @router.patch("/gestion/pendientes/{pid}")
-def update_pendiente(pid: str, body: PendienteUpdate, tenant: str = Depends(require_tenant)) -> dict:
+def update_pendiente(pid: str, body: PendienteUpdate, ctx: dict = Depends(view_ctx)) -> dict:
+    tenant, scope_root = ctx["tenant_id"], ctx["scope_root"]
+    if scope_root:
+        # el pendiente debe ser de su equipo, y si reasigna, al nuevo también
+        own = _rows("select agente_id from pendientes where id=%s and tenant_id=%s", (pid, tenant))
+        if not own:
+            raise HTTPException(status_code=404, detail="Pendiente no encontrado")
+        assert_agente_in_scope(tenant, scope_root, own[0]["agente_id"])
+        assert_agente_in_scope(tenant, scope_root, body.agente_id)
     sets, params = [], []
     if body.estado is not None:
         if body.estado not in ESTADOS:

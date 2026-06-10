@@ -128,6 +128,28 @@ def view_ctx(creds: HTTPAuthorizationCredentials | None = Depends(_bearer)) -> d
     return {"tenant_id": p["tenant_id"], "scope_root": p.get("scope")}
 
 
+def assert_agente_in_scope(tenant_id: str, scope_root: str | None, agente_id: str | None) -> None:
+    """403 si el líder intenta operar sobre un agente fuera de su equipo. Owner: no-op."""
+    if not agente_id or not scope_root:
+        return
+    scope = scoped_agente_ids(tenant_id, scope_root) or []
+    if str(agente_id) not in scope:
+        raise HTTPException(status_code=403, detail="Ese agente no es de tu equipo")
+
+
+def require_owner(creds: HTTPAuthorizationCredentials | None = Depends(_bearer)) -> str:
+    """Solo el owner (líder sin scope) puede operar. Devuelve tenant_id."""
+    if not creds:
+        raise HTTPException(status_code=401, detail="No autenticado")
+    try:
+        p = _decode(creds.credentials)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=401, detail="Token inválido o expirado") from exc
+    if p.get("scope") or p.get("rol") not in (None, "lider"):
+        raise HTTPException(status_code=403, detail="Solo disponible para la dueña de la cuenta")
+    return p["tenant_id"]
+
+
 def scoped_agente_ids(tenant_id: str, scope_root: str | None) -> list[str] | None:
     """IDs del equipo visible: None = todos (owner); si hay scope, el sub-árbol
     (el agente raíz + todos sus subordinados, recursivo por superior_id)."""
