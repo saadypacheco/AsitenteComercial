@@ -8,12 +8,131 @@ Filtrado por el tenant del JWT (FR-009). Etiquetas de catálogo como claves
 se arman en el idioma pedido acá.
 """
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 
-from app.api.gestion import _rows
+from app.api.gestion import _exec, _rows
 from app.core.auth import require_tenant
 from app.core.config import settings
 
 router = APIRouter()
+
+
+# =============================================================================
+# Bandeja de acciones de la IA — "el asistente que ACTÚA"
+# Sugiere acciones con el mensaje ya redactado; al aprobar, las ejecuta
+# (simulado hoy; real cuando esté el número WhatsApp / email conectado).
+# =============================================================================
+def _build_acciones(tenant: str, en: bool) -> list[dict]:
+    out: list[dict] = []
+
+    # Ya ejecutadas en los últimos 7 días → no re-sugerir
+    enviadas = {r["ref_id"] for r in _rows(
+        "select ref_id from acciones_log where tenant_id=%s and created_at > now() - interval '7 days'", (tenant,))}
+
+    cli = "coalesce(p.cliente_en, p.cliente)" if en else "coalesce(p.cliente, p.titulo)"
+    pend = _rows(
+        f"select p.id, {cli} as cliente, p.vip, "
+        "round(extract(epoch from now()-p.created_at)/3600)::int as horas, "
+        "nullif(trim(coalesce(a.nombre,'')||' '||coalesce(a.apellido,'')), '') as agente "
+        "from pendientes p left join agentes a on a.id=p.agente_id "
+        "where p.tenant_id=%s and p.prioridad='critico' and p.estado='pendiente' order by p.created_at", (tenant,),
+    )
+    for p in pend:
+        ref = f"pend-{p['id']}"
+        if ref in enviadas:
+            continue
+        agente = p["agente"] or ("the agent" if en else "el agente")
+        if en:
+            msg = (f"Hi {agente}, client {p['cliente']} has been waiting for a reply for {p['horas']}h. "
+                   "Could you follow up today? Let me know if you need a hand. 💪")
+            titulo, motivo = f"Message {agente}", f"{p['cliente']} · {p['horas']}h no reply" + (" · VIP" if p["vip"] else "")
+        else:
+            msg = (f"Hola {agente}, el cliente {p['cliente']} está esperando respuesta hace {p['horas']}h. "
+                   "¿Podés darle seguimiento hoy? Si necesitás ayuda, avisame. 💪")
+            titulo, motivo = f"Escribir a {agente}", f"{p['cliente']} · {p['horas']}h sin respuesta" + (" · VIP" if p["vip"] else "")
+        out.append({"id": ref, "ref_id": ref, "tipo": "mensaje_agente", "prioridad": "alta", "tono": "danger",
+                    "titulo": titulo, "destinatario": agente, "canal": "whatsapp", "motivo": motivo, "mensaje": msg})
+
+    # Agente saturado → ofrecer ayuda / redistribuir
+    sat = _rows(
+        "select trim(a.nombre||' '||coalesce(a.apellido,'')) as nombre, "
+        "(select count(*) from pendientes p where p.agente_id=a.id and p.estado<>'cerrado') as ab "
+        "from agentes a where a.tenant_id=%s and a.estado<>'baja' "
+        "and (select count(*) from pendientes p where p.agente_id=a.id and p.estado<>'cerrado') >= 3 "
+        "order by ab desc limit 2", (tenant,),
+    )
+    for s in sat:
+        ref = f"sat-{s['nombre']}"
+        if ref in enviadas:
+            continue
+        if en:
+            msg = f"Hi {s['nombre']}, I see you have {s['ab']} open items. Want me to reassign a couple so you can breathe? Great work 🙌"
+            titulo, motivo = f"Support {s['nombre']}", f"Overloaded · {s['ab']} open items"
+        else:
+            msg = f"Hola {s['nombre']}, veo que tenés {s['ab']} pendientes abiertos. ¿Querés que te reasigne un par para descomprimir? Buen trabajo 🙌"
+            titulo, motivo = f"Apoyar a {s['nombre']}", f"Saturada · {s['ab']} pendientes"
+        out.append({"id": ref, "ref_id": ref, "tipo": "ayuda_agente", "prioridad": "media", "tono": "warning",
+                    "titulo": titulo, "destinatario": s["nombre"], "canal": "whatsapp", "motivo": motivo, "mensaje": msg})
+
+    # Top oportunidad → seguimiento
+    otit = "coalesce(title_en, title)" if en else "title"
+    opp = _rows(
+        f"select id, {otit} as titulo, coalesce(valor,0)::int as valor from commercial_events "
+        "where tenant_id=%s and type in ('venta','consulta','seguimiento') and status='open' "
+        "order by valor desc nulls last limit 2", (tenant,),
+    )
+    for o in opp:
+        ref = f"opp-{o['id']}"
+        if ref in enviadas:
+            continue
+        if en:
+            msg = f"Following up on the opportunity '{o['titulo']}' (~${o['valor']:,} potential). Let's lock a next step this week."
+            titulo, motivo = "Follow up opportunity", f"{o['titulo']} · ${o['valor']:,}"
+        else:
+            msg = f"Dando seguimiento a la oportunidad '{o['titulo']}' (~US${o['valor']:,} potencial). Cerremos un próximo paso esta semana."
+            titulo, motivo = "Seguir oportunidad", f"{o['titulo']} · US${o['valor']:,}"
+        out.append({"id": ref, "ref_id": ref, "tipo": "seguimiento_oportunidad", "prioridad": "media", "tono": "ok",
+                    "titulo": titulo, "destinatario": o["titulo"], "canal": "email", "motivo": motivo, "mensaje": msg})
+
+    return out
+
+
+@router.get("/dashboard/acciones")
+def acciones(tenant: str = Depends(require_tenant), lang: str = "es") -> list:
+    return _build_acciones(tenant, lang == "en")
+
+
+class AccionEjecutar(BaseModel):
+    ref_id: str
+    tipo: str
+    destinatario: str
+    canal: str
+    mensaje: str
+
+
+@router.post("/dashboard/acciones/ejecutar")
+def ejecutar_accion(body: AccionEjecutar, tenant: str = Depends(require_tenant)) -> dict:
+    """Aprueba y 'envía' la acción. Hoy modo simulado (registra); con el número/
+    email conectado, acá se hace el envío real por WhatsApp/email."""
+    modo = "simulado"  # TODO: enviar real vía WAHA (whatsapp) / SMTP (email) cuando esté conectado
+    _exec(
+        "insert into acciones_log (tenant_id, ref_id, tipo, destinatario, canal, mensaje, modo) "
+        "values (%s,%s,%s,%s,%s,%s,%s)",
+        (tenant, body.ref_id, body.tipo, body.destinatario, body.canal, body.mensaje, modo),
+    )
+    # Efecto: si la acción salía de un pendiente, lo movemos a 'en proceso'.
+    if body.ref_id.startswith("pend-"):
+        _exec("update pendientes set estado='en_proceso' where id=%s and tenant_id=%s",
+              (body.ref_id[5:], tenant))
+    return {"ok": True, "modo": modo}
+
+
+@router.get("/dashboard/acciones/historial")
+def acciones_historial(tenant: str = Depends(require_tenant)) -> list:
+    return _rows(
+        "select tipo, destinatario, canal, mensaje, modo, created_at from acciones_log "
+        "where tenant_id=%s order by created_at desc limit 20", (tenant,),
+    )
 
 
 @router.get("/config/status")

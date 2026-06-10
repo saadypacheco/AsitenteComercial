@@ -13,3 +13,4 @@
 \i /migrations/0012_command_center.sql
 \i /migrations/0013_capacitacion_ruta.sql
 \i /migrations/0014_capacitacion_zoom.sql
+\i /migrations/0015_acciones.sql

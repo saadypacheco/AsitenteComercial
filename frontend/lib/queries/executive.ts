@@ -68,6 +68,35 @@ export async function getCommand(lang = "es"): Promise<Command> {
   return res.json();
 }
 
+export type Accion = {
+  id: string;
+  ref_id: string;
+  tipo: string;
+  prioridad: string;
+  tono: Tone;
+  titulo: string;
+  destinatario: string;
+  canal: "whatsapp" | "email";
+  motivo: string;
+  mensaje: string;
+};
+
+export async function getAcciones(lang = "es"): Promise<Accion[]> {
+  const res = await authFetch(`/dashboard/acciones?lang=${lang}`);
+  if (!res.ok) throw new Error(`acciones: ${res.status}`);
+  return res.json();
+}
+
+export async function ejecutarAccion(a: { ref_id: string; tipo: string; destinatario: string; canal: string; mensaje: string }): Promise<{ ok: boolean; modo: string }> {
+  const res = await authFetch("/dashboard/acciones/ejecutar", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(a),
+  });
+  if (!res.ok) throw new Error(`ejecutar: ${res.status}`);
+  return res.json();
+}
+
 export type ConfigStatus = { ia_enabled: boolean; llm_model: string; environment: string };
 export async function getConfigStatus(): Promise<ConfigStatus> {
   const res = await authFetch("/config/status");

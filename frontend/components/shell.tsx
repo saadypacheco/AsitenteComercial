@@ -10,9 +10,10 @@ import { getUser, logout, requireAuth, type SessionUser } from "@/lib/auth";
 import { useLocale } from "@/lib/locale-context";
 
 // Rutas del menú. href=null → sección aún no construida (se muestra "Pronto").
-type NavKey = "inicio" | "pendientes" | "agentes" | "grupos" | "eventos" | "capacitaciones" | "mensajes" | "reportes" | "iaInsights" | "ajustes";
-const NAV: { key: NavKey; href: string | null }[] = [
+type NavKey = "inicio" | "acciones" | "pendientes" | "agentes" | "grupos" | "eventos" | "capacitaciones" | "mensajes" | "reportes" | "iaInsights" | "ajustes";
+const NAV: { key: NavKey; href: string | null; badge?: boolean }[] = [
   { key: "inicio", href: "/inicio" },
+  { key: "acciones", href: "/acciones", badge: true },
   { key: "pendientes", href: "/pendientes" },
   { key: "agentes", href: "/agentes" },
   { key: "grupos", href: "/grupos" },
@@ -45,7 +46,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
   const nav = (
     <nav className="space-y-1">
-      {NAV.map(({ key, href }) => {
+      {NAV.map(({ key, href, badge }) => {
         const active = href && pathname.startsWith(href);
         const label = ti.nav[key];
         if (!href) {
@@ -60,11 +61,12 @@ export function Shell({ children }: { children: ReactNode }) {
           <Link
             key={key}
             href={href}
-            className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${
+            className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm font-medium ${
               active ? "bg-brand-soft text-brand" : "text-muted hover:bg-soft"
             }`}
           >
             {label}
+            {badge && <span className="rounded bg-brand px-1.5 py-0.5 text-[9px] font-bold text-white">{ti.newBadge}</span>}
           </Link>
         );
       })}
