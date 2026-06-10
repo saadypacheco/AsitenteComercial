@@ -8,12 +8,19 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from app.core.auth import require_tenant
+from app.core.auth import require_tenant, scoped_agente_ids, view_ctx
 from app.core.config import settings
 from app.services import zoom
 
 router = APIRouter()
 logger = structlog.get_logger()
+
+
+def _scope(col: str, scope: list[str] | None):
+    """Devuelve (fragmento_sql, params) para acotar por sub-árbol del líder."""
+    if scope is None:
+        return "", []
+    return f" and {col} = any(%s::uuid[])", [scope]
 
 PRIORIDADES = ("critico", "alto", "medio", "bajo")
 ESTADOS = ("pendiente", "en_proceso", "cerrado")
@@ -48,8 +55,11 @@ ESTADOS_AGENTE = ("activo", "inactivo", "baja")
 
 
 @router.get("/gestion/agentes")
-def list_agentes(tenant: str = Depends(require_tenant)) -> list:
-    """Agentes activos/inactivos con datos de contacto + coordenadas para el mapa."""
+def list_agentes(ctx: dict = Depends(view_ctx)) -> list:
+    """Agentes activos/inactivos con datos de contacto + coordenadas. Acotado al
+    equipo del líder (sub-árbol); el owner ve todos."""
+    tenant = ctx["tenant_id"]
+    sc, sp = _scope("a.id", scoped_agente_ids(tenant, ctx["scope_root"]))
     return _rows(
         "select a.id, a.nombre, a.apellido, a.celular, a.email, a.estado, a.ciudad, "
         "a.region, a.idioma, a.superior_id, a.lat, a.lng, "
@@ -57,9 +67,9 @@ def list_agentes(tenant: str = Depends(require_tenant)) -> list:
         "(select count(*) from pendientes p where p.agente_id = a.id and p.estado = 'cerrado') as cerrados, "
         "nullif(trim(coalesce(s.nombre,'') || ' ' || coalesce(s.apellido,'')), '') as superior "
         "from agentes a left join agentes s on s.id = a.superior_id "
-        "where a.tenant_id = %s and a.estado <> 'baja' "
+        f"where a.tenant_id = %s and a.estado <> 'baja'{sc} "
         "order by a.nombre, a.apellido",
-        (tenant,),
+        (tenant, *sp),
     )
 
 
@@ -115,30 +125,34 @@ def baja_agente(aid: str, tenant: str = Depends(require_tenant)) -> dict:
 
 # ── Pendientes / acciones ─────────────────────────────────────────────────────
 @router.get("/gestion/pendientes")
-def list_pendientes(tenant: str = Depends(require_tenant), lang: str = "es") -> dict:
+def list_pendientes(ctx: dict = Depends(view_ctx), lang: str = "es") -> dict:
     en = lang == "en"
+    tenant = ctx["tenant_id"]
+    scope = scoped_agente_ids(tenant, ctx["scope_root"])
+    scp, spp = _scope("agente_id", scope)
     prog = _rows(
         "select count(*) filter (where estado = 'cerrado') as cerrados, "
         "count(*) filter (where estado <> 'cerrado') as abiertos, "
         "count(*) filter (where estado <> 'cerrado' and prioridad = 'critico') as criticos, "
         "count(*) filter (where estado <> 'cerrado' and agente_id is null) as sin_asignar, "
-        "count(*) as total from pendientes where tenant_id = %s",
-        (tenant,),
+        f"count(*) as total from pendientes where tenant_id = %s{scp}",
+        (tenant, *spp),
     )[0]
     total = prog["total"] or 1
     prog["pct"] = round(prog["cerrados"] / total * 100)
     titulo_expr = "coalesce(p.titulo_en, p.titulo)" if en else "p.titulo"
     cliente_expr = "coalesce(p.cliente_en, p.cliente)" if en else "p.cliente"
+    sci, spi = _scope("p.agente_id", scope)
     items = _rows(
         f"select p.id, {titulo_expr} as titulo, {cliente_expr} as cliente, p.vip, "
         "p.tipo, p.prioridad, p.estado, p.created_at, p.fecha_cierre, p.agente_id, "
         "round(extract(epoch from now()-p.created_at)/3600)::int as horas, "
         "nullif(trim(coalesce(a.nombre,'') || ' ' || coalesce(a.apellido,'')), '') as agente "
         "from pendientes p left join agentes a on a.id = p.agente_id "
-        "where p.tenant_id = %s and p.estado <> 'cerrado' "
+        f"where p.tenant_id = %s and p.estado <> 'cerrado'{sci} "
         "order by case p.prioridad when 'critico' then 0 when 'alto' then 1 "
         "when 'medio' then 2 else 3 end, p.created_at",
-        (tenant,),
+        (tenant, *spi),
     )
     return {"progreso": prog, "items": items}
 

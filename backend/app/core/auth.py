@@ -53,6 +53,8 @@ def make_token(user: dict) -> str:
     }
     if user.get("agente_id"):
         payload["agente_id"] = str(user["agente_id"])
+    if user.get("scope_agente_id"):           # líder acotado a un sub-árbol del equipo
+        payload["scope"] = str(user["scope_agente_id"])
     return pyjwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
 
@@ -114,6 +116,34 @@ def require_agent(creds: HTTPAuthorizationCredentials | None = Depends(_bearer))
     return {"agente_id": p["agente_id"], "tenant_id": p["tenant_id"], "nombre": p.get("nombre")}
 
 
+def view_ctx(creds: HTTPAuthorizationCredentials | None = Depends(_bearer)) -> dict:
+    """Contexto de vista del panel: tenant + scope (None=owner ve todo; si hay scope,
+    el líder ve solo su sub-árbol de agentes)."""
+    if not creds:
+        raise HTTPException(status_code=401, detail="No autenticado")
+    try:
+        p = _decode(creds.credentials)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=401, detail="Token inválido o expirado") from exc
+    return {"tenant_id": p["tenant_id"], "scope_root": p.get("scope")}
+
+
+def scoped_agente_ids(tenant_id: str, scope_root: str | None) -> list[str] | None:
+    """IDs del equipo visible: None = todos (owner); si hay scope, el sub-árbol
+    (el agente raíz + todos sus subordinados, recursivo por superior_id)."""
+    if not scope_root:
+        return None
+    with _connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            "with recursive sub as ("
+            "  select id from agentes where id = %s and tenant_id = %s "
+            "  union select a.id from agentes a join sub on a.superior_id = sub.id) "
+            "select id from sub",
+            (scope_root, tenant_id),
+        )
+        return [str(r[0]) for r in cur.fetchall()]
+
+
 def get_agente_by_identifier(identifier: str) -> dict | None:
     """Busca un agente por email o celular (para emitir su magic link)."""
     ident = (identifier or "").strip()
@@ -144,15 +174,17 @@ def _connect():
 def get_user_by_email(email: str) -> dict | None:
     with _connect() as conn, conn.cursor() as cur:
         cur.execute(
-            "select id, tenant_id, email, password_hash, nombre, rol, activo "
+            "select id, tenant_id, email, password_hash, nombre, rol, activo, agente_id "
             "from app_users where email = %s",
             (email.lower().strip(),),
         )
         row = cur.fetchone()
         if not row:
             return None
-        cols = ["id", "tenant_id", "email", "password_hash", "nombre", "rol", "activo"]
-        return dict(zip(cols, row))
+        cols = ["id", "tenant_id", "email", "password_hash", "nombre", "rol", "activo", "agente_id"]
+        u = dict(zip(cols, row))
+        u["scope_agente_id"] = u.get("agente_id")  # líder: su nodo de la jerarquía
+        return u
 
 
 def ensure_default_user() -> None:
@@ -165,16 +197,32 @@ def ensure_default_user() -> None:
             if cur.fetchone()[0] is None:
                 logger.info("auth.seed.skip", reason="tabla app_users no existe aún")
                 return
+            # Owner (Cecilia) — ve todo (agente_id NULL)
             cur.execute("select 1 from app_users where email = %s", (settings.default_lider_email,))
-            if cur.fetchone():
-                return
-            cur.execute(
-                "insert into app_users (tenant_id, email, password_hash, nombre, rol) "
-                "values (%s, %s, %s, %s, 'lider')",
-                (DEMO_TENANT, settings.default_lider_email,
-                 hash_password(settings.default_lider_password), "Cecilia"),
-            )
+            if not cur.fetchone():
+                cur.execute(
+                    "insert into app_users (tenant_id, email, password_hash, nombre, rol) "
+                    "values (%s, %s, %s, %s, 'lider')",
+                    (DEMO_TENANT, settings.default_lider_email,
+                     hash_password(settings.default_lider_password), "Cecilia"),
+                )
+                logger.info("auth.seed.ok", email=settings.default_lider_email)
+
+            # Líder demo — acotado al equipo de Juan (su sub-árbol)
+            has_agente_col = False
+            cur.execute("select 1 from information_schema.columns where table_name='app_users' and column_name='agente_id'")
+            has_agente_col = cur.fetchone() is not None
+            if has_agente_col:
+                cur.execute("select id from agentes where tenant_id = %s and lower(email) = 'juan@demo.com' limit 1", (DEMO_TENANT,))
+                juan = cur.fetchone()
+                cur.execute("select 1 from app_users where email = 'lider@demo.com'")
+                if juan and not cur.fetchone():
+                    cur.execute(
+                        "insert into app_users (tenant_id, email, password_hash, nombre, rol, agente_id) "
+                        "values (%s, 'lider@demo.com', %s, 'Juan (líder)', 'lider', %s)",
+                        (DEMO_TENANT, hash_password(settings.default_lider_password), juan[0]),
+                    )
+                    logger.info("auth.seed.lider", email="lider@demo.com")
             conn.commit()
-            logger.info("auth.seed.ok", email=settings.default_lider_email)
     except Exception as exc:  # noqa: BLE001
         logger.warning("auth.seed.error", error=str(exc))
