@@ -5,7 +5,7 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8002";
 const TOKEN_KEY = "mc_token";
 const USER_KEY = "mc_user";
 
-export type SessionUser = { email: string; nombre: string | null; rol: string };
+export type SessionUser = { email: string; nombre: string | null; rol: string; alcance?: string };
 
 export function getToken(): string | null {
   return typeof window === "undefined" ? null : localStorage.getItem(TOKEN_KEY);

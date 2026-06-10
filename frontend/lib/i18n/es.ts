@@ -48,6 +48,7 @@ export const es = {
     newBadge: "NUEVO",
     soon: "Pronto",
     menu: "Menú",
+    scopeTeam: "Tu equipo",
     searchPlaceholder: "Buscar mensajes, personas, grupos, pendientes, eventos y más…",
     searchBtn: "Buscar",
     searchEmptyPre: "Sin resultados para",

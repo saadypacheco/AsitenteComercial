@@ -44,6 +44,7 @@ export const en: typeof es = {
     newBadge: "NEW",
     soon: "Soon",
     menu: "Menu",
+    scopeTeam: "Your team",
     searchPlaceholder: "Search messages, people, groups, pending items, events and more…",
     searchBtn: "Search",
     searchEmptyPre: "No results for",

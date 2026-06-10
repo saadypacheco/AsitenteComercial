@@ -289,22 +289,28 @@ def list_mensajes(tenant: str = Depends(require_tenant), lang: str = "es", tipo:
 
 # ── Capacitaciones (lista con asistencia) ─────────────────────────────────────
 @router.get("/gestion/capacitacion/programa")
-def capacitacion_programa(tenant: str = Depends(require_tenant), lang: str = "es") -> dict:
+def capacitacion_programa(ctx: dict = Depends(view_ctx), lang: str = "es") -> dict:
     """Ruta de capacitación: progreso global, etapas (funnel), progreso por agente,
-    calendario de sesiones, alertas y notificaciones."""
+    calendario de sesiones, alertas y notificaciones. Acotado al equipo del líder."""
     en = lang == "en"
+    tenant = ctx["tenant_id"]
+    scope = scoped_agente_ids(tenant, ctx["scope_root"])
+    scP, spP = _scope("agente_id", scope)
+    scPP, spPP = _scope("p.agente_id", scope)
+    scA, spA = _scope("a.id", scope)
     nombre_e = "coalesce(e.nombre_en, e.nombre)" if en else "e.nombre"
 
     etapas = _rows(
         f"select e.id, {nombre_e} as nombre, e.descripcion, e.orden, "
-        "(select count(*) from etapa_progreso p where p.etapa_id=e.id and p.estado='completado') as completados, "
-        "(select count(*) from etapa_progreso p where p.etapa_id=e.id and p.estado='en_curso') as en_curso, "
-        "(select count(*) from etapa_progreso p where p.etapa_id=e.id and p.estado='pendiente') as pendientes "
-        "from capacitacion_etapas e where e.tenant_id=%s order by e.orden", (tenant,),
+        f"(select count(*) from etapa_progreso p where p.etapa_id=e.id and p.estado='completado'{scPP}) as completados, "
+        f"(select count(*) from etapa_progreso p where p.etapa_id=e.id and p.estado='en_curso'{scPP}) as en_curso, "
+        f"(select count(*) from etapa_progreso p where p.etapa_id=e.id and p.estado='pendiente'{scPP}) as pendientes "
+        "from capacitacion_etapas e where e.tenant_id=%s order by e.orden",
+        (*spPP, *spPP, *spPP, tenant),
     )
     total_etapas = len(etapas) or 1
-    n_ag = _rows("select count(distinct agente_id) as n from etapa_progreso where tenant_id=%s", (tenant,))[0]["n"] or 1
-    comp = _rows("select count(*) as n from etapa_progreso where tenant_id=%s and estado='completado'", (tenant,))[0]["n"]
+    n_ag = _rows(f"select count(distinct agente_id) as n from etapa_progreso where tenant_id=%s{scP}", (tenant, *spP))[0]["n"] or 1
+    comp = _rows(f"select count(*) as n from etapa_progreso where tenant_id=%s and estado='completado'{scP}", (tenant, *spP))[0]["n"]
     total = total_etapas * n_ag
     for e in etapas:
         e["pct"] = round(e["completados"] / n_ag * 100) if n_ag else 0
@@ -314,9 +320,9 @@ def capacitacion_programa(tenant: str = Depends(require_tenant), lang: str = "es
         "(select count(*) from etapa_progreso p where p.agente_id=a.id and p.estado='completado') as completados, "
         f"(select {nombre_e} from etapa_progreso p join capacitacion_etapas e on e.id=p.etapa_id "
         " where p.agente_id=a.id and p.estado='en_curso' order by e.orden limit 1) as etapa_actual "
-        "from agentes a where a.tenant_id=%s and a.estado<>'baja' "
+        f"from agentes a where a.tenant_id=%s and a.estado<>'baja'{scA} "
         "and exists (select 1 from etapa_progreso p where p.agente_id=a.id) "
-        "order by completados desc", (tenant,),
+        "order by completados desc", (tenant, *spA),
     )
     for a in agentes:
         a["pct"] = round(a["completados"] / total_etapas * 100) if total_etapas else 0
@@ -335,8 +341,8 @@ def capacitacion_programa(tenant: str = Depends(require_tenant), lang: str = "es
     notificaciones = _rows(
         f"select trim(a.nombre || ' ' || coalesce(a.apellido,'')) as agente, {nombre_e} as etapa, p.completado_at as ts "
         "from etapa_progreso p join agentes a on a.id=p.agente_id join capacitacion_etapas e on e.id=p.etapa_id "
-        "where p.tenant_id=%s and p.estado='completado' and p.completado_at is not null "
-        "order by p.completado_at desc limit 6", (tenant,),
+        f"where p.tenant_id=%s and p.estado='completado' and p.completado_at is not null{scPP} "
+        "order by p.completado_at desc limit 6", (tenant, *spPP),
     )
 
     return {

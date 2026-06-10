@@ -105,6 +105,9 @@ export function Shell({ children }: { children: ReactNode }) {
           <button onClick={() => setOpen(true)} className="rounded-lg p-1.5 text-muted hover:bg-soft md:hidden" aria-label={ti.menu}>
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" /></svg>
           </button>
+          {user?.alcance === "equipo" && (
+            <span className="rounded-full bg-brand-soft px-2.5 py-1 text-xs font-semibold text-brand">👥 {ti.scopeTeam}</span>
+          )}
           <div className="flex-1" />
           <button
             onClick={toggle}

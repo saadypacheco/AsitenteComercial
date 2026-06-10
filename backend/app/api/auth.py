@@ -26,7 +26,11 @@ class MagicVerifyBody(BaseModel):
 def _session(user: dict) -> dict:
     return {
         "access_token": authcore.make_token(user),
-        "user": {"email": user["email"], "nombre": user["nombre"], "rol": user["rol"]},
+        "user": {
+            "email": user["email"], "nombre": user["nombre"], "rol": user["rol"],
+            # 'equipo' = líder acotado a su sub-árbol; 'todo' = owner (ve toda la org).
+            "alcance": "equipo" if user.get("agente_id") else "todo",
+        },
     }
 
 
