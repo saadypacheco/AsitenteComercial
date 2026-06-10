@@ -308,6 +308,10 @@ export const es = {
     agViewList: "Lista",
     agViewTree: "Jerarquía",
     agNoSuperior: "Dirección",
+    agMakeLider: "Hacer líder",
+    agRemoveLider: "Quitar líder",
+    agLiderBadge: "Líder",
+    agLiderDone: "ya puede entrar al panel como líder de su equipo, con su email (enlace de acceso en el login).",
     estadoAgente: { activo: "Activo", inactivo: "Inactivo" },
     // Grupos
     grpEmpty: "No hay grupos.",

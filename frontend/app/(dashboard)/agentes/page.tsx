@@ -8,11 +8,14 @@ import { useEffect, useState } from "react";
 import { AgentTree } from "@/components/agent-tree";
 import { Avatar, Badge } from "@/components/executive";
 import { Card } from "@/components/ui";
+import { getUser } from "@/lib/auth";
 import { useLocale } from "@/lib/locale-context";
 import {
   bajaAgente,
   createAgente,
+  designarLider,
   getAgentes,
+  quitarLider,
   updateAgente,
   type Agente,
   type AgenteInput,
@@ -36,6 +39,21 @@ export default function AgentesPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<AgenteInput>(EMPTY);
   const [view, setView] = useState<"lista" | "jerarquia">("lista");
+  const [isOwner, setIsOwner] = useState(false);
+
+  useEffect(() => setIsOwner(getUser()?.alcance === "todo"), []);
+
+  async function toggleLider(a: Agente) {
+    setBusy(true);
+    if (a.es_lider) {
+      await quitarLider(a.id).catch(() => {});
+    } else {
+      const r = await designarLider(a.id).catch(() => null);
+      if (r) alert(`✅ ${r.email} ${t.agLiderDone}`);
+    }
+    reload();
+    setBusy(false);
+  }
 
   function reload() {
     getAgentes().then(setAgentes).catch(() => setAgentes([]));
@@ -175,6 +193,7 @@ export default function AgentesPage() {
                 </div>
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1">
+                {a.es_lider && <Badge tone="brand">★ {t.agLiderBadge}</Badge>}
                 <Badge tone={a.estado === "activo" ? "ok" : "warning"}>
                   {a.estado === "activo" ? t.estadoAgente.activo : t.estadoAgente.inactivo}
                 </Badge>
@@ -190,8 +209,14 @@ export default function AgentesPage() {
               </p>
               {a.superior && <p className="text-xs text-muted">↳ {t.fSuperior}: {a.superior}</p>}
             </div>
-            <div className="mt-3 flex gap-2 border-t border-line pt-3">
+            <div className="mt-3 flex flex-wrap gap-2 border-t border-line pt-3">
               <button onClick={() => startEdit(a)} className="rounded-lg border border-line px-3 py-1.5 text-xs font-semibold text-muted hover:bg-soft">{t.agEdit}</button>
+              {isOwner && a.email && (
+                <button onClick={() => toggleLider(a)} disabled={busy}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${a.es_lider ? "border-line text-muted hover:bg-soft" : "border-brand text-brand hover:bg-brand-soft"}`}>
+                  ★ {a.es_lider ? t.agRemoveLider : t.agMakeLider}
+                </button>
+              )}
               <button onClick={() => darBaja(a)} disabled={busy} className="rounded-lg border border-line px-3 py-1.5 text-xs font-semibold text-danger hover:bg-red-50 disabled:opacity-50">{t.agBaja}</button>
             </div>
           </Card>

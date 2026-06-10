@@ -8,7 +8,11 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from app.core.auth import assert_agente_in_scope, require_owner, require_tenant, scoped_agente_ids, view_ctx
+import secrets
+
+from app.core.auth import (
+    assert_agente_in_scope, hash_password, require_owner, require_tenant, scoped_agente_ids, view_ctx,
+)
 from app.core.config import settings
 from app.services import zoom
 
@@ -65,6 +69,7 @@ def list_agentes(ctx: dict = Depends(view_ctx)) -> list:
         "a.region, a.idioma, a.superior_id, a.lat, a.lng, "
         "(select count(*) from pendientes p where p.agente_id = a.id and p.estado <> 'cerrado') as abiertas, "
         "(select count(*) from pendientes p where p.agente_id = a.id and p.estado = 'cerrado') as cerrados, "
+        "exists (select 1 from app_users u where u.agente_id = a.id and u.rol = 'lider') as es_lider, "
         "nullif(trim(coalesce(s.nombre,'') || ' ' || coalesce(s.apellido,'')), '') as superior "
         "from agentes a left join agentes s on s.id = a.superior_id "
         f"where a.tenant_id = %s and a.estado <> 'baja'{sc} "
@@ -119,6 +124,33 @@ def update_agente(aid: str, body: AgenteBody, ctx: dict = Depends(view_ctx)) -> 
         (body.nombre.strip(), body.apellido, body.celular, body.email, body.ciudad, body.region,
          body.superior_id or None, body.estado, body.lat, body.lng, aid, tenant),
     )
+    return {"ok": True}
+
+
+@router.post("/gestion/agentes/{aid}/lider")
+def designar_lider(aid: str, tenant: str = Depends(require_owner)) -> dict:
+    """Owner designa a un agente como LÍDER: crea su usuario del panel acotado a su
+    equipo (su sub-árbol). Entra al panel con su email vía enlace de acceso (magic link)."""
+    ag = _rows("select email, nombre, apellido from agentes where id = %s and tenant_id = %s and estado <> 'baja'", (aid, tenant))
+    if not ag:
+        raise HTTPException(status_code=404, detail="Agente no encontrado")
+    email = (ag[0]["email"] or "").strip().lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="El agente necesita un email para ser líder")
+    nombre = f"{ag[0]['nombre']} {ag[0].get('apellido') or ''}".strip() + " (líder)"
+    _exec(
+        "insert into app_users (tenant_id, email, password_hash, nombre, rol, agente_id) "
+        "values (%s, %s, %s, %s, 'lider', %s) "
+        "on conflict (email) do update set rol='lider', agente_id=excluded.agente_id, activo=true",
+        (tenant, email, hash_password(secrets.token_urlsafe(16)), nombre, aid),
+    )
+    return {"ok": True, "email": email}
+
+
+@router.delete("/gestion/agentes/{aid}/lider")
+def quitar_lider(aid: str, tenant: str = Depends(require_owner)) -> dict:
+    """Owner quita el rol de líder a un agente (borra su usuario del panel)."""
+    _exec("delete from app_users where tenant_id = %s and agente_id = %s and rol = 'lider'", (tenant, aid))
     return {"ok": True}
 
 

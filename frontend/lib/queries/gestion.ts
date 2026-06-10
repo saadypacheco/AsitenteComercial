@@ -45,6 +45,7 @@ export type Agente = {
   lng: number | null;
   abiertas: number;
   cerrados: number;
+  es_lider: boolean;
 };
 
 export type AgenteInput = {
@@ -87,6 +88,17 @@ export async function updateAgente(id: string, body: AgenteInput): Promise<void>
 export async function bajaAgente(id: string): Promise<void> {
   const res = await authFetch(`/gestion/agentes/${id}/baja`, { method: "POST" });
   if (!res.ok) throw new Error(`baja agente: ${res.status}`);
+}
+
+export async function designarLider(id: string): Promise<{ email: string }> {
+  const res = await authFetch(`/gestion/agentes/${id}/lider`, { method: "POST" });
+  if (!res.ok) throw new Error(`designar líder: ${res.status}`);
+  return res.json();
+}
+
+export async function quitarLider(id: string): Promise<void> {
+  const res = await authFetch(`/gestion/agentes/${id}/lider`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`quitar líder: ${res.status}`);
 }
 
 // ── Grupos · Eventos · Capacitaciones ────────────────────────────────────────
