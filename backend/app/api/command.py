@@ -10,8 +10,8 @@ se arman en el idioma pedido acá.
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from app.api.gestion import _exec, _rows
-from app.core.auth import require_tenant
+from app.api.gestion import _exec, _rows, _scope
+from app.core.auth import require_tenant, scoped_agente_ids, view_ctx
 from app.core.config import settings
 
 router = APIRouter()
@@ -22,8 +22,10 @@ router = APIRouter()
 # Sugiere acciones con el mensaje ya redactado; al aprobar, las ejecuta
 # (simulado hoy; real cuando esté el número WhatsApp / email conectado).
 # =============================================================================
-def _build_acciones(tenant: str, en: bool) -> list[dict]:
+def _build_acciones(tenant: str, en: bool, scope: list[str] | None = None) -> list[dict]:
     out: list[dict] = []
+    scPP, spPP = _scope("p.agente_id", scope)
+    scA, spA = _scope("a.id", scope)
 
     # Ya ejecutadas en los últimos 7 días → no re-sugerir
     enviadas = {r["ref_id"] for r in _rows(
@@ -35,7 +37,8 @@ def _build_acciones(tenant: str, en: bool) -> list[dict]:
         "round(extract(epoch from now()-p.created_at)/3600)::int as horas, "
         "nullif(trim(coalesce(a.nombre,'')||' '||coalesce(a.apellido,'')), '') as agente "
         "from pendientes p left join agentes a on a.id=p.agente_id "
-        "where p.tenant_id=%s and p.prioridad='critico' and p.estado='pendiente' order by p.created_at", (tenant,),
+        f"where p.tenant_id=%s and p.prioridad='critico' and p.estado='pendiente'{scPP} order by p.created_at",
+        (tenant, *spPP),
     )
     for p in pend:
         ref = f"pend-{p['id']}"
@@ -57,9 +60,9 @@ def _build_acciones(tenant: str, en: bool) -> list[dict]:
     sat = _rows(
         "select trim(a.nombre||' '||coalesce(a.apellido,'')) as nombre, "
         "(select count(*) from pendientes p where p.agente_id=a.id and p.estado<>'cerrado') as ab "
-        "from agentes a where a.tenant_id=%s and a.estado<>'baja' "
+        f"from agentes a where a.tenant_id=%s and a.estado<>'baja'{scA} "
         "and (select count(*) from pendientes p where p.agente_id=a.id and p.estado<>'cerrado') >= 3 "
-        "order by ab desc limit 2", (tenant,),
+        "order by ab desc limit 2", (tenant, *spA),
     )
     for s in sat:
         ref = f"sat-{s['nombre']}"
@@ -98,8 +101,8 @@ def _build_acciones(tenant: str, en: bool) -> list[dict]:
 
 
 @router.get("/dashboard/acciones")
-def acciones(tenant: str = Depends(require_tenant), lang: str = "es") -> list:
-    return _build_acciones(tenant, lang == "en")
+def acciones(ctx: dict = Depends(view_ctx), lang: str = "es") -> list:
+    return _build_acciones(ctx["tenant_id"], lang == "en", scoped_agente_ids(ctx["tenant_id"], ctx["scope_root"]))
 
 
 class AccionEjecutar(BaseModel):
@@ -155,9 +158,14 @@ def _delta(today: int, yest: int):
 
 
 @router.get("/dashboard/command")
-def command(tenant: str = Depends(require_tenant), lang: str = "es") -> dict:
+def command(ctx: dict = Depends(view_ctx), lang: str = "es") -> dict:
     en = lang == "en"
+    tenant = ctx["tenant_id"]
     p = (tenant,)
+    scope = scoped_agente_ids(tenant, ctx["scope_root"])
+    scA, spA = _scope("a.id", scope)            # agentes
+    scP, spP = _scope("agente_id", scope)       # pendientes (tabla)
+    scPP, spPP = _scope("p.agente_id", scope)   # pendientes (alias p)
 
     # ── KPIs ─────────────────────────────────────────────────────────────────
     conv = _rows(
@@ -173,15 +181,18 @@ def command(tenant: str = Depends(require_tenant), lang: str = "es") -> dict:
         (tenant, tenant),
     )[0]
     criticos = _rows(
-        "select count(*) as n from pendientes where tenant_id=%s and prioridad='critico' and estado<>'cerrado'", p
+        f"select count(*) as n from pendientes where tenant_id=%s and prioridad='critico' and estado<>'cerrado'{scP}",
+        (tenant, *spP),
     )[0]["n"]
     riesgo = _rows(
-        "select count(*) as n from pendientes where tenant_id=%s and estado<>'cerrado' "
-        "and prioridad in ('critico','alto') and cliente is not null", p
+        f"select count(*) as n from pendientes where tenant_id=%s and estado<>'cerrado' "
+        f"and prioridad in ('critico','alto') and cliente is not null{scP}",
+        (tenant, *spP),
     )[0]["n"]
     ag = _rows(
-        "select count(*) filter (where estado='activo') as act, count(*) as total "
-        "from agentes where tenant_id=%s and estado<>'baja'", p
+        f"select count(*) filter (where a.estado='activo') as act, count(*) as total "
+        f"from agentes a where a.tenant_id=%s and a.estado<>'baja'{scA}",
+        (tenant, *spA),
     )[0]
 
     kpis = {
@@ -198,7 +209,8 @@ def command(tenant: str = Depends(require_tenant), lang: str = "es") -> dict:
         "(select count(*) from pendientes pp where pp.agente_id=a.id and pp.estado<>'cerrado') as abiertas, "
         "(select count(*) from pendientes pp where pp.agente_id=a.id and pp.estado='cerrado') as cerrados, "
         "(select count(*) from pendientes pp where pp.agente_id=a.id and pp.estado<>'cerrado' and pp.prioridad='critico') as crit "
-        "from agentes a where a.tenant_id=%s and a.estado<>'baja' order by abiertas desc, cerrados desc", p
+        f"from agentes a where a.tenant_id=%s and a.estado<>'baja'{scA} order by abiertas desc, cerrados desc",
+        (tenant, *spA),
     )
     equipo = []
     for e in equipo_raw:
@@ -216,8 +228,8 @@ def command(tenant: str = Depends(require_tenant), lang: str = "es") -> dict:
         "(select count(*) from messages m where m.sender_id=a.contact_id and m.tenant_id=%s "
         " and m.wa_timestamp >= now()-interval '7 days') as interacciones, "
         "(select count(*) from pendientes pp where pp.agente_id=a.id and pp.estado='cerrado') as ventas "
-        "from agentes a where a.tenant_id=%s and a.estado<>'baja' order by ventas desc, interacciones desc limit 5",
-        (tenant, tenant),
+        f"from agentes a where a.tenant_id=%s and a.estado<>'baja'{scA} order by ventas desc, interacciones desc limit 5",
+        (tenant, tenant, *spA),
     )
     for r in ranking:
         base = (r["interacciones"] or 0) + (r["ventas"] or 0)
@@ -231,8 +243,8 @@ def command(tenant: str = Depends(require_tenant), lang: str = "es") -> dict:
         "round(extract(epoch from now()-p.created_at)/3600)::int as horas, "
         "nullif(trim(coalesce(a.nombre,'') || ' ' || coalesce(a.apellido,'')), '') as responsable "
         "from pendientes p left join agentes a on a.id=p.agente_id "
-        "where p.tenant_id=%s and p.prioridad='critico' and p.estado<>'cerrado' "
-        "order by p.created_at limit 6", p,
+        f"where p.tenant_id=%s and p.prioridad='critico' and p.estado<>'cerrado'{scPP} "
+        "order by p.created_at limit 6", (tenant, *spPP),
     )
 
     # ── Oportunidades enriquecidas ───────────────────────────────────────────
