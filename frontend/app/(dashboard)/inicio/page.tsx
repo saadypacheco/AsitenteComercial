@@ -94,13 +94,18 @@ export default function InicioPage() {
         {!c && Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-24 animate-pulse rounded-2xl bg-white shadow-card" />)}
       </div>
 
-      {/* ── Buscador global ───────────────────────────────────────────────── */}
-      <Card className="mb-5 p-4">
+      {/* ── Buscador global (destacado) ───────────────────────────────────── */}
+      <Card className="mb-5 border-t-[3px] border-t-brand p-4 shadow-card-lg">
         <div className="flex gap-2">
-          <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && runSearch()}
-            placeholder={locale === "es" ? "Buscar mensajes, clientes, teléfonos, grupos, eventos o pendientes…" : "Search messages, clients, phones, groups, events or pending items…"}
-            className="w-full rounded-lg bg-soft px-4 py-2.5 text-sm text-ink placeholder:text-faint focus:outline-none" />
-          <button onClick={runSearch} className="shrink-0 rounded-lg bg-brand px-5 text-sm font-semibold text-white">{dict.inicio.searchBtn}</button>
+          <div className="relative flex-1">
+            <svg className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+              <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" strokeLinecap="round" />
+            </svg>
+            <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && runSearch()}
+              placeholder={locale === "es" ? "Buscar mensajes, clientes, teléfonos, grupos, eventos o pendientes…" : "Search messages, clients, phones, groups, events or pending items…"}
+              className="w-full rounded-xl border-2 border-line bg-white py-3 pl-11 pr-4 text-base text-ink shadow-card transition placeholder:text-faint focus:border-brand focus:outline-none focus:ring-4 focus:ring-brand/15" />
+          </div>
+          <button onClick={runSearch} className="shrink-0 rounded-xl bg-brand px-6 text-sm font-semibold text-white shadow-card transition hover:opacity-95">{dict.inicio.searchBtn}</button>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           {CHIP_KEYS.map((x) => (
