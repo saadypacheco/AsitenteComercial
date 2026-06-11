@@ -68,6 +68,22 @@ export async function getCommand(lang = "es"): Promise<Command> {
   return res.json();
 }
 
+export type RiesgoAgente = {
+  id: string;
+  nombre: string;
+  score: number;
+  nivel: "alto" | "medio";
+  tono: Tone;
+  dias_inactivo: number;
+  senales: string[];
+};
+
+export async function getRiesgoAgentes(lang = "es"): Promise<RiesgoAgente[]> {
+  const res = await authFetch(`/dashboard/riesgo-agentes?lang=${lang}`);
+  if (!res.ok) throw new Error(`riesgo-agentes: ${res.status}`);
+  return res.json();
+}
+
 export type Accion = {
   id: string;
   ref_id: string;

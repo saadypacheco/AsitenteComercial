@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { Badge, ToneDot } from "@/components/executive";
 import { Card } from "@/components/ui";
 import { useLocale } from "@/lib/locale-context";
-import { askAi, getAiSummary, getCommand, type AiBullet, type Command, type Tone } from "@/lib/queries/executive";
+import { askAi, getAiSummary, getCommand, getRiesgoAgentes, type AiBullet, type Command, type RiesgoAgente, type Tone } from "@/lib/queries/executive";
 
 const PRIO_TONE: Record<string, Tone> = { alta: "danger", media: "warning", baja: "ok" };
 const NIVEL_TONE: Record<string, Tone> = { alto: "danger", medio: "warning", bajo: "ok" };
@@ -24,6 +24,7 @@ export default function IaInsightsPage() {
   const [c, setC] = useState<Command | null>(null);
   const [bullets, setBullets] = useState<AiBullet[] | null>(null);
   const [src, setSrc] = useState("");
+  const [riesgo, setRiesgo] = useState<RiesgoAgente[] | null>(null);
 
   const [pregunta, setPregunta] = useState("");
   const [respuesta, setRespuesta] = useState<{ answer: string; source: string } | null>(null);
@@ -33,6 +34,8 @@ export default function IaInsightsPage() {
     getCommand(locale).then(setC).catch(() => setC(null));
     setBullets(null);
     getAiSummary(locale).then((r) => { setBullets(r.bullets); setSrc(r.source); }).catch(() => setBullets([]));
+    setRiesgo(null);
+    getRiesgoAgentes(locale).then(setRiesgo).catch(() => setRiesgo([]));
   }, [locale]);
 
   async function preguntar(texto: string) {
@@ -120,6 +123,36 @@ export default function IaInsightsPage() {
           </ul>
         </Card>
       </div>
+
+      {/* Agentes en riesgo de abandono (actividad + onboarding + producción) */}
+      <Card className="mb-5 overflow-hidden">
+        <div className="flex items-center gap-2 bg-gradient-to-r from-danger to-warning px-5 py-3">
+          <h2 className="text-sm font-bold text-white">🚨 {g.iaAbandono}</h2>
+        </div>
+        <ul className="divide-y divide-line">
+          {riesgo?.map((a) => (
+            <li key={a.id} className="flex items-start gap-3 p-4">
+              <ToneDot tone={a.tono} />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold text-ink">{a.nombre}</p>
+                  <Badge tone={NIVEL_TONE[a.nivel] ?? "neutral"}>
+                    {a.nivel === "alto" ? g.nivelAlto : g.nivelMedio}
+                  </Badge>
+                </div>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {a.senales.map((s, i) => (
+                    <span key={i} className="rounded-full bg-soft px-2 py-0.5 text-xs text-muted">{s}</span>
+                  ))}
+                </div>
+              </div>
+              <span className="shrink-0 text-sm font-bold text-danger">{a.score}</span>
+            </li>
+          ))}
+          {riesgo === null && <li className="p-6 text-sm text-muted">{dict.inicio.analyzing}</li>}
+          {riesgo && riesgo.length === 0 && <li className="p-6 text-sm text-muted">{g.iaAbandonoEmpty}</li>}
+        </ul>
+      </Card>
 
       {/* Chat */}
       <Card className="p-5">

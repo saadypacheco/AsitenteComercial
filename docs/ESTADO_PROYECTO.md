@@ -51,7 +51,7 @@ Todos bilingües, responsive, con aislamiento por tenant y **scope multi-líder*
 - **/capacitaciones** — programa: barra de progreso, stepper de etapas, calendario (Zoom), progreso por agente, alertas, notificaciones, chat de ayuda.
 - **/mensajes** — feed de captura + filtros + búsqueda.
 - **/reportes** — gráficos (actividad, ventas por agente, eventos por tipo, pipeline).
-- **/ia-insights** — recomendaciones, resumen, riesgo, saturados, oportunidades, chat.
+- **/ia-insights** — recomendaciones, resumen, riesgo de clientes, saturados, oportunidades, ⭐ **agentes en riesgo de abandono** (cruce actividad+onboarding+producción, score 0-100, nivel alto/medio) y chat.
 - **/ajustes** — perfil, idioma, estado de IA, logout.
 
 ## 5. App del agente (Producto ③) — mobile
@@ -87,7 +87,7 @@ Todos bilingües, responsive, con aislamiento por tenant y **scope multi-líder*
 - **Briefing diario por WhatsApp** a Cecilia (Feature E del análisis).
 - Más pantallas del agente (timeline, etc.) si se quieren.
 - "Modo demo" que resetee los datos sembrados antes de una presentación.
-- Detección de estancamiento/abandono (cruce actividad+asistencia+producción).
+- ✅ **Detección de estancamiento/abandono** (cruce actividad+asistencia+producción) — endpoint `/dashboard/riesgo-agentes` + bloque en /ia-insights + acción "reconectar" en /acciones. Seed `infra/local-init/11_seed_riesgo.sql` (3 casos demo). **Falta para producción:** WFG (producción real, hoy proxy por pendientes cerrados) y `last_seen` real por agente (hoy via `messages.contact_id`).
 
 ## 11. Punteros clave
 - Backend API: `backend/app/api/` (auth, command, gestion, agente, reuniones, dashboard, webhook).

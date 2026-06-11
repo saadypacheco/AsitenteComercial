@@ -18,6 +18,89 @@ router = APIRouter()
 
 
 # =============================================================================
+# Detección de estancamiento / abandono de agentes
+# Cruza tres señales que ya viven en la BD (sin tabla nueva, todo derivado en
+# vivo como el resto del Centro de Control):
+#   1) ACTIVIDAD   → días desde el último mensaje del agente en los grupos
+#                    (fallback: días desde el alta si nunca escribió).
+#   2) ASISTENCIA  → estancado en la ruta de onboarding + faltas a capacitaciones.
+#   3) PRODUCCIÓN  → 0 cierres en 30 días (proxy hasta conectar WFG).
+# Score determinista 0-100 → nivel alto/medio. Acotado por sub-árbol del líder.
+# =============================================================================
+def _riesgo_agentes(tenant: str, en: bool, scope: list[str] | None = None) -> list[dict]:
+    scA, spA = _scope("a.id", scope)
+    etapas_total = (_rows("select count(*) as n from capacitacion_etapas where tenant_id=%s", (tenant,))[0]["n"]) or 5
+
+    rows = _rows(
+        "select a.id, trim(a.nombre || ' ' || coalesce(a.apellido,'')) as nombre, "
+        "coalesce("
+        "  (extract(epoch from now() - (select max(m.wa_timestamp) from messages m "
+        "    where m.sender_id=a.contact_id and m.tenant_id=%s))/86400)::int, "
+        "  (extract(epoch from now() - a.fecha_alta::timestamptz)/86400)::int, 999) as dias_inactivo, "
+        "(select count(*) from etapa_progreso p where p.agente_id=a.id and p.estado='completado') as etapas_ok, "
+        "(select count(*) from pendientes p where p.agente_id=a.id and p.estado='cerrado' "
+        "   and coalesce(p.fecha_cierre, p.created_at) >= now() - interval '30 days') as cierres, "
+        "(select count(*) from capacitaciones k where k.tenant_id=%s and k.estado='finalizada' "
+        "   and k.fecha >= now() - interval '60 days' "
+        "   and not exists (select 1 from capacitacion_asistencia x "
+        "     where x.capacitacion_id=k.id and x.agente_id=a.id and x.asistio)) as faltas "
+        f"from agentes a where a.tenant_id=%s and a.estado<>'baja'{scA}",
+        (tenant, tenant, tenant, *spA),
+    )
+
+    out: list[dict] = []
+    for r in rows:
+        d = r["dias_inactivo"]
+        score = 0
+        senales: list[str] = []
+
+        # 1) Inactividad (señal más fuerte de abandono)
+        if d >= 14:
+            score += 45
+            senales.append(f"{d} days inactive" if en else f"{d} días sin actividad")
+        elif d >= 7:
+            score += 25
+            senales.append(f"{d} days inactive" if en else f"{d} días sin actividad")
+
+        # 2) Estancado en onboarding / asistencia
+        if r["etapas_ok"] == 0 and d >= 10:
+            score += 30
+            senales.append("Never started onboarding" if en else "No arrancó el onboarding")
+        elif r["etapas_ok"] < etapas_total and d >= 7:
+            score += 10
+            senales.append(
+                f"Stuck on step {r['etapas_ok']}/{etapas_total}" if en
+                else f"Trabado en etapa {r['etapas_ok']}/{etapas_total}")
+        if r["faltas"] >= 1:
+            score += 10
+            senales.append(
+                f"Missed {r['faltas']} session(s)" if en else f"Faltó a {r['faltas']} capacitación(es)")
+
+        # 3) Producción nula (proxy: pendientes cerrados)
+        if r["cierres"] == 0:
+            score += 20
+            senales.append("No closes in 30 days" if en else "Sin cierres en 30 días")
+
+        score = min(score, 100)
+        nivel = "alto" if score >= 55 else "medio" if score >= 30 else None
+        if not nivel:
+            continue
+        out.append({
+            "id": r["id"], "nombre": r["nombre"], "score": score, "nivel": nivel,
+            "tono": "danger" if nivel == "alto" else "warning",
+            "dias_inactivo": d, "senales": senales,
+        })
+
+    out.sort(key=lambda x: x["score"], reverse=True)
+    return out
+
+
+@router.get("/dashboard/riesgo-agentes")
+def riesgo_agentes(ctx: dict = Depends(view_ctx), lang: str = "es") -> list:
+    return _riesgo_agentes(ctx["tenant_id"], lang == "en", scoped_agente_ids(ctx["tenant_id"], ctx["scope_root"]))
+
+
+# =============================================================================
 # Bandeja de acciones de la IA — "el asistente que ACTÚA"
 # Sugiere acciones con el mensaje ya redactado; al aprobar, las ejecuta
 # (simulado hoy; real cuando esté el número WhatsApp / email conectado).
@@ -76,6 +159,23 @@ def _build_acciones(tenant: str, en: bool, scope: list[str] | None = None) -> li
             titulo, motivo = f"Apoyar a {s['nombre']}", f"Saturada · {s['ab']} pendientes"
         out.append({"id": ref, "ref_id": ref, "tipo": "ayuda_agente", "prioridad": "media", "tono": "warning",
                     "titulo": titulo, "destinatario": s["nombre"], "canal": "whatsapp", "motivo": motivo, "mensaje": msg})
+
+    # Agente en riesgo de abandono → reconectar (cruce actividad+onboarding+producción)
+    for r in [x for x in _riesgo_agentes(tenant, en, scope) if x["nivel"] == "alto"][:2]:
+        ref = f"riesgo-{r['id']}"
+        if ref in enviadas:
+            continue
+        motivo_sen = " · ".join(r["senales"][:2])
+        if en:
+            msg = (f"Hi {r['nombre']}, I haven't seen you around lately and I want to make sure "
+                   "you're doing OK. Is there anything blocking you? I'm here to help you get going again. 🤝")
+            titulo, motivo = f"Reconnect with {r['nombre']}", f"Abandonment risk · {motivo_sen}"
+        else:
+            msg = (f"Hola {r['nombre']}, hace unos días que no te veo activa y quiero asegurarme de que "
+                   "estés bien. ¿Hay algo que te esté trabando? Estoy para ayudarte a retomar. 🤝")
+            titulo, motivo = f"Reconectar con {r['nombre']}", f"Riesgo de abandono · {motivo_sen}"
+        out.append({"id": ref, "ref_id": ref, "tipo": "reconectar_agente", "prioridad": "alta", "tono": "danger",
+                    "titulo": titulo, "destinatario": r["nombre"], "canal": "whatsapp", "motivo": motivo, "mensaje": msg})
 
     # Top oportunidad → seguimiento
     otit = "coalesce(title_en, title)" if en else "title"
