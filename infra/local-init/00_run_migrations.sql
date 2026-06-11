@@ -15,3 +15,4 @@
 \i /migrations/0014_capacitacion_zoom.sql
 \i /migrations/0015_acciones.sql
 \i /migrations/0016_multilider.sql
+\i /migrations/0017_reuniones.sql
