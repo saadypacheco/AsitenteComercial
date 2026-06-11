@@ -16,10 +16,20 @@ logger = structlog.get_logger()
 app = FastAPI(title="mentorcomercial API", version="0.1.0")
 
 # CORS: el dashboard (Next.js) llama a estos endpoints desde el navegador.
-# En dev abrimos todo; en prod se restringe al dominio del frontend.
+# En dev abrimos todo; en prod se restringe al dominio del frontend (FRONTEND_URL),
+# aceptando también la variante con/sin www.
+if settings.environment == "development":
+    _cors_origins = ["*"]
+else:
+    _base = settings.frontend_url.rstrip("/")
+    _cors_origins = [_base]
+    if "://" in _base:
+        scheme, host = _base.split("://", 1)
+        _cors_origins.append(f"{scheme}://www.{host}" if not host.startswith("www.")
+                             else f"{scheme}://{host[4:]}")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if settings.environment == "development" else [],
+    allow_origins=_cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )

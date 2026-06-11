@@ -30,10 +30,15 @@ class Settings(BaseSettings):
     jwt_secret: str = "mentorcomercial-dev-secret-change-in-prod"
     jwt_ttl_hours: int = 168               # 7 días
     magic_ttl_minutes: int = 15            # validez del magic link
-    frontend_url: str = "http://localhost:3002"   # para armar el magic link
-    # Usuario líder por defecto que se siembra al arrancar (solo dev).
+    frontend_url: str = "http://localhost:3002"   # magic links + origen CORS permitido en prod
+    # Usuario dueña (owner) que se asegura al arrancar. En dev usa los demo;
+    # en prod, setear DEFAULT_LIDER_EMAIL/PASSWORD reales en el .env del server.
     default_lider_email: str = "cecilia@demo.com"
     default_lider_password: str = "demo1234"
+    # Bootstrap del tenant en producción (primer arranque, sin datos demo).
+    tenant_name: str = "Demo Líder"        # nombre de la agencia (tenant)
+    observer_session: str = "default"      # nombre de la sesión WAHA = tenants.ia_wa_jid
+    owner_wa_jid: str = ""                 # WhatsApp personal de la dueña (briefing); vacío = sin envío
 
     # IA — Gemini por defecto vía LiteLLM, cambiable a cualquier proveedor
     llm_model: str = "gemini/gemini-2.0-flash"

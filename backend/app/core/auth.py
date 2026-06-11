@@ -210,15 +210,32 @@ def get_user_by_email(email: str) -> dict | None:
 
 
 def ensure_default_user() -> None:
-    """Siembra la líder por defecto si la tabla existe y está vacía (solo dev)."""
-    if settings.environment != "development":
-        return
+    """Asegura el tenant + la dueña (owner) al arrancar. Idempotente.
+
+    - En CUALQUIER entorno: crea el tenant si falta (nombre/observador/briefing desde
+      settings) y la dueña desde DEFAULT_LIDER_EMAIL/PASSWORD. SIN datos demo → es el
+      bootstrap de producción (primer arranque contra una BD recién migrada).
+    - Solo en development: además siembra el líder demo (Juan) para el multi-líder
+      (los agentes demo los traen los seeds de infra/local-init).
+    """
     try:
         with _connect() as conn, conn.cursor() as cur:
             cur.execute("select to_regclass('public.app_users')")
             if cur.fetchone()[0] is None:
                 logger.info("auth.seed.skip", reason="tabla app_users no existe aún")
                 return
+
+            # Tenant (crear si falta) — id fijo DEMO_TENANT como ancla de la dueña.
+            cur.execute("select 1 from tenants where id = %s", (DEMO_TENANT,))
+            if not cur.fetchone():
+                cur.execute(
+                    "insert into tenants (id, name, ia_wa_jid, owner_wa_jid, briefing_enabled, briefing_hora) "
+                    "values (%s, %s, %s, %s, true, 18) on conflict (id) do nothing",
+                    (DEMO_TENANT, settings.tenant_name, settings.observer_session,
+                     settings.owner_wa_jid or None),
+                )
+                logger.info("auth.seed.tenant", name=settings.tenant_name)
+
             # Owner (Cecilia) — ve todo (agente_id NULL)
             cur.execute("select 1 from app_users where email = %s", (settings.default_lider_email,))
             if not cur.fetchone():
@@ -229,6 +246,11 @@ def ensure_default_user() -> None:
                      hash_password(settings.default_lider_password), "Cecilia"),
                 )
                 logger.info("auth.seed.ok", email=settings.default_lider_email)
+
+            # Líder demo (Juan) — SOLO en development (depende de los agentes demo).
+            if settings.environment != "development":
+                conn.commit()
+                return
 
             # Líder demo — acotado al equipo de Juan (su sub-árbol)
             has_agente_col = False
