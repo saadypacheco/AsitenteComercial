@@ -439,3 +439,98 @@ def list_capacitaciones(tenant: str = Depends(require_tenant), lang: str = "es")
         "where k.tenant_id = %s order by k.fecha desc nulls last",
         (tenant,),
     )
+
+
+# ── Cartera de clientes (preocupación #3) ─────────────────────────────────────
+PRODUCTOS = ("vida", "retiro", "auto", "salud", "hogar")
+ESTADOS_CLIENTE = ("activo", "prospecto", "inactivo")
+
+
+@router.get("/gestion/clientes")
+def list_clientes(ctx: dict = Depends(view_ctx)) -> dict:
+    """Cartera con flags: renovación próxima, sin seguimiento, cross-sell. Acotada
+    al equipo del líder."""
+    tenant = ctx["tenant_id"]
+    scope = scoped_agente_ids(tenant, ctx["scope_root"])
+    sc, sp = _scope("c.agente_id", scope)
+    scS, spS = _scope("agente_id", scope)
+    summary = _rows(
+        "select count(*) as total, "
+        "count(*) filter (where vencimiento is not null and vencimiento - current_date between 0 and 30) as por_renovar, "
+        "count(*) filter (where ultimo_contacto is null or current_date - ultimo_contacto > 30) as sin_seguimiento, "
+        f"coalesce(sum(valor_poliza),0)::int as valor_cartera from clientes where tenant_id=%s{scS}",
+        (tenant, *spS),
+    )[0]
+    items = _rows(
+        "select c.id, c.nombre, c.telefono, c.email, c.producto, c.estado, "
+        "coalesce(c.valor_poliza,0)::int as valor, c.vencimiento, c.ultimo_contacto, c.vip, "
+        "case when c.vencimiento is not null then (c.vencimiento - current_date) else null end as renovacion_dias, "
+        "case when c.ultimo_contacto is not null then (current_date - c.ultimo_contacto) else null end as sin_contacto_dias, "
+        "(c.producto = 'vida') as cross_sell, c.agente_id, "
+        "nullif(trim(coalesce(a.nombre,'')||' '||coalesce(a.apellido,'')), '') as agente "
+        "from clientes c left join agentes a on a.id=c.agente_id "
+        f"where c.tenant_id=%s{sc} order by c.vencimiento nulls last",
+        (tenant, *sp),
+    )
+    return {"summary": summary, "items": items}
+
+
+class ClienteBody(BaseModel):
+    nombre: str
+    telefono: str | None = None
+    email: str | None = None
+    agente_id: str | None = None
+    producto: str | None = None
+    estado: str = "activo"
+    valor_poliza: float | None = 0
+    vencimiento: str | None = None   # YYYY-MM-DD
+    vip: bool = False
+
+
+@router.post("/gestion/clientes")
+def create_cliente(body: ClienteBody, ctx: dict = Depends(view_ctx)) -> dict:
+    if not body.nombre.strip():
+        raise HTTPException(status_code=400, detail="El nombre es obligatorio")
+    tenant, scope_root = ctx["tenant_id"], ctx["scope_root"]
+    agente = body.agente_id or None
+    if scope_root:
+        scope = scoped_agente_ids(tenant, scope_root) or []
+        if not agente or str(agente) not in scope:
+            agente = scope_root
+    row = _exec(
+        "insert into clientes (tenant_id, nombre, telefono, email, agente_id, producto, estado, valor_poliza, vencimiento, vip) "
+        "values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) returning id",
+        (tenant, body.nombre.strip(), body.telefono, body.email, agente, body.producto, body.estado,
+         body.valor_poliza or 0, body.vencimiento or None, body.vip),
+    )
+    return {"id": str(row[0])}
+
+
+@router.patch("/gestion/clientes/{cid}")
+def update_cliente(cid: str, body: ClienteBody, ctx: dict = Depends(view_ctx)) -> dict:
+    tenant, scope_root = ctx["tenant_id"], ctx["scope_root"]
+    if scope_root:
+        own = _rows("select agente_id from clientes where id=%s and tenant_id=%s", (cid, tenant))
+        if not own:
+            raise HTTPException(status_code=404, detail="Cliente no encontrado")
+        assert_agente_in_scope(tenant, scope_root, own[0]["agente_id"])
+        assert_agente_in_scope(tenant, scope_root, body.agente_id)
+    _exec(
+        "update clientes set nombre=%s, telefono=%s, email=%s, agente_id=%s, producto=%s, estado=%s, "
+        "valor_poliza=%s, vencimiento=%s, vip=%s where id=%s and tenant_id=%s",
+        (body.nombre.strip(), body.telefono, body.email, body.agente_id or None, body.producto, body.estado,
+         body.valor_poliza or 0, body.vencimiento or None, body.vip, cid, tenant),
+    )
+    return {"ok": True}
+
+
+@router.post("/gestion/clientes/{cid}/contacto")
+def registrar_contacto(cid: str, ctx: dict = Depends(view_ctx)) -> dict:
+    """Registra que hoy se contactó al cliente (resetea 'sin seguimiento')."""
+    tenant, scope_root = ctx["tenant_id"], ctx["scope_root"]
+    if scope_root:
+        own = _rows("select agente_id from clientes where id=%s and tenant_id=%s", (cid, tenant))
+        if own:
+            assert_agente_in_scope(tenant, scope_root, own[0]["agente_id"])
+    _exec("update clientes set ultimo_contacto=current_date where id=%s and tenant_id=%s", (cid, tenant))
+    return {"ok": True}

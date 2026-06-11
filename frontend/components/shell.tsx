@@ -10,11 +10,12 @@ import { getUser, logout, requireAuth, type SessionUser } from "@/lib/auth";
 import { useLocale } from "@/lib/locale-context";
 
 // Rutas del menú. href=null → sección aún no construida (se muestra "Pronto").
-type NavKey = "inicio" | "acciones" | "pendientes" | "agentes" | "grupos" | "eventos" | "capacitaciones" | "reuniones" | "mensajes" | "reportes" | "iaInsights" | "ajustes";
+type NavKey = "inicio" | "acciones" | "pendientes" | "clientes" | "agentes" | "grupos" | "eventos" | "capacitaciones" | "reuniones" | "mensajes" | "reportes" | "iaInsights" | "ajustes";
 const NAV: { key: NavKey; href: string | null; badge?: boolean }[] = [
   { key: "inicio", href: "/inicio" },
   { key: "acciones", href: "/acciones", badge: true },
   { key: "pendientes", href: "/pendientes" },
+  { key: "clientes", href: "/clientes", badge: true },
   { key: "agentes", href: "/agentes" },
   { key: "grupos", href: "/grupos" },
   { key: "eventos", href: "/eventos" },

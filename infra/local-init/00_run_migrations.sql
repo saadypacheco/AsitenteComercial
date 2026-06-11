@@ -16,3 +16,4 @@
 \i /migrations/0015_acciones.sql
 \i /migrations/0016_multilider.sql
 \i /migrations/0017_reuniones.sql
+\i /migrations/0018_clientes.sql
