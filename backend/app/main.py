@@ -7,7 +7,7 @@ import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import agente, auth, command, dashboard, gestion, health, reuniones, webhook
+from app.api import agente, auth, briefing, command, dashboard, gestion, health, reuniones, webhook
 from app.core import auth as authcore
 from app.core.config import settings
 
@@ -32,6 +32,7 @@ app.include_router(gestion.router, tags=["gestion"])
 app.include_router(command.router, tags=["command"])
 app.include_router(agente.router, tags=["agente"])
 app.include_router(reuniones.router, tags=["reuniones"])
+app.include_router(briefing.router, tags=["briefing"])
 
 
 @app.on_event("startup")

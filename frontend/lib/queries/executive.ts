@@ -113,6 +113,42 @@ export async function ejecutarAccion(a: { ref_id: string; tipo: string; destinat
   return res.json();
 }
 
+// ── Briefing diario por WhatsApp (Feature E) ─────────────────────────────────
+export type BriefingConfig = {
+  owner_wa_jid: string | null;
+  briefing_enabled: boolean;
+  briefing_hora: number;
+  waha_enabled: boolean;
+};
+
+export async function getBriefingConfig(): Promise<BriefingConfig> {
+  const res = await authFetch("/dashboard/briefing/config");
+  if (!res.ok) throw new Error(`briefing/config: ${res.status}`);
+  return res.json();
+}
+
+export async function saveBriefingConfig(c: { owner_wa_jid: string | null; briefing_enabled: boolean; briefing_hora: number }): Promise<{ ok: boolean }> {
+  const res = await authFetch("/dashboard/briefing/config", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(c),
+  });
+  if (!res.ok) throw new Error(`briefing/config save: ${res.status}`);
+  return res.json();
+}
+
+export async function previewBriefing(lang = "es"): Promise<{ texto: string }> {
+  const res = await authFetch(`/dashboard/briefing/preview?lang=${lang}`);
+  if (!res.ok) throw new Error(`briefing/preview: ${res.status}`);
+  return res.json();
+}
+
+export async function sendBriefingNow(lang = "es"): Promise<{ texto: string; modo: string; ok: boolean; jid: string | null }> {
+  const res = await authFetch(`/dashboard/briefing/enviar?lang=${lang}`, { method: "POST" });
+  if (!res.ok) throw new Error(`briefing/enviar: ${res.status}`);
+  return res.json();
+}
+
 export type ConfigStatus = { ia_enabled: boolean; llm_model: string; environment: string };
 export async function getConfigStatus(): Promise<ConfigStatus> {
   const res = await authFetch("/config/status");

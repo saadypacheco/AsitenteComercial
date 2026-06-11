@@ -52,7 +52,7 @@ Todos bilingües, responsive, con aislamiento por tenant y **scope multi-líder*
 - **/mensajes** — feed de captura + filtros + búsqueda.
 - **/reportes** — gráficos (actividad, ventas por agente, eventos por tipo, pipeline).
 - **/ia-insights** — recomendaciones, resumen, riesgo de clientes, saturados, oportunidades, ⭐ **agentes en riesgo de abandono** (cruce actividad+onboarding+producción, score 0-100, nivel alto/medio) y chat.
-- **/ajustes** — perfil, idioma, estado de IA, logout.
+- **/ajustes** — perfil, idioma, estado de IA, ⭐ **briefing diario por WhatsApp** (número, hora, on/off, vista previa y "enviar prueba"), logout.
 
 ## 5. App del agente (Producto ③) — mobile
 `/agente/login` (magic link por celular/email) → `/agente`: tabs **Hoy · Agenda (Zoom) · Ruta · Progreso · Logros** + chat de Ayuda (FAB). Score strip, ruta de etapas con "avanzar", ranking del grupo.
@@ -67,7 +67,7 @@ Todos bilingües, responsive, con aislamiento por tenant y **scope multi-líder*
 `app_users.agente_id` ancla a un líder a un nodo; JWT lleva `scope`; `view_ctx` + CTE recursiva resuelven el sub-árbol. Owner (scope null) ve todo. **Lecturas y escrituras** acotadas (Agentes, Pendientes, Inicio/command, Acciones, Capacitación, Clientes). El owner designa líderes desde Agentes. Chip "👥 Tu equipo".
 
 ## 8. Migraciones (backend/migrations/)
-0001 init · 0002 queue · 0003 rls · 0004 event_catalog · 0005 daily_views · 0006 gestion_core (agentes/pendientes/capacitaciones) · 0007 executive · 0008 auth+tenant · 0009 executive_i18n · 0010 seed_i18n · 0011 agentes_geo · 0012 command_center · 0013 capacitacion_ruta · 0014 capacitacion_zoom · 0015 acciones · 0016 multilider · 0017 reuniones · 0018 clientes.
+0001 init · 0002 queue · 0003 rls · 0004 event_catalog · 0005 daily_views · 0006 gestion_core (agentes/pendientes/capacitaciones) · 0007 executive · 0008 auth+tenant · 0009 executive_i18n · 0010 seed_i18n · 0011 agentes_geo · 0012 command_center · 0013 capacitacion_ruta · 0014 capacitacion_zoom · 0015 acciones · 0016 multilider · 0017 reuniones · 0018 clientes · 0019 briefing.
 
 ## 9. Tests
 `backend/tests/` — 16 tests verde (captura/idempotencia, auth JWT/magic/hash, processing reglas US4, command _delta). Correr: `docker exec mc-local-backend sh -c "pip install -q pytest; cd /app && python -m pytest -q"`.
@@ -84,14 +84,14 @@ Todos bilingües, responsive, con aislamiento por tenant y **scope multi-líder*
 - KPIs de volumen/ventas y bullets del resumen IA siguen **tenant-wide** para líderes (mensajes/eventos sin link a agente) — acotar cuando se conecte WFG.
 - **Importador CSV de agentes** (auto-match por celular con la captura).
 - **US3 — transcripción de audios (Whisper)** (gancho en el worker; falta el motor).
-- **Briefing diario por WhatsApp** a Cecilia (Feature E del análisis).
+- ✅ **Briefing diario por WhatsApp** a Cecilia (Feature E) — `services/briefing.py` (compositor bilingüe + `tick` scheduler en el worker, 1 envío/día/tenant) + `services/waha.py` (envío, modo simulado→real) + `api/briefing.py` (config/preview/enviar/historial) + UI en /ajustes. Migración 0019 + seed `12_seed_briefing.sql`. **Falta para producción:** número conectado a WAHA + `WHATSAPP_API_KEY` en el backend (hoy modo simulado).
 - Más pantallas del agente (timeline, etc.) si se quieren.
 - "Modo demo" que resetee los datos sembrados antes de una presentación.
 - ✅ **Detección de estancamiento/abandono** (cruce actividad+asistencia+producción) — endpoint `/dashboard/riesgo-agentes` + bloque en /ia-insights + acción "reconectar" en /acciones. Seed `infra/local-init/11_seed_riesgo.sql` (3 casos demo). **Falta para producción:** WFG (producción real, hoy proxy por pendientes cerrados) y `last_seen` real por agente (hoy via `messages.contact_id`).
 
 ## 11. Punteros clave
-- Backend API: `backend/app/api/` (auth, command, gestion, agente, reuniones, dashboard, webhook).
-- Servicios: `backend/app/services/` (capture, worker, processing, zoom, meeting, ai, queue, transcription).
+- Backend API: `backend/app/api/` (auth, command, gestion, agente, reuniones, dashboard, webhook, briefing).
+- Servicios: `backend/app/services/` (capture, worker, processing, zoom, meeting, ai, queue, transcription, briefing, waha).
 - Frontend páginas: `frontend/app/(dashboard)/*` y `frontend/app/agente/*`.
 - i18n: `frontend/lib/i18n/{es,en}.ts`.
 - Análisis de cliente: [VALIDACION_CLIENTE.md](VALIDACION_CLIENTE.md). Demo: [GUION_DEMO.md](GUION_DEMO.md). Journey metodología: [architect-journey.md](architect-journey.md).
