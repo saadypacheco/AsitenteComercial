@@ -11,6 +11,7 @@ dependencies = [
   "httpx>=0.27",
   "supabase>=2.5",            # cliente Supabase (Postgres + Storage)
   "psycopg[binary]>=3.1",     # acceso directo a Postgres para pgmq (cola durable)
+  "psycopg_pool>=3.2",        # pool de conexiones del API (latencia vs DB remota)
   "litellm>=1.40",            # gateway LLM (Gemini por defecto, cambiable)
   "pyjwt>=2.8",               # JWT self-contained (auth propia, sin Supabase Auth)
   "faster-whisper>=1.0",      # transcripción self-hosted, multi-idioma

@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     supabase_url: str = ""
     supabase_service_role_key: str = ""   # NUNCA exponer al frontend (lesson KB)
     database_url: str = ""                # Postgres directo (migraciones / worker)
+    # Pool de conexiones del API. Crítico contra una DB remota (Supabase Cloud):
+    # reusar conexiones calientes en vez de abrir una nueva por consulta.
+    db_pool_min: int = 1
+    db_pool_max: int = 5                   # ojo con el límite del pooler de Supabase
 
     # Bridge WhatsApp (WAHA/Evolution) — red privada, no público
     waha_base_url: str = "http://waha:3000"

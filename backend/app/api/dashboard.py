@@ -22,15 +22,10 @@ logger = structlog.get_logger()
 
 
 def _query_scalar(sql: str, params: tuple | None = None):
-    import psycopg
+    from app.db import pool
 
-    if not settings.database_url:
-        raise HTTPException(status_code=503, detail="DATABASE_URL no configurado")
     try:
-        with psycopg.connect(settings.database_url) as conn, conn.cursor() as cur:
-            cur.execute(sql, params)
-            row = cur.fetchone()
-            return row[0] if row else None
+        return pool.scalar(sql, params)
     except Exception as exc:  # noqa: BLE001
         logger.error("dashboard.query_error", error=str(exc))
         raise HTTPException(status_code=500, detail="error consultando la base") from exc

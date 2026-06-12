@@ -31,27 +31,17 @@ ESTADOS = ("pendiente", "en_proceso", "cerrado")
 TIPOS = ("seguimiento", "reclamo", "consulta", "tarea", "oportunidad")
 
 
-def _conn():
-    import psycopg
-
-    if not settings.database_url:
-        raise HTTPException(status_code=503, detail="DATABASE_URL no configurado")
-    return psycopg.connect(settings.database_url)
+# Acceso a la BD vía pool compartido (reusa conexiones calientes — clave contra
+# Supabase Cloud, donde abrir una conexión nueva por consulta cuesta cientos de ms).
+from app.db import pool as _pool
 
 
 def _rows(sql: str, params: tuple = ()):  # -> list[dict]
-    with _conn() as conn, conn.cursor() as cur:
-        cur.execute(sql, params)
-        cols = [c.name for c in cur.description]
-        return [dict(zip(cols, r)) for r in cur.fetchall()]
+    return _pool.rows(sql, params)
 
 
 def _exec(sql: str, params: tuple = ()):
-    with _conn() as conn, conn.cursor() as cur:
-        cur.execute(sql, params)
-        row = cur.fetchone() if cur.description else None
-        conn.commit()
-        return row
+    return _pool.exec_(sql, params)
 
 
 # ── Agentes (lista + mapa + CRUD) ─────────────────────────────────────────────
