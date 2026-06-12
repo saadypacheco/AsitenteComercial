@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from app.api.gestion import _exec, _rows
 from app.core import auth as authcore
 from app.core.config import settings
+from app.services import email as email_svc
 
 router = APIRouter()
 logger = structlog.get_logger()
@@ -35,8 +36,13 @@ def agente_request(body: AgenteRequest) -> dict:
             "id": ag["id"], "email": ag.get("email") or ag.get("celular") or str(ag["id"]),
             "tenant_id": ag["tenant_id"], "agente_id": ag["id"],
         })
+        link = f"{settings.frontend_url}/agente/magic?token={token}"
+        # "Primero mail": si el agente tiene email, le mandamos el enlace ahí.
+        # (Celular/SMS queda para cuando se conecte un proveedor de SMS.)
+        if ag.get("email"):
+            email_svc.send_magic_link(ag["email"], link)
         if settings.environment == "development":
-            resp["link"] = f"{settings.frontend_url}/agente/magic?token={token}"
+            resp["link"] = link
     return resp
 
 

@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from app.core import auth as authcore
 from app.core.config import settings
+from app.services import email as email_svc
 
 router = APIRouter()
 logger = structlog.get_logger()
@@ -56,6 +57,8 @@ def magic_request(body: MagicRequestBody) -> dict:
         token = authcore.make_magic_token(user)
         link = f"{settings.frontend_url}/magic?token={token}"
         logger.info("auth.magic.request", email=user["email"])
+        # Envía el enlace por email (Resend/SMTP). Sin proveedor → modo log.
+        email_svc.send_magic_link(user["email"], link)
         if settings.environment == "development":
             resp["link"] = link            # solo dev: para probar sin email
     return resp

@@ -44,6 +44,18 @@ class Settings(BaseSettings):
     observer_session: str = "default"      # nombre de la sesión WAHA = tenants.ia_wa_jid
     owner_wa_jid: str = ""                 # WhatsApp personal de la dueña (briefing); vacío = sin envío
 
+    # Email (notificaciones + magic links). Abstracción de proveedor:
+    #   'resend' → API HTTP de Resend (resend_api_key).
+    #   'smtp'   → SMTP genérico (Gmail: smtp.gmail.com:587 + app password).
+    #   ''       → modo log (no envía; útil en dev / sin proveedor).
+    email_provider: str = ""
+    email_from: str = "Asistente Comercial <onboarding@resend.dev>"
+    resend_api_key: str = ""
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+
     # IA — Gemini por defecto vía LiteLLM, cambiable a cualquier proveedor
     llm_model: str = "gemini/gemini-2.0-flash"
     gemini_api_key: str = ""
