@@ -2,14 +2,14 @@
 
 // App del agente (Producto ③): Hoy, Agenda (Zoom), Ruta, Progreso, Logros + Ayuda.
 // Mobile-first con tab bar inferior. Datos reales (etapas, sesiones, ranking).
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 
 import { getUser, logout, requireAgent } from "@/lib/auth";
 import { useLocale } from "@/lib/locale-context";
 import { askAi } from "@/lib/queries/executive";
 import {
-  avanzar, getAgenda, getMe, getRanking, getRuta,
-  type AgenteMe, type RankItem, type Ruta, type Sesion,
+  avanzar, getAgenda, getJourney, getMe, getRanking, getRuta,
+  type AgenteMe, type Journey, type RankItem, type Ruta, type Sesion,
 } from "@/lib/queries/agente";
 
 type Tab = "hoy" | "agenda" | "ruta" | "progreso" | "logros" | "ayuda";
@@ -22,6 +22,7 @@ export default function AgentePage() {
   const [me, setMe] = useState<AgenteMe | null>(null);
   const [agenda, setAgenda] = useState<Sesion[]>([]);
   const [ranking, setRanking] = useState<RankItem[]>([]);
+  const [journey, setJourney] = useState<Journey | null>(null);
   const [tab, setTab] = useState<Tab>("hoy");
   const [busy, setBusy] = useState(false);
 
@@ -34,6 +35,7 @@ export default function AgentePage() {
     getMe(locale).then(setMe).catch(() => setMe(null));
     getAgenda(locale).then(setAgenda).catch(() => setAgenda([]));
     getRanking().then(setRanking).catch(() => setRanking([]));
+    getJourney(locale).then(setJourney).catch(() => setJourney(null));
   }
   useEffect(() => { requireAgent(); setNombre(getUser()?.nombre ?? ""); }, []);
   useEffect(reload, [locale]);
@@ -51,7 +53,6 @@ export default function AgentePage() {
     setPensando(false);
   }
 
-  const score = me?.score ?? 0;
   const actual = ruta?.etapas.find((e) => e.estado === "en_curso");
   const stepWord = (n: number) => (locale === "es" ? `Paso ${n}` : `Step ${n}`);
   const dt = (s: string) => new Date(s);
@@ -88,30 +89,82 @@ export default function AgentePage() {
         <button onClick={logout} className="grid h-9 w-9 place-items-center rounded-full bg-brand-soft text-muted" title={t.logout}>⎋</button>
       </header>
 
-      {/* Score strip */}
-      <div className="mx-4 mt-4 flex items-center gap-4 rounded-2xl border border-line bg-white p-4 shadow-card">
-        <div className="grid h-16 w-16 place-items-center rounded-full" style={{ background: `conic-gradient(#12b76a 0% ${score}%, #e7eaf0 ${score}% 100%)` }}>
-          <span className="grid h-12 w-12 place-items-center rounded-full bg-white text-lg font-extrabold text-ink">{score}</span>
+      {/* Nivel + XP (gamificado) */}
+      {journey && (
+        <div className="mx-4 mt-4 rounded-2xl bg-gradient-to-br from-brand to-brand-2 p-4 text-white shadow-card">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs opacity-80">{t.level} {journey.level.n}</p>
+              <p className="text-xl font-extrabold">{journey.level.name}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-extrabold leading-none">⭐ {journey.xp}</p>
+              <p className="text-xs opacity-80">XP</p>
+            </div>
+          </div>
+          {journey.level.next_name ? (
+            <div className="mt-3">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-white/25">
+                <div className="h-full rounded-full bg-white transition-all duration-500" style={{ width: `${journey.level.pct_to_next}%` }} />
+              </div>
+              <p className="mt-1 text-[11px] opacity-90">{journey.level.xp_into}/{journey.level.xp_span} XP → {journey.level.next_name}</p>
+            </div>
+          ) : (
+            <p className="mt-3 text-[11px] opacity-90">🏆 {t.maxLevel}</p>
+          )}
         </div>
-        <div className="flex-1">
-          <p className="text-xs text-muted">{t.score}</p>
-          <p className="text-sm font-bold text-ok">🟢 {ruta ? `${ruta.pct}% ${t.tabRuta.toLowerCase()}` : "—"}</p>
-        </div>
-        <div className="text-center text-xs text-muted"><p className="text-lg">📅</p>{me?.dias_desde_alta ?? 0} {t.statDays.toLowerCase()}</div>
-      </div>
+      )}
 
       <div className="flex-1 px-4 py-4">
         {/* ── HOY ── */}
         {tab === "hoy" && (
           <div className="space-y-4">
-            {actual && (
-              <div className="rounded-xl border border-line border-l-4 border-l-brand bg-white p-4 shadow-card">
-                <p className="text-xs font-bold uppercase tracking-wide text-brand">{t.nextStep}</p>
-                <p className="mt-1 text-sm font-bold text-ink">{stepWord(actual.orden)} · {actual.nombre}</p>
-                {actual.descripcion && <p className="text-xs text-muted">{actual.descripcion}</p>}
-                <button onClick={() => setTab("ruta")} className="mt-2 w-full rounded-lg bg-brand py-2 text-sm font-semibold text-white">{t.continueBtn}</button>
+            {/* Journey hacia la primera venta */}
+            {journey && (
+              <div className="rounded-2xl border border-line bg-white p-4 shadow-card">
+                <p className="mb-3 text-xs font-bold uppercase tracking-wide text-brand">🚀 {t.journeyTitle}</p>
+                <div className="flex items-center">
+                  {journey.journey.map((s, i) => (
+                    <Fragment key={s.key}>
+                      {i > 0 && <span className={`h-0.5 flex-1 ${s.done || s.current ? "bg-brand" : "bg-line"}`} />}
+                      <span title={s.label}
+                        className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-base ${s.done ? "bg-ok text-white" : s.current ? "bg-gradient-to-br from-brand to-brand-2 text-white ring-4 ring-brand/20" : "bg-soft text-faint"}`}>
+                        {s.done ? "✓" : s.icon}
+                      </span>
+                    </Fragment>
+                  ))}
+                </div>
+                {(() => {
+                  const cur = journey.journey.find((s) => s.current);
+                  return cur ? (
+                    <p className="mt-3 text-center text-sm"><span className="text-muted">{t.nowLabel}: </span><span className="font-bold text-brand">{cur.icon} {cur.label}</span></p>
+                  ) : (
+                    <p className="mt-3 text-center text-sm font-bold text-ok">🏆 {t.journeyDone}</p>
+                  );
+                })()}
+                {actual && (
+                  <button onClick={() => setTab("ruta")} className="mt-3 w-full rounded-lg bg-brand py-2 text-sm font-semibold text-white">{t.continueBtn}</button>
+                )}
               </div>
             )}
+
+            {/* Misiones */}
+            {journey && journey.missions.length > 0 && (
+              <div className="rounded-2xl border border-line bg-white p-4 shadow-card">
+                <p className="mb-3 text-xs font-bold uppercase tracking-wide text-warning">🎯 {t.missionsTitle}</p>
+                <ul className="space-y-2">
+                  {journey.missions.map((m, i) => (
+                    <li key={i} className={`flex items-center gap-3 rounded-xl border p-2.5 ${m.done ? "border-ok/40 bg-[#f3fdf7]" : "border-line"}`}>
+                      <span className="text-xl">{m.done ? "✅" : m.icon}</span>
+                      <span className={`flex-1 text-sm ${m.done ? "text-muted line-through" : "font-medium text-ink"}`}>{m.label}</span>
+                      <span className="shrink-0 rounded-full bg-brand-soft px-2 py-0.5 text-[11px] font-bold text-brand">+{m.xp} XP</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Sesiones de hoy */}
             <div>
               <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-warning">📅 {t.todaySessions}</h2>
               {agenda.filter((s) => isToday(s.fecha)).map((s) => (
@@ -122,10 +175,6 @@ export default function AgentePage() {
                 </div>
               ))}
               {agenda.filter((s) => isToday(s.fecha)).length === 0 && <p className="text-sm text-muted">—</p>}
-            </div>
-            <div className="rounded-xl border border-line bg-gradient-to-br from-[#f3fdf7] to-white p-4 shadow-card">
-              <p className="flex items-center gap-2 text-sm font-bold text-ok">🏅 {t.goodJob}</p>
-              <p className="text-xs text-muted">{t.keepGoing}</p>
             </div>
           </div>
         )}
@@ -209,13 +258,23 @@ export default function AgentePage() {
         )}
 
         {/* ── LOGROS + RANKING ── */}
-        {tab === "logros" && ruta && (
+        {tab === "logros" && (
           <>
+            {journey && (
+              <div className="mb-4 flex items-center gap-3 rounded-2xl border border-line bg-white p-3 shadow-card">
+                <span className="grid h-11 w-11 place-items-center rounded-full bg-gradient-to-br from-brand to-brand-2 text-lg font-extrabold text-white">{journey.level.n}</span>
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-ink">{t.level} {journey.level.n} · {journey.level.name}</p>
+                  <p className="text-xs text-muted">⭐ {journey.xp} XP</p>
+                </div>
+                <span className="text-xs font-bold text-brand">{journey.achievements.filter((a) => a.unlocked).length}/{journey.achievements.length} 🏅</span>
+              </div>
+            )}
             <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-brand">🏅 {t.achievements}</h2>
             <div className="mb-5 grid grid-cols-3 gap-3">
-              <Badge emoji="🥇" name={t.badgeStart} unlocked={ruta.pct > 0} />
-              <Badge emoji="🚀" name={t.badgeHalf} unlocked={ruta.pct >= 50} />
-              <Badge emoji="🏆" name={t.badgeDone} unlocked={ruta.pct === 100} />
+              {(journey?.achievements ?? []).map((a) => (
+                <Badge key={a.key} emoji={a.icon} name={a.label} unlocked={a.unlocked} />
+              ))}
             </div>
             <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-brand">🏆 {t.ranking}</h2>
             <ul className="space-y-2">

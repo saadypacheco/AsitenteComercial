@@ -292,6 +292,12 @@ export const en: typeof es = {
     noSessions: "No upcoming sessions.",
     goodJob: "You're doing great!",
     keepGoing: "Keep moving along your path 💪",
+    level: "Level",
+    maxLevel: "Max level reached!",
+    journeyTitle: "Your path to the first sale",
+    journeyDone: "You're an active agent! 🎉",
+    nowLabel: "Now",
+    missionsTitle: "Missions",
   },
   login: {
     brand: "Commercial Assistant", // friendly brand (locale-dependent)

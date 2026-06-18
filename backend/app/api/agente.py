@@ -158,6 +158,88 @@ def agente_ranking(ctx: dict = Depends(authcore.require_agent)) -> list:
     return rows
 
 
+# ── Gamificación / Journey a la primera venta (Producto ③, Fase 1) ───────────
+# Deriva XP, nivel, hitos del journey, misiones y logros de los datos que YA existen
+# (etapas, asistencia a Zoom, pendientes cerrados como proxy de venta). Sin tabla nueva.
+_LEVEL_THRESH = [0, 300, 800, 1500, 2500]
+_LEVEL_NAMES = {
+    "es": ["Inicial", "Junior", "Senior", "Especialista", "Master"],
+    "en": ["Starter", "Junior", "Senior", "Specialist", "Master"],
+}
+
+
+@router.get("/agente/journey")
+def agente_journey(ctx: dict = Depends(authcore.require_agent), lang: str = "es") -> dict:
+    en = lang == "en"
+    aid, tenant = ctx["agente_id"], ctx["tenant_id"]
+
+    def n(sql, params):
+        return _rows(sql, params)[0]["n"] or 0
+
+    total = n("select count(*) as n from capacitacion_etapas where tenant_id=%s", (tenant,)) or 1
+    comp = n("select count(*) as n from etapa_progreso where agente_id=%s and estado='completado'", (aid,))
+    en_curso = n("select count(*) as n from etapa_progreso where agente_id=%s and estado='en_curso'", (aid,))
+    asist = n("select count(*) as n from capacitacion_asistencia where agente_id=%s and asistio", (aid,))
+    cerr = n("select count(*) as n from pendientes where agente_id=%s and estado='cerrado'", (aid,))
+    prox = n("select count(*) as n from capacitaciones where tenant_id=%s and fecha >= now() "
+             "and estado in ('programada','en_curso')", (tenant,))
+    ruta_pct = round(comp / total * 100)
+
+    # XP determinista: etapas (100), Zoom (60), ventas/proxy (150).
+    xp = comp * 100 + asist * 60 + cerr * 150
+    names = _LEVEL_NAMES["en" if en else "es"]
+    lvl = max(i for i, th in enumerate(_LEVEL_THRESH) if xp >= th)   # 0..4
+    cur_th = _LEVEL_THRESH[lvl]
+    if lvl < 4:
+        span = _LEVEL_THRESH[lvl + 1] - cur_th
+        level = {"n": lvl + 1, "name": names[lvl], "next_name": names[lvl + 1],
+                 "xp_into": xp - cur_th, "xp_span": span, "pct_to_next": round((xp - cur_th) / span * 100)}
+    else:
+        level = {"n": 5, "name": names[4], "next_name": None, "xp_into": 0, "xp_span": 0, "pct_to_next": 100}
+
+    def L(es_t, en_t):
+        return en_t if en else es_t
+
+    # Journey hacia la primera venta (hitos derivados de señales reales).
+    steps = [
+        ("welcome", "👋", L("Bienvenida", "Welcome"), True),
+        ("training", "📚", L("Capacitación inicial", "Initial training"), comp >= 1),
+        ("zoom", "🎥", L("Primera sesión Zoom", "First Zoom session"), asist >= 1),
+        ("complete", "🎓", L("Capacitación completa", "Training complete"), comp >= total),
+        ("sale", "💼", L("Primera venta", "First sale"), cerr >= 1),
+        ("active", "⭐", L("Agente activo", "Active agent"), comp >= total and cerr >= 1),
+    ]
+    journey, current_set = [], False
+    for key, ic, label, done in steps:
+        cur = (not done) and (not current_set)
+        if cur:
+            current_set = True
+        journey.append({"key": key, "icon": ic, "label": label, "done": done, "current": cur})
+
+    # Misiones (derivadas, con estado de cumplimiento).
+    missions = [{"icon": "🎯", "xp": 100, "done": en_curso == 0 and comp >= 1,
+                 "label": L("Avanzá tu próxima etapa", "Advance your next stage")}]
+    if prox:
+        missions.append({"icon": "🎥", "xp": 60, "done": asist >= 1,
+                         "label": L("Asistí a tu próxima sesión", "Attend your next session")})
+    missions.append({"icon": "💼", "xp": 150, "done": cerr >= 1,
+                     "label": L("Lográ tu primera venta", "Land your first sale")})
+
+    achievements = [
+        {"key": k, "icon": ic, "label": lb, "unlocked": u}
+        for k, ic, lb, u in [
+            ("iniciado", "🥇", L("Iniciado", "Started"), comp >= 1),
+            ("zoom", "🎥", L("Primer Zoom", "First Zoom"), asist >= 1),
+            ("mitad", "🚀", L("A mitad de camino", "Halfway"), ruta_pct >= 50),
+            ("venta", "💼", L("Primera venta", "First sale"), cerr >= 1),
+            ("completo", "🏆", L("Ruta completa", "Path complete"), ruta_pct >= 100),
+        ]
+    ]
+
+    return {"xp": xp, "level": level, "ruta_pct": ruta_pct,
+            "journey": journey, "missions": missions, "achievements": achievements}
+
+
 @router.get("/agente/me")
 def agente_me(ctx: dict = Depends(authcore.require_agent), lang: str = "es") -> dict:
     aid, tenant = ctx["agente_id"], ctx["tenant_id"]

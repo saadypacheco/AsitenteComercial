@@ -296,6 +296,12 @@ export const es = {
     noSessions: "Sin sesiones próximas.",
     goodJob: "¡Lo estás haciendo bien!",
     keepGoing: "Seguí avanzando en tu ruta 💪",
+    level: "Nivel",
+    maxLevel: "¡Nivel máximo alcanzado!",
+    journeyTitle: "Tu camino a la primera venta",
+    journeyDone: "¡Sos un agente activo! 🎉",
+    nowLabel: "Ahora",
+    missionsTitle: "Misiones",
   },
   login: {
     brand: "Asistente Comercial", // marca amigable (depende del idioma)

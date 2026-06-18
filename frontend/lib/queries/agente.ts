@@ -76,3 +76,23 @@ export async function getRanking(): Promise<RankItem[]> {
   if (!res.ok) throw new Error(`ranking: ${res.status}`);
   return res.json();
 }
+
+// ── Gamificación / Journey (Fase 1) ──────────────────────────────────────────
+export type Level = { n: number; name: string; next_name: string | null; xp_into: number; xp_span: number; pct_to_next: number };
+export type JourneyStep = { key: string; icon: string; label: string; done: boolean; current: boolean };
+export type Mission = { icon: string; xp: number; done: boolean; label: string };
+export type Achievement = { key: string; icon: string; label: string; unlocked: boolean };
+export type Journey = {
+  xp: number;
+  level: Level;
+  ruta_pct: number;
+  journey: JourneyStep[];
+  missions: Mission[];
+  achievements: Achievement[];
+};
+
+export async function getJourney(lang = "es"): Promise<Journey> {
+  const res = await authFetch(`/agente/journey?lang=${lang}`);
+  if (!res.ok) throw new Error(`journey: ${res.status}`);
+  return res.json();
+}
