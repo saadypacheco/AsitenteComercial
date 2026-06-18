@@ -18,20 +18,24 @@ type ThemeKey = "teal" | "violet";
 // Paletas (los fragmentos de clase son literales → Tailwind los compila).
 const THEMES = {
   teal: {
-    page: "from-emerald-50 via-cyan-50 to-sky-50",
-    sidebar: "from-[#0c2b33] to-[#0a323f]",
-    hero: "from-emerald-400 via-teal-500 to-blue-700", heroSh: "shadow-teal-600/30",
-    btn: "from-teal-500 to-emerald-500", btnSh: "shadow-teal-500/30",
+    page: "from-emerald-50 via-cyan-50 to-indigo-50",
+    sidebar: "from-[#06302f] via-[#063a45] to-[#0a2540]",
+    hero: "from-emerald-400 via-cyan-500 to-indigo-600", heroSh: "shadow-cyan-600/40",
+    btn: "from-teal-500 to-cyan-600", btnSh: "shadow-cyan-500/40",
     soft: "bg-emerald-50", softRing: "ring-emerald-200", text: "text-teal-600",
   },
   violet: {
-    page: "from-indigo-100 via-violet-50 to-sky-50",
-    sidebar: "from-[#1e1b4b] to-[#2e1065]",
-    hero: "from-indigo-500 via-violet-500 to-fuchsia-500", heroSh: "shadow-violet-500/30",
-    btn: "from-indigo-500 to-violet-500", btnSh: "shadow-indigo-500/30",
+    page: "from-violet-50 via-fuchsia-50 to-indigo-50",
+    sidebar: "from-[#2e1065] via-[#3b0764] to-[#1e1b4b]",
+    hero: "from-violet-500 via-fuchsia-500 to-indigo-600", heroSh: "shadow-fuchsia-600/40",
+    btn: "from-violet-500 to-indigo-600", btnSh: "shadow-indigo-500/40",
     soft: "bg-violet-50", softRing: "ring-violet-200", text: "text-violet-600",
   },
 };
+// Texturas (puntos + brillo) para que los gradientes no se vean planos.
+const DOTS = { backgroundImage: "radial-gradient(rgba(255,255,255,0.22) 1.2px, transparent 1.2px)", backgroundSize: "15px 15px" } as const;
+const SHEEN = { background: "linear-gradient(120deg, rgba(255,255,255,0.22) 0%, transparent 42%)" } as const;
+const GRID = { backgroundImage: "linear-gradient(rgba(2,132,99,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(2,132,99,0.05) 1px, transparent 1px)", backgroundSize: "26px 26px" } as const;
 const PODIUM = ["from-amber-400 to-yellow-500", "from-slate-300 to-slate-400", "from-orange-400 to-amber-600"];
 const MISSION_TINT = [
   { bg: "bg-emerald-50 ring-emerald-200", ic: "bg-emerald-100" },
@@ -147,8 +151,9 @@ export default function AgentePage() {
     `flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-bold transition ${active ? `bg-gradient-to-r ${TH.btn} text-white shadow-md ${TH.btnSh}` : "text-white/60 hover:bg-white/10 hover:text-white"}`;
 
   return (
-    <div className={`min-h-screen bg-gradient-to-b ${TH.page}`}>
-      <div className="mx-auto flex min-h-screen w-full max-w-6xl">
+    <div className={`relative min-h-screen bg-gradient-to-b ${TH.page}`}>
+      <div className="pointer-events-none fixed inset-0 z-0" style={GRID} />
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl">
         {/* ── Sidebar (desktop) ── */}
         <aside className={`hidden w-60 shrink-0 flex-col bg-gradient-to-b ${TH.sidebar} px-4 py-5 text-white lg:flex`}>
           <div className="mb-6 flex items-center gap-2 px-2">
@@ -204,8 +209,10 @@ export default function AgentePage() {
                 <div className="grid gap-4 lg:grid-cols-3 lg:gap-6">
                   {journey && (
                     <div className={`relative overflow-hidden rounded-3xl bg-gradient-to-br ${TH.hero} p-5 text-white shadow-xl ${TH.heroSh} lg:col-span-2`}>
-                      <div className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-white/15" />
-                      <div className="relative flex items-center justify-between">
+                      <Tex />
+                      <div className="pointer-events-none absolute -right-10 -top-12 h-36 w-36 rounded-full bg-white/10" />
+                      <span className="pointer-events-none absolute bottom-3 right-4 text-5xl opacity-25">🚀</span>
+                      <div className="relative z-10 flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white/20 text-lg font-black ring-2 ring-white/40 backdrop-blur">{journey.level.n}</span>
                           <div>
@@ -273,14 +280,16 @@ export default function AgentePage() {
                   )}
                   {/* Próxima misión */}
                   {proxMision && (
-                    <div className={`flex flex-col justify-between rounded-3xl bg-gradient-to-br ${TH.btn} p-5 text-white shadow-xl ${TH.btnSh}`}>
-                      <div>
+                    <div className={`relative flex flex-col justify-between overflow-hidden rounded-3xl bg-gradient-to-br ${TH.btn} p-5 text-white shadow-xl ${TH.btnSh}`}>
+                      <Tex />
+                      <span className="pointer-events-none absolute -bottom-4 -right-3 text-6xl opacity-20">🎯</span>
+                      <div className="relative z-10">
                         <p className="text-[11px] font-bold uppercase tracking-wide text-white/70">{t.nextMission}</p>
                         <span className="mt-2 inline-block text-3xl">{proxMision.icon}</span>
                         <p className="mt-1 text-lg font-extrabold leading-snug">{proxMision.label}</p>
                         <span className="mt-2 inline-block rounded-full bg-white/20 px-2.5 py-1 text-[11px] font-black">+{proxMision.xp} XP</span>
                       </div>
-                      <button onClick={() => setTab("ruta")} className="mt-4 w-full rounded-2xl bg-white py-2.5 text-sm font-extrabold text-slate-800 shadow-lg transition active:scale-[0.98]">{t.startMission}</button>
+                      <button onClick={() => setTab("ruta")} className="relative z-10 mt-4 w-full rounded-2xl bg-white py-2.5 text-sm font-extrabold text-slate-800 shadow-lg transition active:scale-[0.98]">{t.startMission}</button>
                     </div>
                   )}
                 </div>
@@ -390,13 +399,14 @@ export default function AgentePage() {
             {tab === "logros" && (
               <div className="space-y-4 lg:max-w-2xl">
                 {journey && (
-                  <div className={`flex items-center gap-3 rounded-3xl bg-gradient-to-br ${TH.hero} p-4 text-white shadow-lg ${TH.heroSh}`}>
-                    <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white/20 text-lg font-black ring-2 ring-white/40">{journey.level.n}</span>
-                    <div className="flex-1">
+                  <div className={`relative flex items-center gap-3 overflow-hidden rounded-3xl bg-gradient-to-br ${TH.hero} p-4 text-white shadow-lg ${TH.heroSh}`}>
+                    <Tex />
+                    <span className="relative z-10 grid h-12 w-12 place-items-center rounded-2xl bg-white/20 text-lg font-black ring-2 ring-white/40">{journey.level.n}</span>
+                    <div className="relative z-10 flex-1">
                       <p className="text-sm font-extrabold">{t.level} {journey.level.n} · {journey.level.name}</p>
                       <p className="text-xs text-white/80">⭐ {journey.xp} XP · 🔥 {journey.racha} {t.streakDays}</p>
                     </div>
-                    <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-black">{journey.achievements.filter((a) => a.unlocked).length}/{journey.achievements.length} 🏅</span>
+                    <span className="relative z-10 rounded-full bg-white/20 px-3 py-1 text-xs font-black">{journey.achievements.filter((a) => a.unlocked).length}/{journey.achievements.length} 🏅</span>
                   </div>
                 )}
                 <div className={card}>
@@ -452,6 +462,15 @@ export default function AgentePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function Tex() {
+  return (
+    <>
+      <div className="pointer-events-none absolute inset-0 opacity-60" style={DOTS} />
+      <div className="pointer-events-none absolute inset-0" style={SHEEN} />
+    </>
   );
 }
 
