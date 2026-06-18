@@ -18,11 +18,11 @@ type ThemeKey = "teal" | "violet";
 // Paletas (los fragmentos de clase son literales → Tailwind los compila).
 const THEMES = {
   teal: {
-    page: "from-teal-50 via-emerald-50 to-cyan-50",
-    sidebar: "from-[#0c2b33] to-[#0a3a33]",
-    hero: "from-teal-500 via-emerald-500 to-green-500", heroSh: "shadow-emerald-500/30",
-    btn: "from-teal-500 to-emerald-500", btnSh: "shadow-emerald-500/30",
-    soft: "bg-emerald-50", softRing: "ring-emerald-200", text: "text-emerald-600",
+    page: "from-emerald-50 via-cyan-50 to-sky-50",
+    sidebar: "from-[#0c2b33] to-[#0a323f]",
+    hero: "from-emerald-400 via-teal-500 to-blue-700", heroSh: "shadow-teal-600/30",
+    btn: "from-teal-500 to-emerald-500", btnSh: "shadow-teal-500/30",
+    soft: "bg-emerald-50", softRing: "ring-emerald-200", text: "text-teal-600",
   },
   violet: {
     page: "from-indigo-100 via-violet-50 to-sky-50",
@@ -33,6 +33,12 @@ const THEMES = {
   },
 };
 const PODIUM = ["from-amber-400 to-yellow-500", "from-slate-300 to-slate-400", "from-orange-400 to-amber-600"];
+const MISSION_TINT = [
+  { bg: "bg-emerald-50 ring-emerald-200", ic: "bg-emerald-100" },
+  { bg: "bg-sky-50 ring-sky-200", ic: "bg-sky-100" },
+  { bg: "bg-orange-50 ring-orange-200", ic: "bg-orange-100" },
+  { bg: "bg-fuchsia-50 ring-fuchsia-200", ic: "bg-fuchsia-100" },
+];
 
 export default function AgentePage() {
   const { locale, t: dict } = useLocale();
@@ -113,10 +119,11 @@ export default function AgentePage() {
       </a>
     );
   }
-  function MissionCard({ m }: { m: Mission }) {
+  function MissionCard({ m, idx }: { m: Mission; idx: number }) {
+    const tint = MISSION_TINT[idx % MISSION_TINT.length];
     return (
-      <div className={`rounded-2xl p-4 ring-1 ${m.done ? "bg-emerald-50 ring-emerald-200" : "bg-white ring-slate-100"}`}>
-        <span className="grid h-10 w-10 place-items-center rounded-xl bg-white text-xl shadow-sm">{m.done ? "✅" : m.icon}</span>
+      <div className={`rounded-2xl p-4 ring-1 ${m.done ? "bg-emerald-50 ring-emerald-200" : tint.bg}`}>
+        <span className={`grid h-10 w-10 place-items-center rounded-xl text-xl shadow-sm ${m.done ? "bg-white" : tint.ic}`}>{m.done ? "✅" : m.icon}</span>
         <p className={`mt-2 text-sm ${m.done ? "text-slate-400" : "font-bold text-slate-700"}`}>{m.label}</p>
         <div className="mt-2 flex items-center justify-between">
           <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-black text-amber-700">+{m.xp} XP</span>
@@ -226,10 +233,10 @@ export default function AgentePage() {
                     <div className={card}>
                       <p className={sTitle}>📊 {t.resumenTitle}</p>
                       <div className="grid grid-cols-2 gap-2.5">
-                        <Mini ic="📚" n={journey.resumen.etapas} lbl={t.statStages} c="text-emerald-600" />
-                        <Mini ic="🎥" n={journey.resumen.zoom} lbl="Zoom" c="text-sky-600" />
-                        <Mini ic="💼" n={journey.resumen.ventas} lbl={t.statTasks} c="text-amber-600" />
-                        <Mini ic="🏅" n={journey.resumen.logros} lbl={t.tabLogros} c="text-fuchsia-600" />
+                        <Mini ic="📚" n={journey.resumen.etapas} lbl={t.statStages} c="text-emerald-600" bg="bg-emerald-100" />
+                        <Mini ic="🎥" n={journey.resumen.zoom} lbl="Zoom" c="text-sky-600" bg="bg-sky-100" />
+                        <Mini ic="💼" n={journey.resumen.ventas} lbl={t.statTasks} c="text-amber-600" bg="bg-amber-100" />
+                        <Mini ic="🏅" n={journey.resumen.logros} lbl={t.tabLogros} c="text-fuchsia-600" bg="bg-fuchsia-100" />
                       </div>
                       <p className="mt-3 rounded-2xl bg-slate-50 px-3 py-2 text-center text-xs font-semibold text-slate-500">{t.weekProgress}: <span className={TH.text}>+{journey.resumen.xp_semana} XP</span></p>
                     </div>
@@ -266,7 +273,7 @@ export default function AgentePage() {
                   )}
                   {/* Próxima misión */}
                   {proxMision && (
-                    <div className={`flex flex-col justify-between rounded-3xl bg-gradient-to-br ${TH.hero} p-5 text-white shadow-xl ${TH.heroSh}`}>
+                    <div className={`flex flex-col justify-between rounded-3xl bg-gradient-to-br ${TH.btn} p-5 text-white shadow-xl ${TH.btnSh}`}>
                       <div>
                         <p className="text-[11px] font-bold uppercase tracking-wide text-white/70">{t.nextMission}</p>
                         <span className="mt-2 inline-block text-3xl">{proxMision.icon}</span>
@@ -283,7 +290,7 @@ export default function AgentePage() {
                   <div>
                     <p className={sTitle}>🎯 {t.recommended}</p>
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                      {journey.missions.map((m, i) => <MissionCard key={i} m={m} />)}
+                      {journey.missions.map((m, i) => <MissionCard key={i} m={m} idx={i} />)}
                     </div>
                   </div>
                 )}
@@ -448,11 +455,11 @@ export default function AgentePage() {
   );
 }
 
-function Mini({ ic, n, lbl, c }: { ic: string; n: number; lbl: string; c: string }) {
+function Mini({ ic, n, lbl, c, bg }: { ic: string; n: number; lbl: string; c: string; bg: string }) {
   return (
-    <div className="rounded-2xl bg-slate-50 p-2.5 ring-1 ring-slate-100">
-      <p className="text-base">{ic}</p>
-      <p className={`text-xl font-black ${c}`}>{n}</p>
+    <div className="rounded-2xl bg-white p-2.5 ring-1 ring-slate-100">
+      <span className={`grid h-8 w-8 place-items-center rounded-full ${bg} text-base`}>{ic}</span>
+      <p className={`mt-1.5 text-xl font-black ${c}`}>{n}</p>
       <p className="text-[10px] font-semibold text-slate-400">{lbl}</p>
     </div>
   );
