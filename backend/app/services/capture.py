@@ -58,8 +58,15 @@ def _handle_new_message(event: WahaEvent, tenant_id: str, repo: CaptureRepo) -> 
     if not payload.id:
         raise CaptureError("payload sin 'id' (no se puede deduplicar)")
 
-    # Upsert de remitente y chat (resuelven los FKs del mensaje).
-    sender_id = repo.upsert_contact(tenant_id, payload.sender_jid, display_name=None)
+    # Filtro de ruido: estados (status@broadcast) y mensajes de protocolo/sync no son
+    # conversación real → no se capturan (mantienen /mensajes limpio).
+    if payload.is_noise:
+        logger.info("capture.ruido", chat=payload.chat_id, type=payload.type)
+        return {"captured": False, "reason": "ruido"}
+
+    # Upsert de remitente (con su nombre de WhatsApp) y chat. El número real se prefiere
+    # sobre el identificador @lid; el nombre se actualiza solo en mensajes siguientes.
+    sender_id = repo.upsert_contact(tenant_id, payload.sender_jid, display_name=payload.push_name)
     chat_id = repo.upsert_chat(
         tenant_id,
         payload.chat_id,
@@ -74,7 +81,7 @@ def _handle_new_message(event: WahaEvent, tenant_id: str, repo: CaptureRepo) -> 
         "sender_id": sender_id,
         "direction": "out" if payload.from_me else "in",
         "type": payload.type,
-        "body": payload.body,
+        "body": payload.text,
         "quoted_msg_id": payload.quoted_msg_id,
         "wa_timestamp": payload.wa_timestamp.isoformat(),
         "raw": event.payload,                       # payload COMPLETO (red de seguridad)
