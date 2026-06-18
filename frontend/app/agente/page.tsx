@@ -18,18 +18,22 @@ type ThemeKey = "teal" | "violet";
 // Paletas (los fragmentos de clase son literales → Tailwind los compila).
 const THEMES = {
   teal: {
-    page: "from-emerald-50 via-cyan-50 to-indigo-50",
-    sidebar: "from-[#06302f] via-[#063a45] to-[#0a2540]",
-    hero: "from-emerald-400 via-cyan-500 to-indigo-600", heroSh: "shadow-cyan-600/40",
-    btn: "from-teal-500 to-cyan-600", btnSh: "shadow-cyan-500/40",
-    soft: "bg-emerald-50", softRing: "ring-emerald-200", text: "text-teal-600",
+    page: "bg-[#F5F8FA]",
+    sidebar: "bg-[linear-gradient(180deg,#071921_0%,#0B212D_100%)]",
+    hero: "bg-[linear-gradient(135deg,#018A81_0%,#0E7CB8_55%,#1C61D6_100%)]",
+    heroSh: "shadow-[0_22px_55px_-18px_rgba(28,97,214,0.55)]",
+    btn: "bg-[#00BC9C]", btnSh: "shadow-[0_14px_34px_-12px_rgba(0,188,156,0.65)]",
+    soft: "bg-[#00BC9C]/10", softRing: "ring-[#00BC9C]/30", text: "text-[#00A98F]",
+    done: "bg-[#00BC9C]", current: "bg-[#018A81]",
   },
   violet: {
-    page: "from-violet-50 via-fuchsia-50 to-indigo-50",
-    sidebar: "from-[#2e1065] via-[#3b0764] to-[#1e1b4b]",
-    hero: "from-violet-500 via-fuchsia-500 to-indigo-600", heroSh: "shadow-fuchsia-600/40",
-    btn: "from-violet-500 to-indigo-600", btnSh: "shadow-indigo-500/40",
-    soft: "bg-violet-50", softRing: "ring-violet-200", text: "text-violet-600",
+    page: "bg-[linear-gradient(180deg,#faf5ff_0%,#eef2ff_100%)]",
+    sidebar: "bg-[linear-gradient(180deg,#2e1065_0%,#1e1b4b_100%)]",
+    hero: "bg-[linear-gradient(135deg,#7c3aed_0%,#c026d3_50%,#4f46e5_100%)]",
+    heroSh: "shadow-[0_22px_55px_-18px_rgba(124,58,237,0.55)]",
+    btn: "bg-[#8b5cf6]", btnSh: "shadow-[0_14px_34px_-12px_rgba(139,92,246,0.65)]",
+    soft: "bg-[#8b5cf6]/10", softRing: "ring-[#8b5cf6]/30", text: "text-[#7c3aed]",
+    done: "bg-emerald-500", current: "bg-[#7c3aed]",
   },
 };
 // Texturas (puntos + brillo) para que los gradientes no se vean planos.
@@ -134,7 +138,7 @@ export default function AgentePage() {
           {m.done ? (
             <span className="text-xs font-bold text-emerald-600">✓ {t.completedLabel}</span>
           ) : (
-            <button onClick={() => setTab("ruta")} className={`rounded-full bg-gradient-to-r ${TH.btn} px-3 py-1 text-xs font-bold text-white`}>{t.startBtn}</button>
+            <button onClick={() => setTab("ruta")} className={`rounded-full ${TH.btn} px-3 py-1 text-xs font-bold text-white`}>{t.startBtn}</button>
           )}
         </div>
       </div>
@@ -148,16 +152,16 @@ export default function AgentePage() {
     );
   }
   const navBtn = (active: boolean) =>
-    `flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-bold transition ${active ? `bg-gradient-to-r ${TH.btn} text-white shadow-md ${TH.btnSh}` : "text-white/60 hover:bg-white/10 hover:text-white"}`;
+    `flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-bold transition ${active ? `${TH.btn} text-white shadow-md ${TH.btnSh}` : "text-white/60 hover:bg-white/10 hover:text-white"}`;
 
   return (
-    <div className={`relative min-h-screen bg-gradient-to-b ${TH.page}`}>
+    <div className={`relative min-h-screen ${TH.page}`}>
       <div className="pointer-events-none fixed inset-0 z-0" style={GRID} />
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl">
         {/* ── Sidebar (desktop) ── */}
-        <aside className={`hidden w-60 shrink-0 flex-col bg-gradient-to-b ${TH.sidebar} px-4 py-5 text-white lg:flex`}>
+        <aside className={`hidden w-60 shrink-0 flex-col ${TH.sidebar} px-4 py-5 text-white lg:flex`}>
           <div className="mb-6 flex items-center gap-2 px-2">
-            <span className={`grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br ${TH.hero} text-base`}>🚀</span>
+            <span className={`grid h-9 w-9 place-items-center rounded-xl ${TH.hero} text-base`}>🚀</span>
             <span className="text-lg font-black">Execally</span>
           </div>
           <nav className="space-y-1.5">
@@ -173,7 +177,7 @@ export default function AgentePage() {
           {journey && (
             <div className="mt-auto rounded-2xl bg-white/10 p-3">
               <div className="flex items-center gap-2">
-                <span className={`grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br ${TH.hero} text-sm font-black`}>{journey.level.n}</span>
+                <span className={`grid h-9 w-9 place-items-center rounded-xl ${TH.hero} text-sm font-black`}>{journey.level.n}</span>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-bold">{nombre || "—"}</p>
                   <p className="text-[11px] text-white/60">{t.level} {journey.level.n} · {journey.level.name}</p>
@@ -191,7 +195,7 @@ export default function AgentePage() {
         <div className="flex min-h-screen flex-1 flex-col">
           {/* Header */}
           <header className="sticky top-0 z-10 flex items-center gap-3 bg-white/70 px-5 py-3.5 backdrop-blur-xl">
-            <span className={`grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br ${TH.hero} text-xl shadow-lg ${TH.heroSh} lg:hidden`}>👩‍💼</span>
+            <span className={`grid h-11 w-11 place-items-center rounded-2xl ${TH.hero} text-xl shadow-lg ${TH.heroSh} lg:hidden`}>👩‍💼</span>
             <div className="flex-1">
               <h1 className="text-base font-extrabold text-slate-900">{t.hello}, {nombre} 👋</h1>
               <p className="text-xs font-medium text-slate-400">{me?.ciudad}</p>
@@ -208,7 +212,7 @@ export default function AgentePage() {
                 {/* Hero nivel + Resumen */}
                 <div className="grid gap-4 lg:grid-cols-3 lg:gap-6">
                   {journey && (
-                    <div className={`relative overflow-hidden rounded-3xl bg-gradient-to-br ${TH.hero} p-5 text-white shadow-xl ${TH.heroSh} lg:col-span-2`}>
+                    <div className={`relative overflow-hidden rounded-3xl ${TH.hero} p-5 text-white shadow-xl ${TH.heroSh} lg:col-span-2`}>
                       <Tex />
                       <div className="pointer-events-none absolute -right-10 -top-12 h-36 w-36 rounded-full bg-white/10" />
                       <span className="pointer-events-none absolute bottom-3 right-4 text-5xl opacity-25">🚀</span>
@@ -220,7 +224,7 @@ export default function AgentePage() {
                             <p className="text-2xl font-black leading-tight">{journey.level.name}</p>
                           </div>
                         </div>
-                        <div className="rounded-2xl bg-amber-300/95 px-3 py-1.5 text-amber-900 shadow-lg">
+                        <div className="rounded-2xl bg-[#FFCD56] px-3 py-1.5 text-[#7a5b00] shadow-lg">
                           <p className="text-lg font-black leading-none">⭐ {journey.xp}</p>
                           <p className="text-center text-[10px] font-bold">XP</p>
                         </div>
@@ -228,7 +232,7 @@ export default function AgentePage() {
                       {journey.level.next_name ? (
                         <div className="relative mt-4">
                           <div className="h-2.5 w-full overflow-hidden rounded-full bg-black/15">
-                            <div className="h-full rounded-full bg-gradient-to-r from-amber-300 to-yellow-200 transition-all duration-700" style={{ width: `${journey.level.pct_to_next}%` }} />
+                            <div className="h-full rounded-full bg-[#FFCD56] transition-all duration-700" style={{ width: `${journey.level.pct_to_next}%` }} />
                           </div>
                           <p className="mt-1.5 text-[11px] font-semibold text-white/90">{journey.level.xp_into}/{journey.level.xp_span} XP → {journey.level.next_name}</p>
                         </div>
@@ -258,9 +262,9 @@ export default function AgentePage() {
                       <div className="flex items-center">
                         {journey.journey.map((s, i) => (
                           <Fragment key={s.key}>
-                            {i > 0 && <span className={`h-1 flex-1 rounded-full ${s.done || s.current ? "bg-gradient-to-r from-emerald-400 to-teal-400" : "bg-slate-200"}`} />}
+                            {i > 0 && <span className={`h-1 flex-1 rounded-full ${s.done || s.current ? "bg-[#00BC9C]" : "bg-slate-200"}`} />}
                             <span title={s.label}
-                              className={`grid h-10 w-10 shrink-0 place-items-center rounded-2xl text-base transition ${s.done ? "bg-gradient-to-br from-emerald-400 to-emerald-500 text-white shadow-md shadow-emerald-500/30" : s.current ? `scale-110 bg-gradient-to-br ${TH.btn} text-white shadow-lg ${TH.btnSh} ring-4 ${TH.softRing}` : "bg-slate-100 text-slate-300"}`}>
+                              className={`grid h-10 w-10 shrink-0 place-items-center rounded-2xl text-base transition ${s.done ? "bg-[#00BC9C] text-white shadow-md shadow-[#00BC9C]/40" : s.current ? `scale-110 ${TH.current} text-white shadow-lg ${TH.btnSh} ring-4 ${TH.softRing}` : "bg-slate-100 text-slate-300"}`}>
                               {s.done ? "✓" : s.icon}
                             </span>
                           </Fragment>
@@ -275,12 +279,12 @@ export default function AgentePage() {
                           </div>
                         ) : <p className="mt-4 text-center text-sm font-extrabold text-emerald-600">🏆 {t.journeyDone}</p>;
                       })()}
-                      {actual && <button onClick={() => setTab("ruta")} className={`mt-3 w-full rounded-2xl bg-gradient-to-r ${TH.btn} py-3 text-sm font-bold text-white shadow-lg ${TH.btnSh} transition active:scale-[0.98]`}>{t.continueBtn} →</button>}
+                      {actual && <button onClick={() => setTab("ruta")} className={`mt-3 w-full rounded-2xl ${TH.btn} py-3 text-sm font-bold text-white shadow-lg ${TH.btnSh} transition active:scale-[0.98]`}>{t.continueBtn} →</button>}
                     </div>
                   )}
                   {/* Próxima misión */}
                   {proxMision && (
-                    <div className={`relative flex flex-col justify-between overflow-hidden rounded-3xl bg-gradient-to-br ${TH.btn} p-5 text-white shadow-xl ${TH.btnSh}`}>
+                    <div className={`relative flex flex-col justify-between overflow-hidden rounded-3xl ${TH.btn} p-5 text-white shadow-xl ${TH.btnSh}`}>
                       <Tex />
                       <span className="pointer-events-none absolute -bottom-4 -right-3 text-6xl opacity-20">🎯</span>
                       <div className="relative z-10">
@@ -328,7 +332,7 @@ export default function AgentePage() {
                 <ul className="space-y-2.5">
                   {agenda.map((s) => (
                     <li key={s.id} className="flex items-start gap-3 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-100">
-                      <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br ${TH.hero} text-center text-white shadow-md ${TH.heroSh}`}>
+                      <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl ${TH.hero} text-center text-white shadow-md ${TH.heroSh}`}>
                         <span className="text-[10px] font-bold leading-tight">{fmtDay(s.fecha)}</span>
                       </div>
                       <div className="min-w-0 flex-1">
@@ -352,7 +356,7 @@ export default function AgentePage() {
                     <span className={`text-sm font-black ${TH.text}`}>{ruta.pct}%</span>
                   </div>
                   <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
-                    <div className={`h-full rounded-full bg-gradient-to-r ${TH.hero} transition-all duration-700`} style={{ width: `${ruta.pct}%` }} />
+                    <div className={`h-full rounded-full ${TH.btn} transition-all duration-700`} style={{ width: `${ruta.pct}%` }} />
                   </div>
                 </div>
                 <div className={card}>
@@ -364,7 +368,7 @@ export default function AgentePage() {
                       const active = e.estado === "en_curso";
                       return (
                         <li key={e.id} className="relative">
-                          <span className={`absolute -left-10 top-1 grid h-9 w-9 place-items-center rounded-2xl text-sm font-black ${done ? "bg-gradient-to-br from-emerald-400 to-emerald-500 text-white shadow-md shadow-emerald-500/30" : active ? `bg-gradient-to-br ${TH.btn} text-white shadow-lg ${TH.btnSh} ring-4 ${TH.softRing}` : "bg-slate-100 text-slate-300"}`}>
+                          <span className={`absolute -left-10 top-1 grid h-9 w-9 place-items-center rounded-2xl text-sm font-black ${done ? "bg-[#00BC9C] text-white shadow-md shadow-[#00BC9C]/40" : active ? `${TH.current} text-white shadow-lg ${TH.btnSh} ring-4 ${TH.softRing}` : "bg-slate-100 text-slate-300"}`}>
                             {done ? "✓" : e.orden}
                           </span>
                           <div className={`rounded-2xl p-3.5 ring-1 ${active ? `${TH.soft} ${TH.softRing}` : "bg-slate-50 ring-slate-100"} ${e.estado === "pendiente" ? "opacity-60" : ""}`}>
@@ -373,7 +377,7 @@ export default function AgentePage() {
                             <p className={`mt-1 text-[11px] font-bold ${done ? "text-emerald-500" : active ? TH.text : "text-slate-300"}`}>
                               {done ? t.completedLabel : active ? t.currentLabel : t.lockedLabel}
                             </p>
-                            {active && <button onClick={siguiente} disabled={busy} className={`mt-2 w-full rounded-2xl bg-gradient-to-r ${TH.btn} py-2.5 text-sm font-bold text-white shadow-md ${TH.btnSh} transition active:scale-[0.98] disabled:opacity-50`}>{busy ? "…" : `✓ ${t.completeBtn}`}</button>}
+                            {active && <button onClick={siguiente} disabled={busy} className={`mt-2 w-full rounded-2xl ${TH.btn} py-2.5 text-sm font-bold text-white shadow-md ${TH.btnSh} transition active:scale-[0.98] disabled:opacity-50`}>{busy ? "…" : `✓ ${t.completeBtn}`}</button>}
                           </div>
                         </li>
                       );
@@ -399,7 +403,7 @@ export default function AgentePage() {
             {tab === "logros" && (
               <div className="space-y-4 lg:max-w-2xl">
                 {journey && (
-                  <div className={`relative flex items-center gap-3 overflow-hidden rounded-3xl bg-gradient-to-br ${TH.hero} p-4 text-white shadow-lg ${TH.heroSh}`}>
+                  <div className={`relative flex items-center gap-3 overflow-hidden rounded-3xl ${TH.hero} p-4 text-white shadow-lg ${TH.heroSh}`}>
                     <Tex />
                     <span className="relative z-10 grid h-12 w-12 place-items-center rounded-2xl bg-white/20 text-lg font-black ring-2 ring-white/40">{journey.level.n}</span>
                     <div className="relative z-10 flex-1">
@@ -438,7 +442,7 @@ export default function AgentePage() {
                 <div className="flex gap-2">
                   <input value={pregunta} onChange={(e) => setPregunta(e.target.value)} onKeyDown={(e) => e.key === "Enter" && preguntar()}
                     placeholder={t.helpPlaceholder} className="w-full rounded-2xl bg-slate-50 px-4 py-3 text-sm ring-1 ring-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-300" />
-                  <button onClick={preguntar} disabled={pensando} className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br ${TH.btn} text-white shadow-md ${TH.btnSh} disabled:opacity-50`}>{pensando ? "…" : "➤"}</button>
+                  <button onClick={preguntar} disabled={pensando} className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl ${TH.btn} text-white shadow-md ${TH.btnSh} disabled:opacity-50`}>{pensando ? "…" : "➤"}</button>
                 </div>
               </div>
             )}
@@ -446,14 +450,14 @@ export default function AgentePage() {
 
           {/* FAB ayuda (mobile) */}
           {tab !== "ayuda" && (
-            <button onClick={() => setTab("ayuda")} className="fixed bottom-24 right-5 z-20 flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-400 to-green-500 px-4 py-3 text-sm font-extrabold text-white shadow-xl shadow-emerald-500/40 transition active:scale-95 lg:bottom-6">💬 {t.tabAyuda}</button>
+            <button onClick={() => setTab("ayuda")} className="fixed bottom-24 right-5 z-20 flex items-center gap-2 rounded-full bg-[#00BC9C] px-4 py-3 text-sm font-extrabold text-white shadow-xl shadow-emerald-500/40 transition active:scale-95 lg:bottom-6">💬 {t.tabAyuda}</button>
           )}
 
           {/* Tab bar (mobile) */}
           <nav className="sticky bottom-0 z-10 mx-3 mb-3 flex rounded-3xl bg-white/90 p-1.5 shadow-[0_-4px_30px_-12px_rgba(20,120,100,0.3)] ring-1 ring-slate-100 backdrop-blur-xl lg:hidden">
             {TABS.map((x) => (
               <button key={x.k} onClick={() => setTab(x.k)}
-                className={`flex flex-1 flex-col items-center rounded-2xl py-1.5 text-[10px] font-bold transition ${tab === x.k ? `bg-gradient-to-br ${TH.btn} text-white shadow-md ${TH.btnSh}` : "text-slate-400"}`}>
+                className={`flex flex-1 flex-col items-center rounded-2xl py-1.5 text-[10px] font-bold transition ${tab === x.k ? `${TH.btn} text-white shadow-md ${TH.btnSh}` : "text-slate-400"}`}>
                 <span className="text-lg leading-none">{x.ic}</span>
                 <span className="mt-0.5">{x.label}</span>
               </button>
