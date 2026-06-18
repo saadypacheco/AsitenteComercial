@@ -1,7 +1,8 @@
 # Estado del Proyecto — Asistente Comercial (mentorcomercial)
 
-**Interno.** Resumen completo para retomar en otra sesión. Última actualización: 2026-06.
+**Interno.** Resumen completo para retomar en otra sesión. Última actualización: 2026-06-18.
 Branch: `001-captura-whatsapp-bd` · Repo privado: `github.com/saadypacheco/mentorcomercial` (remote `private`).
+**🟢 EN PRODUCCIÓN:** https://execally.online (ver §3b).
 
 ---
 
@@ -38,6 +39,16 @@ docker compose -f infra/docker-compose.local.yml up -d
 
 > Las migraciones nuevas se aplican solas en un volumen FRESCO. Sobre un volumen existente hay que aplicarlas a mano: `docker exec -e PGPASSWORD=postgres mc-local-db psql -U postgres -d mentorcomercial -f /migrations/00NN_*.sql` y los seeds en `/docker-entrypoint-initdb.d/`. Tras cambios de código del backend: `docker restart mc-local-backend`. El frontend tiene HMR (polling). Cambios de `docker-compose` requieren `up -d` (recrea), no `restart`.
 
+## 3b. Producción (Hostinger) 🟢
+Desplegado y funcionando (2026-06-18). Guías: [RUNBOOK_DEPLOY_HOSTINGER.md](RUNBOOK_DEPLOY_HOSTINGER.md) (genérico, reusable para otros repos), [DEPLOY_PRODUCCION.md](DEPLOY_PRODUCCION.md), [CONECTAR_WHATSAPP_WAHA.md](CONECTAR_WHATSAPP_WAHA.md).
+- **URLs:** panel `https://execally.online` · API `https://api.execally.online`.
+- **VPS:** Hostinger Ubuntu 24.04, IP `76.13.234.191`, proyecto en `/docker/mentorcomercial`. Reverse proxy **Traefik** (ya existente, red externa `traefik`) con **TLS Let's Encrypt automático** por labels. Convive con `solucionesdentales`/`amanda`.
+- **DB:** **Supabase Cloud** (Pro, MICRO, us-east-2) vía **Session pooler** (IPv4 — el Direct connection es IPv6-only y no anda desde Docker). `DATABASE_URL` en `backend/.env`. Migraciones aplicadas; extensiones `vector` + `pgmq` habilitadas en el dashboard de Supabase.
+- **WAHA:** número observador **vinculado** (sesión `default` WORKING). `tenants.ia_wa_jid='default'` (= nombre de sesión). Captura real andando. Compose `docker-compose.prod.yml` (mc-backend/worker/frontend/waha; sin Postgres local).
+- **Login owner:** `saadypacheco@gmail.com` / `Cecilia2026` (reset por DB; cambiar). El email de recuperación se activa con Resend (ver §6).
+- **Deploy/update:** `cd /docker/mentorcomercial && git pull && docker compose -f docker-compose.prod.yml --env-file .env up -d --build mc-backend mc-worker`.
+- **Falta en prod:** `RESEND_API_KEY` (email real), `GEMINI_API_KEY` (IA real), HMAC del webhook (hoy `/ingest` público sin firma), swap, monitoreo.
+
 ## 4. Módulos construidos (panel de la líder)
 Todos bilingües, responsive, con aislamiento por tenant y **scope multi-líder**.
 - **/inicio** — Centro de Control: 5 KPIs (conversaciones, ventas $, críticos, clientes en riesgo, conectados), Recomendaciones IA, Estado del equipo (saturada/normal/excelente), Alertas enriquecidas, Top Agentes, Oportunidades ($/prob), Actividad, Preguntale a la IA. Buscador global destacado.
@@ -57,11 +68,20 @@ Todos bilingües, responsive, con aislamiento por tenant y **scope multi-líder*
 ## 5. App del agente (Producto ③) — mobile
 `/agente/login` (magic link por celular/email) → `/agente`: tabs **Hoy · Agenda (Zoom) · Ruta · Progreso · Logros** + chat de Ayuda (FAB). Score strip, ruta de etapas con "avanzar", ranking del grupo.
 
-## 6. Integraciones (andamiadas + probadas en simulado)
-- **WhatsApp / WAHA:** servicio WAHA en compose local; webhook `/ingest/webhook` captura (PsycopgRepo) + worker procesa (clasifica + extrae eventos, determinista). **Falta:** número descartable + setear `tenants.ia_wa_jid`.
+## 6. Integraciones
+- **WhatsApp / WAHA:** ✅ **conectado en prod** (número observador vinculado). Webhook `/ingest/webhook` captura (PsycopgRepo) + worker procesa (clasifica + extrae eventos, determinista). **Parsing NOWEB real** (`models/waha.py`): detecta tipo desde `_data.message` (audio/video/img/texto), toma `pushName` (nombre del remitente) y el **número real** (no el `@lid`), y **filtra ruido** (estados `status@broadcast` + mensajes de protocolo). **Nombre del grupo** (fix D): el worker lo pide a WAHA (`get_group_name`) una vez por grupo y lo guarda en `chats.name`. **Falta:** transcripción de audios (Whisper, fix E).
+- **Email (Resend/SMTP):** ✅ `services/email.py` con proveedor intercambiable — `'resend'` (HTTP API) | `'smtp'` (Gmail/app password) | `''` (modo log). Engancha los magic links (dueña en `auth.py`, agente en `agente.py`, "primero mail"). **Falta:** `RESEND_API_KEY` + `EMAIL_PROVIDER=resend` en prod.
 - **Zoom asistencia:** `services/zoom.py` (Server-to-Server OAuth + Reports API) + endpoint `sync-asistencia` (real/simulado). **Falta:** cuenta Zoom Pro + 3 credenciales en `.env`.
 - **Zoom reuniones:** `services/meeting.py` procesa transcripción (determinista; Gemini-ready). **Falta:** bajar transcript real de Cloud Recording.
 - **IA (Gemini):** `services/ai.py` + fallback determinista en bullets/acciones/reuniones. **Falta:** `GEMINI_API_KEY` en `backend/.env` (→ Ajustes muestra "IA real activa").
+
+## 4b. Roles y experiencias (quién ve qué)
+Tres roles sobre el MISMO backend:
+- **Cecilia (dueña / owner):** ve TODO (scope null). Es el panel completo (§4).
+- **Líder:** **mismo panel que Cecilia, acotado a su equipo** (sub-árbol, vía multi-líder §7). NO es una app aparte hoy — es el mismo dashboard con scope. *Decisión abierta: si el líder necesita vistas/onboarding propios.*
+- **Agente:** app mobile separada `/agente` (magic link), con su ruta de onboarding/capacitación (§5).
+
+**Onboarding:** ✅ del **agente** (ruta de etapas en /agente). ❌ del **líder** (no construido — gap). El de Cecilia/owner no aplica (es la dueña).
 
 ## 7. Multi-líder
 `app_users.agente_id` ancla a un líder a un nodo; JWT lleva `scope`; `view_ctx` + CTE recursiva resuelven el sub-árbol. Owner (scope null) ve todo. **Lecturas y escrituras** acotadas (Agentes, Pendientes, Inicio/command, Acciones, Capacitación, Clientes). El owner designa líderes desde Agentes. Chip "👥 Tu equipo".
@@ -70,28 +90,39 @@ Todos bilingües, responsive, con aislamiento por tenant y **scope multi-líder*
 0001 init · 0002 queue · 0003 rls · 0004 event_catalog · 0005 daily_views · 0006 gestion_core (agentes/pendientes/capacitaciones) · 0007 executive · 0008 auth+tenant · 0009 executive_i18n · 0010 seed_i18n · 0011 agentes_geo · 0012 command_center · 0013 capacitacion_ruta · 0014 capacitacion_zoom · 0015 acciones · 0016 multilider · 0017 reuniones · 0018 clientes · 0019 briefing.
 
 ## 9. Tests
-`backend/tests/` — 16 tests verde (captura/idempotencia, auth JWT/magic/hash, processing reglas US4, command _delta). Correr: `docker exec mc-local-backend sh -c "pip install -q pytest; cd /app && python -m pytest -q"`.
+`backend/tests/` — **22 tests verde** (captura/idempotencia, auth JWT/magic/hash, processing reglas US4, command _delta, **parsing WAHA NOWEB** `test_waha_noweb.py`). Correr: `docker exec mc-local-backend sh -c "pip install -q pytest pytest-asyncio; cd /app && python -m pytest -q"`.
+
+> **Perf:** el API usa un **pool de conexiones** (`app/db/pool.py`, psycopg_pool) — crítico contra Supabase Cloud (sin pool, cada query abría una conexión nueva → el dashboard tardaba ~13s; con pool ~1-1.5s).
 
 ## 10. PENDIENTE (para próximas sesiones)
 **Depende de terceros (input de Cecilia):**
-- 🔴 **Número de WhatsApp** descartable (captura real de grupos).
-- 🔴 **WFG**: formato de la data de producción/ventas (API/export) → para "agente consolidado estancado" + cartera real.
+- ✅ ~~Número de WhatsApp descartable~~ — **conectado** (observador vinculado en prod).
+- 🔴 **WFG**: formato de la data de producción/ventas (API/export) → para "agente consolidado estancado" + cartera real. (Hoy KPIs de ventas = demo/proxy.)
 - 🔴 **Planilla real de los ~2.000 agentes** (importador CSV).
 - 🔴 **Cuenta Zoom Pro** + Server-to-Server OAuth (asistencia + transcripts).
-- **GEMINI_API_KEY** (IA real).
+- 🔴 **Número WhatsApp personal de Cecilia** (destinatario del briefing).
+- **Claves:** `RESEND_API_KEY` (email/magic link real) · `GEMINI_API_KEY` (IA real).
+
+**Roles / experiencias (a definir — ver §4b):**
+- **Dashboard del líder:** hoy es el MISMO panel que el de Cecilia, *acotado por scope* (multi-líder). Falta decidir si el líder necesita vistas/experiencia propias.
+- **Onboarding del agente:** ✅ existe (ruta de capacitación en app /agente). **Onboarding del LÍDER:** ❌ no construido — gap.
+- **Asistente conversacional por WhatsApp** (Cecilia/agentes preguntan y el sistema responde): decisión de arquitectura abierta — ¿IA sobre el **número observador** (descartable, replaceable) o sobre el número de Cecilia? Inclinación: observador (no quemar el personal, alineado con Principio I). **Pendiente: capturar como ADR.**
 
 **Features / mejoras técnicas:**
-- KPIs de volumen/ventas y bullets del resumen IA siguen **tenant-wide** para líderes (mensajes/eventos sin link a agente) — acotar cuando se conecte WFG.
 - **Importador CSV de agentes** (auto-match por celular con la captura).
-- **US3 — transcripción de audios (Whisper)** (gancho en el worker; falta el motor).
-- ✅ **Briefing diario por WhatsApp** a Cecilia (Feature E) — `services/briefing.py` (compositor bilingüe + `tick` scheduler en el worker, 1 envío/día/tenant) + `services/waha.py` (envío, modo simulado→real) + `api/briefing.py` (config/preview/enviar/historial) + UI en /ajustes. Migración 0019 + seed `12_seed_briefing.sql`. **Falta para producción:** número conectado a WAHA + `WHATSAPP_API_KEY` en el backend (hoy modo simulado).
-- Más pantallas del agente (timeline, etc.) si se quieren.
+- **US3 / fix E — transcripción de audios (Whisper)** (gancho en el worker; falta el motor).
+- **Acciones reales** (hoy `/acciones` simulado → enviar de verdad por WhatsApp/email).
+- KPIs de volumen/ventas siguen **tenant-wide** para líderes — acotar cuando se conecte WFG.
 - "Modo demo" que resetee los datos sembrados antes de una presentación.
-- ✅ **Detección de estancamiento/abandono** (cruce actividad+asistencia+producción) — endpoint `/dashboard/riesgo-agentes` + bloque en /ia-insights + acción "reconectar" en /acciones. Seed `infra/local-init/11_seed_riesgo.sql` (3 casos demo). **Falta para producción:** WFG (producción real, hoy proxy por pendientes cerrados) y `last_seen` real por agente (hoy via `messages.contact_id`).
+- Endurecimiento prod: HMAC webhook, restringir `/ingest`, swap, monitoreo/alertas, backup del volumen `waha_sessions`.
+- ✅ **Briefing diario por WhatsApp** (Feature E previa) — `services/briefing.py` + `tick` en worker + `api/briefing.py` + UI /ajustes. Migración 0019.
+- ✅ **Detección de estancamiento/abandono** — `/dashboard/riesgo-agentes` + bloque /ia-insights + acción "reconectar". Seed `11_seed_riesgo.sql`.
 
 ## 11. Punteros clave
 - Backend API: `backend/app/api/` (auth, command, gestion, agente, reuniones, dashboard, webhook, briefing).
-- Servicios: `backend/app/services/` (capture, worker, processing, zoom, meeting, ai, queue, transcription, briefing, waha).
+- Servicios: `backend/app/services/` (capture, worker, processing, zoom, meeting, ai, queue, transcription, briefing, waha, email).
+- DB/pool: `backend/app/db/` (pool, repository, session). Parsing WAHA: `backend/app/models/waha.py`.
 - Frontend páginas: `frontend/app/(dashboard)/*` y `frontend/app/agente/*`.
 - i18n: `frontend/lib/i18n/{es,en}.ts`.
+- **Deploy/prod:** `docker-compose.prod.yml`, [RUNBOOK_DEPLOY_HOSTINGER.md](RUNBOOK_DEPLOY_HOSTINGER.md), [DEPLOY_PRODUCCION.md](DEPLOY_PRODUCCION.md), [CONECTAR_WHATSAPP_WAHA.md](CONECTAR_WHATSAPP_WAHA.md).
 - Análisis de cliente: [VALIDACION_CLIENTE.md](VALIDACION_CLIENTE.md). Demo: [GUION_DEMO.md](GUION_DEMO.md). Journey metodología: [architect-journey.md](architect-journey.md).
