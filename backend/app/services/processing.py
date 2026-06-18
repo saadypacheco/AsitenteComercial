@@ -51,11 +51,25 @@ def _pg():
 def process_message(message_id: str, tenant_id: str) -> dict:
     """Clasifica el mensaje y, si corresponde, extrae el evento comercial. Idempotente."""
     with _pg() as c, c.cursor() as cur:
-        cur.execute("select type, body from messages where id = %s and tenant_id = %s", (message_id, tenant_id))
+        cur.execute(
+            "select m.type, m.body, ch.id, ch.wa_chat_id, ch.type, ch.name "
+            "from messages m join chats ch on ch.id = m.chat_id "
+            "where m.id = %s and m.tenant_id = %s",
+            (message_id, tenant_id),
+        )
         row = cur.fetchone()
         if not row:
             return {"ok": False, "reason": "mensaje_inexistente"}
-        mtype, body = row
+        mtype, body, chat_id, wa_chat_id, chat_type, chat_name = row
+
+        # Fix D: el nombre del grupo no viene en el mensaje → se pide a WAHA una sola vez
+        # (cuando todavía no lo tenemos). Best-effort: si falla, no rompe el procesamiento.
+        if chat_type == "group" and not chat_name:
+            from app.services import waha
+
+            name = waha.get_group_name(wa_chat_id)
+            if name:
+                cur.execute("update chats set name = %s where id = %s and name is null", (name, chat_id))
         # En audio, el texto a clasificar es la transcripción (US3) si existe.
         if mtype == "audio":
             cur.execute("select text from transcriptions where message_id = %s", (message_id,))

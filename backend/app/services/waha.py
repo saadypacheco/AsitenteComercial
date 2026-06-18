@@ -52,3 +52,27 @@ def send_text(jid: str, text: str, session: str = _SESSION) -> dict:
     except Exception as exc:  # noqa: BLE001
         logger.warning("waha.send_error", jid=jid, error=str(exc))
         return {"modo": "error", "ok": False}
+
+
+def get_group_name(group_jid: str, session: str = _SESSION) -> str | None:
+    """Nombre (subject) de un grupo, consultando la API de WAHA. None si no se pudo.
+
+    El nombre del grupo NO viaja en cada mensaje (solo el ID), así que se pide aparte
+    —una vez por grupo, desde el worker— para no recargar el camino de captura."""
+    if not enabled() or not group_jid:
+        return None
+    try:
+        import httpx
+
+        resp = httpx.get(
+            f"{settings.waha_base_url}/api/{session}/groups/{group_jid}",
+            headers={"X-Api-Key": settings.waha_api_key},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        d = resp.json()
+        # El campo varía por versión: subject directo, o anidado en groupMetadata.
+        return d.get("subject") or (d.get("groupMetadata") or {}).get("subject") or d.get("name")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("waha.group_name_error", group=group_jid, error=str(exc))
+        return None
