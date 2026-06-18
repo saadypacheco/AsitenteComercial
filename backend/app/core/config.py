@@ -56,6 +56,11 @@ class Settings(BaseSettings):
     smtp_user: str = ""
     smtp_password: str = ""
 
+    # Asistente conversacional por Telegram (API oficial, sin riesgo de baneo).
+    # Vacío = bot deshabilitado. Ver ADR 2026-06-18-asistente-telegram-mentorcomercial.
+    telegram_bot_token: str = ""
+    telegram_owner_chat_id: str = ""      # chat de Cecilia (spike: único habilitado)
+
     # IA — Gemini por defecto vía LiteLLM, cambiable a cualquier proveedor
     llm_model: str = "gemini/gemini-2.0-flash"
     gemini_api_key: str = ""

@@ -60,8 +60,8 @@ def _run_once() -> int:
     return len(jobs)
 
 
-async def run() -> None:
-    logger.info("worker.start", queue=settings.queue_name, backend=settings.queue_backend)
+async def _queue_loop() -> None:
+    """Consumo de la cola + scheduler del briefing diario."""
     last_briefing_check = 0.0
     while True:
         processed = await asyncio.to_thread(_run_once)
@@ -79,6 +79,18 @@ async def run() -> None:
 
         if processed == 0:
             await asyncio.sleep(_IDLE_BACKOFF_S)
+
+
+async def run() -> None:
+    logger.info("worker.start", queue=settings.queue_name, backend=settings.queue_backend)
+    tasks = [_queue_loop()]
+    # Asistente por Telegram (si hay token): corre en paralelo a la cola.
+    from app.services import telegram
+
+    if telegram.enabled():
+        logger.info("worker.telegram_enabled")
+        tasks.append(telegram.run())
+    await asyncio.gather(*tasks)
 
 
 if __name__ == "__main__":
