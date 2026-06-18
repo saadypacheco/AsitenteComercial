@@ -82,10 +82,13 @@ export type Level = { n: number; name: string; next_name: string | null; xp_into
 export type JourneyStep = { key: string; icon: string; label: string; done: boolean; current: boolean };
 export type Mission = { icon: string; xp: number; done: boolean; label: string };
 export type Achievement = { key: string; icon: string; label: string; unlocked: boolean };
+export type Resumen = { etapas: number; zoom: number; ventas: number; logros: number; etapas_semana: number; xp_semana: number };
 export type Journey = {
   xp: number;
   level: Level;
   ruta_pct: number;
+  racha: number;
+  resumen: Resumen;
   journey: JourneyStep[];
   missions: Mission[];
   achievements: Achievement[];

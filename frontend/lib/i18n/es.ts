@@ -302,6 +302,16 @@ export const es = {
     journeyDone: "¡Sos un agente activo! 🎉",
     nowLabel: "Ahora",
     missionsTitle: "Misiones",
+    resumenTitle: "Resumen rápido",
+    weekProgress: "Tu progreso semanal",
+    nextMission: "Próxima misión",
+    startMission: "Comenzar misión",
+    recommended: "Misiones recomendadas",
+    streakDays: "días",
+    store: "Tienda",
+    soon: "Pronto",
+    theme: "Tema",
+    startBtn: "Comenzar",
   },
   login: {
     brand: "Asistente Comercial", // marca amigable (depende del idioma)

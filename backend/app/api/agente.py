@@ -236,7 +236,17 @@ def agente_journey(ctx: dict = Depends(authcore.require_agent), lang: str = "es"
         ]
     ]
 
-    return {"xp": xp, "level": level, "ruta_pct": ruta_pct,
+    # Racha: días distintos con una etapa completada (proxy de actividad).
+    racha = n("select count(distinct completado_at::date) as n from etapa_progreso "
+              "where agente_id=%s and completado_at is not null", (aid,))
+    # Resumen rápido (semana).
+    etapas_sem = n("select count(*) as n from etapa_progreso where agente_id=%s and estado='completado' "
+                   "and completado_at >= now() - interval '7 days'", (aid,))
+    unlocked = sum(1 for a in achievements if a["unlocked"])
+    resumen = {"etapas": comp, "zoom": asist, "ventas": cerr, "logros": unlocked,
+               "etapas_semana": etapas_sem, "xp_semana": etapas_sem * 100}
+
+    return {"xp": xp, "level": level, "ruta_pct": ruta_pct, "racha": racha, "resumen": resumen,
             "journey": journey, "missions": missions, "achievements": achievements}
 
 

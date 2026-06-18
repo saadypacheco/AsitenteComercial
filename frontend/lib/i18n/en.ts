@@ -298,6 +298,16 @@ export const en: typeof es = {
     journeyDone: "You're an active agent! 🎉",
     nowLabel: "Now",
     missionsTitle: "Missions",
+    resumenTitle: "Quick summary",
+    weekProgress: "Your weekly progress",
+    nextMission: "Next mission",
+    startMission: "Start mission",
+    recommended: "Recommended missions",
+    streakDays: "days",
+    store: "Store",
+    soon: "Soon",
+    theme: "Theme",
+    startBtn: "Start",
   },
   login: {
     brand: "Commercial Assistant", // friendly brand (locale-dependent)
