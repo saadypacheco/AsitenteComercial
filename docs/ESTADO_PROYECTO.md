@@ -4,6 +4,8 @@
 Branch: `001-captura-whatsapp-bd` · Repo privado: `github.com/saadypacheco/mentorcomercial` (remote `private`).
 **🟢 EN PRODUCCIÓN:** https://execally.online (ver §3b).
 
+> **Novedades sesión 2026-06-18 (b):** (1) **Email real activo** — Resend configurado en prod, magic links/recuperación funcionan. (2) **Captura real afinada** — parsing NOWEB (tipo/nombre/número/filtro de ruido) + nombre de grupo (fix D). (3) **Landing de venta** pública bilingüe en `/Overview` (plantilla reutilizable). (4) **Asistente por Telegram** — ADR + spike (falta `TELEGRAM_BOT_TOKEN`). (5) **App del agente — Fase 1**: journey a la 1ª venta + gamificación (XP/nivel/misiones/logros) + **rediseño tema OSCURO estilo Empresa** (cyan/púrpura, glass) con toggle de acento. (6) **Análisis del onboarding enriquecido** ([ANALISIS_ONBOARDING.md](ANALISIS_ONBOARDING.md), de onboarding.md/onboarding2.md + mockups en `frontend/public/imagenes/`). (7) **Pool de conexiones** (perf, ~13s→1.5s).
+
 ---
 
 ## 1. Qué es
@@ -101,12 +103,12 @@ Tres roles sobre el MISMO backend:
 - 🔴 **Planilla real de los ~2.000 agentes** (importador CSV).
 - 🔴 **Cuenta Zoom Pro** + Server-to-Server OAuth (asistencia + transcripts).
 - 🔴 **Número WhatsApp personal de Cecilia** (destinatario del briefing).
-- **Claves:** `RESEND_API_KEY` (email/magic link real) · `GEMINI_API_KEY` (IA real).
+- **Claves:** ✅ ~~RESEND_API_KEY~~ (email **activo** en prod) · `GEMINI_API_KEY` (IA real, hoy fallback determinista) · `TELEGRAM_BOT_TOKEN` (activar el asistente).
 
 **Roles / experiencias (a definir — ver §4b):**
 - **Dashboard del líder:** hoy es el MISMO panel que el de Cecilia, *acotado por scope* (multi-líder). Falta decidir si el líder necesita vistas/experiencia propias.
-- **Onboarding del agente:** ✅ existe (ruta de capacitación en app /agente). **Onboarding del LÍDER:** ❌ no construido — gap.
-- **Asistente conversacional por WhatsApp** (Cecilia/agentes preguntan y el sistema responde): decisión de arquitectura abierta — ¿IA sobre el **número observador** (descartable, replaceable) o sobre el número de Cecilia? Inclinación: observador (no quemar el personal, alineado con Principio I). **Pendiente: capturar como ADR.**
+- **Onboarding del agente:** ✅ existe + **Fase 1 hecha** (journey a la 1ª venta + gamificación + tema oscuro Empresa). **Falta Fases 2-4** (ver [ANALISIS_ONBOARDING.md](ANALISIS_ONBOARDING.md)): motor de reglas, RAG/coach IA, simulador IA + centro predictivo. Persistir XP/racha en tabla (hoy derivado). **Onboarding del LÍDER:** ❌ no construido — gap.
+- **Asistente conversacional:** ✅ **decidido Telegram** (ADR `architect-kb/decisions/2026-06-18-asistente-telegram-mentorcomercial.md`) + spike (`services/telegram.py` + `assistant.py`). **Falta:** crear bot en BotFather → `TELEGRAM_BOT_TOKEN`, y Fase 2 (acciones + habilitación por líder, scope-aware).
 
 **Features / mejoras técnicas:**
 - **Importador CSV de agentes** (auto-match por celular con la captura).
