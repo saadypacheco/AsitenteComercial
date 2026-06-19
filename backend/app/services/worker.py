@@ -19,7 +19,7 @@ import time
 import structlog
 
 from app.core.config import settings
-from app.services import briefing, processing, queue
+from app.services import briefing, processing, queue, rules_engine
 
 logger = structlog.get_logger()
 
@@ -27,6 +27,7 @@ _IDLE_BACKOFF_S = 5      # espera cuando la cola está vacía
 _BATCH = 10
 _BRIEFING_CHECK_S = 60   # cada cuánto revisar si toca el briefing diario (el envío real
                          # ocurre 1 vez/día por tenant: la idempotencia la da briefing_log)
+_RULES_CHECK_S = 3600    # motor de reglas: chequea cada hora (las reglas tienen cooldowns en BD)
 
 
 def _process_job(job: queue.QueueJob) -> None:
@@ -61,21 +62,29 @@ def _run_once() -> int:
 
 
 async def _queue_loop() -> None:
-    """Consumo de la cola + scheduler del briefing diario."""
+    """Consumo de la cola + scheduler del briefing diario + motor de reglas."""
     last_briefing_check = 0.0
+    last_rules_check = 0.0
     while True:
         processed = await asyncio.to_thread(_run_once)
 
-        # Briefing diario (Feature E): además de consumir la cola, el worker actúa de
-        # scheduler liviano. Chequea cada _BRIEFING_CHECK_S; tick() no hace nada hasta
-        # que es la hora y solo envía una vez por día/tenant.
         now = time.monotonic()
+
+        # Briefing diario (Feature E): scheduler liviano. Tick() idempotente (1 vez/día).
         if now - last_briefing_check >= _BRIEFING_CHECK_S:
             last_briefing_check = now
             try:
                 await asyncio.to_thread(briefing.tick)
-            except Exception as exc:  # noqa: BLE001 — no tumbar el worker por el briefing
+            except Exception as exc:  # noqa: BLE001
                 logger.warning("worker.briefing_error", error=str(exc))
+
+        # Motor de reglas (Fase 2): evalúa inactividad y dispara acciones automáticas.
+        if now - last_rules_check >= _RULES_CHECK_S:
+            last_rules_check = now
+            try:
+                await asyncio.to_thread(rules_engine.tick)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("worker.rules_error", error=str(exc))
 
         if processed == 0:
             await asyncio.sleep(_IDLE_BACKOFF_S)

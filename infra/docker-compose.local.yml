@@ -97,7 +97,7 @@ services:
       QUEUE_BACKEND: table
     command: >
       sh -c "pip install --quiet --root-user-action=ignore
-      'psycopg[binary]' structlog pydantic pydantic-settings &&
+      'psycopg[binary]' psycopg_pool structlog pydantic pydantic-settings httpx pyjwt litellm &&
       python -m app.services.worker"
     depends_on:
       db:

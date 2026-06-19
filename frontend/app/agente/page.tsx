@@ -7,13 +7,12 @@ import { Fragment, useEffect, useState, type CSSProperties } from "react";
 
 import { getUser, logout, requireAgent } from "@/lib/auth";
 import { useLocale } from "@/lib/locale-context";
-import { askAi } from "@/lib/queries/executive";
 import {
-  avanzar, getAgenda, getJourney, getMe, getRanking, getRuta,
-  type AgenteMe, type Journey, type Mission, type RankItem, type Ruta, type Sesion,
+  askCoach, avanzar, getAgenda, getJourney, getMe, getRanking, getRuta, simChat,
+  type AgenteMe, type CoachResp, type Journey, type Mission, type RankItem, type Ruta, type Sesion, type SimMsg,
 } from "@/lib/queries/agente";
 
-type Tab = "hoy" | "agenda" | "ruta" | "progreso" | "logros" | "ayuda";
+type Tab = "hoy" | "agenda" | "ruta" | "progreso" | "logros" | "simular" | "ayuda";
 type ThemeKey = "cyan" | "purple";
 
 const ACCENT = { cyan: { a: "#00bfff", a2: "#8b5cf6" }, purple: { a: "#8b5cf6", a2: "#00bfff" } };
@@ -38,8 +37,15 @@ export default function AgentePage() {
   const [theme, setTheme] = useState<ThemeKey>("cyan");
 
   const [pregunta, setPregunta] = useState("");
-  const [resp, setResp] = useState<{ answer: string } | null>(null);
+  const [resp, setResp] = useState<CoachResp | null>(null);
   const [pensando, setPensando] = useState(false);
+
+  // Simulador
+  const [simScenario, setSimScenario] = useState("primera_llamada");
+  const [simHistoria, setSimHistoria] = useState<SimMsg[]>([]);
+  const [simMsg, setSimMsg] = useState("");
+  const [simResp, setSimResp] = useState<{ cliente: string; feedback: string; terminado: boolean } | null>(null);
+  const [simBusy, setSimBusy] = useState(false);
 
   function reload() {
     getRuta(locale).then(setRuta).catch(() => setRuta(null));
@@ -72,8 +78,29 @@ export default function AgentePage() {
   async function preguntar() {
     if (!pregunta.trim()) return;
     setPensando(true);
-    setResp(await askAi(pregunta, locale).catch(() => ({ answer: "—" })));
+    setResp(await askCoach(pregunta, locale).catch(() => ({ answer: "—", fuentes: [], source: "sin_resultados" as const })));
     setPensando(false);
+  }
+
+  async function simEnviar() {
+    if (!simMsg.trim() || simBusy) return;
+    const msgTexto = simMsg.trim();
+    setSimMsg("");
+    setSimBusy(true);
+    const nuevaHistoria: SimMsg[] = [...simHistoria, { rol: "agente", texto: msgTexto }];
+    setSimHistoria(nuevaHistoria);
+    const r = await simChat(msgTexto, simScenario, simHistoria, locale).catch(() => null);
+    if (r) {
+      setSimHistoria([...nuevaHistoria, { rol: "cliente", texto: r.respuesta_cliente }]);
+      setSimResp({ cliente: r.respuesta_cliente, feedback: r.feedback, terminado: r.terminado });
+    }
+    setSimBusy(false);
+  }
+
+  function simReset() {
+    setSimHistoria([]);
+    setSimResp(null);
+    setSimMsg("");
   }
 
   const actual = ruta?.etapas.find((e) => e.estado === "en_curso");
@@ -90,6 +117,7 @@ export default function AgentePage() {
     { k: "ruta", ic: "🎯", label: t.tabRuta },
     { k: "progreso", ic: "📈", label: t.tabProgreso },
     { k: "logros", ic: "🏅", label: t.tabLogros },
+    { k: "simular", ic: "🎭", label: locale === "en" ? "Simulate" : "Simular" },
   ];
 
   // Glass card oscura (estilo Empresa).
@@ -410,14 +438,97 @@ export default function AgentePage() {
               </div>
             )}
 
-            {/* ── AYUDA ── */}
+            {/* ── SIMULADOR COMERCIAL IA ── */}
+            {tab === "simular" && (
+              <div className={`${card} lg:max-w-2xl`}>
+                <p className={sTitle}>🎭 {locale === "en" ? "Sales Simulator" : "Simulador de Ventas"}</p>
+                <p className="mb-3 text-xs text-slate-400">
+                  {locale === "en" ? "Practice with a virtual client. AI plays the prospect — you do the pitch." : "Practicá con un cliente virtual. La IA hace de prospecto — vos vendés."}
+                </p>
+
+                {simHistoria.length === 0 && (
+                  <div className="mb-4">
+                    <p className="mb-2 text-xs font-semibold text-slate-300">{locale === "en" ? "Choose scenario:" : "Elegí escenario:"}</p>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                      {[
+                        { k: "primera_llamada", ic: "📞", es: "Primera llamada", en: "Cold call" },
+                        { k: "objeciones", ic: "🛡️", es: "Manejo de objeciones", en: "Objection handling" },
+                        { k: "cierre", ic: "🤝", es: "Cierre de venta", en: "Closing" },
+                      ].map((s) => (
+                        <button key={s.k} onClick={() => setSimScenario(s.k)}
+                          className={`rounded-xl border px-3 py-2.5 text-left text-xs font-semibold transition ${simScenario === s.k ? "border-cyan-400/50 bg-cyan-400/[0.12] text-cyan-300" : "border-white/10 bg-white/[0.03] text-slate-400 hover:bg-white/[0.06]"}`}>
+                          {s.ic} {locale === "en" ? s.en : s.es}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {simHistoria.length > 0 && (
+                  <div className="mb-3 max-h-72 space-y-2 overflow-y-auto rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                    {simHistoria.map((m, i) => (
+                      <div key={i} className={`flex ${m.rol === "agente" ? "justify-end" : "justify-start"}`}>
+                        <div className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${m.rol === "agente" ? "bg-cyan-400/[0.15] text-cyan-100" : "border border-white/[0.08] bg-white/[0.05] text-slate-200"}`}>
+                          <span className="mr-1.5 text-xs opacity-60">{m.rol === "agente" ? (locale === "en" ? "You" : "Vos") : (locale === "en" ? "Client" : "Cliente")}</span>
+                          {m.texto}
+                        </div>
+                      </div>
+                    ))}
+                    {simBusy && <p className="text-center text-xs text-slate-500">…</p>}
+                  </div>
+                )}
+
+                {simResp?.feedback && (
+                  <div className="mb-3 rounded-xl border border-amber-400/20 bg-amber-400/[0.06] px-3 py-2.5">
+                    <p className="text-xs font-semibold text-amber-300">💡 {locale === "en" ? "Coach feedback" : "Feedback del coach"}</p>
+                    <p className="mt-0.5 text-xs text-slate-300">{simResp.feedback}</p>
+                  </div>
+                )}
+
+                {simResp?.terminado && (
+                  <p className="mb-3 rounded-xl bg-ok/10 px-3 py-2 text-center text-sm font-semibold text-ok">
+                    🏁 {locale === "en" ? "Simulation complete! Great practice." : "¡Simulación completada! Buen entrenamiento."}
+                  </p>
+                )}
+
+                <div className="flex gap-2">
+                  {simHistoria.length > 0 && (
+                    <button onClick={simReset} className="shrink-0 rounded-xl border border-white/10 px-3 py-2.5 text-xs text-slate-400 hover:bg-white/[0.06]">
+                      {locale === "en" ? "Reset" : "Reiniciar"}
+                    </button>
+                  )}
+                  <input value={simMsg} onChange={(e) => setSimMsg(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && simEnviar()}
+                    disabled={simBusy || !!simResp?.terminado}
+                    placeholder={simHistoria.length === 0 ? (locale === "en" ? "Start the conversation…" : "Iniciá la conversación…") : (locale === "en" ? "Your response…" : "Tu respuesta…")}
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-400/50 focus:outline-none disabled:opacity-40" />
+                  <button onClick={simEnviar} disabled={simBusy || !!simResp?.terminado}
+                    className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${accentGrad} text-white shadow-[0_0_22px_-6px_var(--a)] disabled:opacity-40`}>
+                    {simBusy ? "…" : "➤"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ── AYUDA / COACH IA ── */}
             {tab === "ayuda" && (
               <div className={`${card} lg:max-w-2xl`}>
-                <p className={sTitle}>💬 {t.helpTitle}</p>
-                {resp && <div className="mb-3 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.06] p-3.5 text-sm text-slate-200">{resp.answer}</div>}
+                <p className={sTitle}>🧠 Coach IA</p>
+                <p className="mb-3 text-xs text-slate-400">
+                  {locale === "en" ? "Ask me about products, objections, sales scripts or AIG policies." : "Preguntame sobre productos, objeciones, guiones de venta o políticas de AIG."}
+                </p>
+                {resp && (
+                  <div className="mb-3 space-y-2">
+                    <div className="rounded-xl border border-cyan-400/20 bg-cyan-400/[0.06] p-3.5 text-sm text-slate-200">{resp.answer}</div>
+                    {resp.fuentes.length > 0 && (
+                      <p className="text-xs text-slate-500">📚 {locale === "en" ? "Sources" : "Fuentes"}: {resp.fuentes.join(" · ")}</p>
+                    )}
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <input value={pregunta} onChange={(e) => setPregunta(e.target.value)} onKeyDown={(e) => e.key === "Enter" && preguntar()}
-                    placeholder={t.helpPlaceholder} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-400/50 focus:outline-none" />
+                    placeholder={locale === "en" ? "How do I handle the price objection?" : "¿Cómo manejo la objeción de precio?"}
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-400/50 focus:outline-none" />
                   <button onClick={preguntar} disabled={pensando} className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${accentGrad} text-white shadow-[0_0_22px_-6px_var(--a)] disabled:opacity-50`}>{pensando ? "…" : "➤"}</button>
                 </div>
               </div>

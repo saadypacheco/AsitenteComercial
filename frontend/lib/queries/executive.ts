@@ -149,7 +149,23 @@ export async function sendBriefingNow(lang = "es"): Promise<{ texto: string; mod
   return res.json();
 }
 
-export type ConfigStatus = { ia_enabled: boolean; llm_model: string; environment: string };
+// ── Onboarding del líder ─────────────────────────────────────────────────────
+export type LiderPaso = { id: string; titulo: string; detalle: string; href: string | null };
+export type LiderOnboarding = { completado: boolean; pasos: LiderPaso[] };
+
+export async function getLiderOnboarding(lang = "es"): Promise<LiderOnboarding> {
+  const res = await authFetch(`/gestion/lider/onboarding?lang=${lang}`);
+  if (!res.ok) throw new Error(`lider/onboarding: ${res.status}`);
+  return res.json();
+}
+
+export async function completarLiderOnboarding(): Promise<{ ok: boolean }> {
+  const res = await authFetch("/gestion/lider/onboarding/completar", { method: "POST" });
+  if (!res.ok) throw new Error(`lider/onboarding/completar: ${res.status}`);
+  return res.json();
+}
+
+export type ConfigStatus = { ia_enabled: boolean; llm_model: string; environment: string; whatsapp_enabled: boolean; email_enabled: boolean };
 export async function getConfigStatus(): Promise<ConfigStatus> {
   const res = await authFetch("/config/status");
   if (!res.ok) throw new Error(`config: ${res.status}`);

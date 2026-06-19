@@ -179,6 +179,9 @@ export const es = {
     whatsapp: "WhatsApp",
     email: "Email",
     simNote: "Modo demo: los envíos son simulados. Con el número de WhatsApp / email conectado, se envían de verdad.",
+    realNote: "Envío real activo",
+    waActive: "WhatsApp conectado",
+    emailActive: "Email conectado",
     sentToday: "enviadas",
   },
   command: {

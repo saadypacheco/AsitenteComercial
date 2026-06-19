@@ -11,7 +11,7 @@ from pydantic import BaseModel
 import secrets
 
 from app.core.auth import (
-    assert_agente_in_scope, hash_password, require_owner, require_tenant, scoped_agente_ids, view_ctx,
+    assert_agente_in_scope, current_user, hash_password, require_owner, require_tenant, scoped_agente_ids, view_ctx,
 )
 from app.core.config import settings
 from app.services import zoom
@@ -523,4 +523,43 @@ def registrar_contacto(cid: str, ctx: dict = Depends(view_ctx)) -> dict:
         if own:
             assert_agente_in_scope(tenant, scope_root, own[0]["agente_id"])
     _exec("update clientes set ultimo_contacto=current_date where id=%s and tenant_id=%s", (cid, tenant))
+    return {"ok": True}
+
+
+# ── Onboarding del líder — primeros pasos tras ser designado ──────────────────
+
+_PASOS_ES = [
+    {"id": "bienvenida", "titulo": "Bienvenido al panel", "detalle": "Ya ingresaste a tu panel de líder.", "href": None},
+    {"id": "equipo", "titulo": "Conocé tu equipo", "detalle": "Mirá quiénes son tus agentes, su estado y ubicación.", "href": "/agentes"},
+    {"id": "pendientes", "titulo": "Revisá tus pendientes", "detalle": "Hay clientes esperando atención de tu equipo.", "href": "/pendientes"},
+    {"id": "acciones", "titulo": "Mirá las acciones sugeridas", "detalle": "La IA ya redactó mensajes para que apruebes.", "href": "/acciones"},
+    {"id": "briefing", "titulo": "Configurá tu briefing diario", "detalle": "Recibí un resumen del equipo por WhatsApp cada día.", "href": "/ajustes"},
+]
+_PASOS_EN = [
+    {"id": "bienvenida", "titulo": "Welcome to the panel", "detalle": "You're now in your leader dashboard.", "href": None},
+    {"id": "equipo", "titulo": "Meet your team", "detalle": "See who your agents are, their status and location.", "href": "/agentes"},
+    {"id": "pendientes", "titulo": "Review pending items", "detalle": "There are clients waiting for your team's attention.", "href": "/pendientes"},
+    {"id": "acciones", "titulo": "Check suggested actions", "detalle": "The AI already drafted messages for you to approve.", "href": "/acciones"},
+    {"id": "briefing", "titulo": "Set up your daily briefing", "detalle": "Get a daily team summary via WhatsApp.", "href": "/ajustes"},
+]
+
+
+@router.get("/gestion/lider/onboarding")
+def lider_onboarding_get(user: dict = Depends(current_user), lang: str = "es") -> dict:
+    """Estado del onboarding para líderes: si ya fue completado y los pasos guiados."""
+    user_id = user.get("sub")
+    rows = _rows("select lider_onboarding_completado from app_users where id=%s", (user_id,))
+    completado = bool(rows[0]["lider_onboarding_completado"]) if rows else False
+    pasos = _PASOS_EN if lang == "en" else _PASOS_ES
+    return {"completado": completado, "pasos": pasos}
+
+
+@router.post("/gestion/lider/onboarding/completar")
+def lider_onboarding_completar(user: dict = Depends(current_user)) -> dict:
+    """Marca el onboarding del líder como completado (llamar al hacer clic en 'Comenzar')."""
+    user_id = user.get("sub")
+    _exec(
+        "update app_users set lider_onboarding_completado=true, lider_onboarding_visto_at=now() where id=%s",
+        (user_id,),
+    )
     return {"ok": True}

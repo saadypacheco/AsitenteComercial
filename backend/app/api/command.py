@@ -13,6 +13,8 @@ from pydantic import BaseModel
 from app.api.gestion import _exec, _rows, _scope
 from app.core.auth import require_tenant, scoped_agente_ids, view_ctx
 from app.core.config import settings
+from app.services import email as email_svc
+from app.services import waha
 
 router = APIRouter()
 
@@ -205,6 +207,48 @@ def acciones(ctx: dict = Depends(view_ctx), lang: str = "es") -> list:
     return _build_acciones(ctx["tenant_id"], lang == "en", scoped_agente_ids(ctx["tenant_id"], ctx["scope_root"]))
 
 
+def _resolve_contact(ref_id: str, canal: str, tenant: str) -> str | None:
+    """Resuelve teléfono (JID WhatsApp) o email del destinatario a partir del ref_id.
+
+    ref_id tiene prefijo: pend-{id}, sat-{nombre}, riesgo-{agente_id}, opp-{event_id}.
+    Devuelve None si no hay contacto resoluble o no está cargado en la ficha del agente.
+    """
+    agente_id: str | None = None
+
+    if ref_id.startswith("pend-"):
+        rows = _rows("select agente_id from pendientes where id=%s and tenant_id=%s", (ref_id[5:], tenant))
+        if rows:
+            agente_id = rows[0]["agente_id"]
+    elif ref_id.startswith("sat-"):
+        nombre = ref_id[4:]
+        rows = _rows(
+            "select id from agentes where trim(coalesce(nombre,'')||' '||coalesce(apellido,''))=%s and tenant_id=%s",
+            (nombre, tenant),
+        )
+        if rows:
+            agente_id = rows[0]["id"]
+    elif ref_id.startswith("riesgo-"):
+        agente_id = ref_id[7:]
+    elif ref_id.startswith("opp-"):
+        rows = _rows("select agente_id from commercial_events where id=%s and tenant_id=%s", (ref_id[4:], tenant))
+        if rows:
+            agente_id = rows[0]["agente_id"]
+
+    if not agente_id:
+        return None
+
+    if canal == "whatsapp":
+        rows = _rows("select celular from agentes where id=%s and tenant_id=%s", (agente_id, tenant))
+        if rows and rows[0]["celular"]:
+            phone = rows[0]["celular"].strip().replace("+", "").replace(" ", "").replace("-", "")
+            return f"{phone}@c.us"
+    elif canal == "email":
+        rows = _rows("select email from agentes where id=%s and tenant_id=%s", (agente_id, tenant))
+        if rows and rows[0]["email"]:
+            return rows[0]["email"]
+    return None
+
+
 class AccionEjecutar(BaseModel):
     ref_id: str
     tipo: str
@@ -215,15 +259,31 @@ class AccionEjecutar(BaseModel):
 
 @router.post("/dashboard/acciones/ejecutar")
 def ejecutar_accion(body: AccionEjecutar, tenant: str = Depends(require_tenant)) -> dict:
-    """Aprueba y 'envía' la acción. Hoy modo simulado (registra); con el número/
-    email conectado, acá se hace el envío real por WhatsApp/email."""
-    modo = "simulado"  # TODO: enviar real vía WAHA (whatsapp) / SMTP (email) cuando esté conectado
+    """Aprueba y envía la acción por WhatsApp (WAHA) o email según el canal.
+    Si no hay contacto resoluble o el servicio no está configurado, registra como simulado."""
+    contact = _resolve_contact(body.ref_id, body.canal, tenant)
+    modo = "simulado"
+
+    if contact:
+        if body.canal == "whatsapp":
+            result = waha.send_text(contact, body.mensaje)
+            modo = result.get("modo", "simulado")
+        elif body.canal == "email":
+            tipo_labels = {
+                "seguimiento_oportunidad": "Seguimiento de oportunidad",
+                "mensaje_agente": "Seguimiento de cliente",
+                "ayuda_agente": "Apoyo de equipo",
+                "reconectar_agente": "Reconexión",
+            }
+            subject = tipo_labels.get(body.tipo, "Mensaje de tu líder")
+            result = email_svc.send_email(contact, subject, f"<p>{body.mensaje}</p>", body.mensaje)
+            modo = result.get("modo", "simulado")
+
     _exec(
         "insert into acciones_log (tenant_id, ref_id, tipo, destinatario, canal, mensaje, modo) "
         "values (%s,%s,%s,%s,%s,%s,%s)",
         (tenant, body.ref_id, body.tipo, body.destinatario, body.canal, body.mensaje, modo),
     )
-    # Efecto: si la acción salía de un pendiente, lo movemos a 'en proceso'.
     if body.ref_id.startswith("pend-"):
         _exec("update pendientes set estado='en_proceso' where id=%s and tenant_id=%s",
               (body.ref_id[5:], tenant))
@@ -240,11 +300,13 @@ def acciones_historial(tenant: str = Depends(require_tenant)) -> list:
 
 @router.get("/config/status")
 def config_status(tenant: str = Depends(require_tenant)) -> dict:
-    """Estado de configuración para Ajustes: si la IA real está activa, entorno."""
+    """Estado de configuración para Ajustes y Acciones: IA, WhatsApp, email, entorno."""
     return {
         "ia_enabled": bool(settings.gemini_api_key),
         "llm_model": settings.llm_model,
         "environment": settings.environment,
+        "whatsapp_enabled": waha.enabled(),
+        "email_enabled": email_svc.enabled(),
     }
 
 TODAY = "date_trunc('day', now())"

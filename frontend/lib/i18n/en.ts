@@ -175,6 +175,9 @@ export const en: typeof es = {
     whatsapp: "WhatsApp",
     email: "Email",
     simNote: "Demo mode: sends are simulated. With the WhatsApp number / email connected, they go out for real.",
+    realNote: "Real sending active",
+    waActive: "WhatsApp connected",
+    emailActive: "Email connected",
     sentToday: "sent",
   },
   command: {

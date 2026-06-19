@@ -99,3 +99,30 @@ export async function getJourney(lang = "es"): Promise<Journey> {
   if (!res.ok) throw new Error(`journey: ${res.status}`);
   return res.json();
 }
+
+// ── Coach IA con RAG (Fase 3) ────────────────────────────────────────────────
+export type CoachResp = { answer: string; fuentes: string[]; source: "llm" | "texto" | "sin_resultados" };
+
+export async function askCoach(pregunta: string, lang = "es"): Promise<CoachResp> {
+  const res = await authFetch(`/agente/coach?lang=${lang}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pregunta }),
+  });
+  if (!res.ok) throw new Error(`coach: ${res.status}`);
+  return res.json();
+}
+
+// ── Simulador comercial IA (Fase 4) ──────────────────────────────────────────
+export type SimMsg = { rol: "agente" | "cliente"; texto: string };
+export type SimResp = { respuesta_cliente: string; feedback: string; turno: number; terminado: boolean; source: string };
+
+export async function simChat(mensaje: string, scenario: string, historia: SimMsg[], lang = "es"): Promise<SimResp> {
+  const res = await authFetch(`/agente/simulador/chat?lang=${lang}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mensaje, scenario, historia }),
+  });
+  if (!res.ok) throw new Error(`simulador: ${res.status}`);
+  return res.json();
+}

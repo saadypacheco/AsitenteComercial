@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/executive";
 import { Card } from "@/components/ui";
 import { useLocale } from "@/lib/locale-context";
-import { ejecutarAccion, getAcciones, type Accion } from "@/lib/queries/executive";
+import { ejecutarAccion, getAcciones, getConfigStatus, type Accion, type ConfigStatus } from "@/lib/queries/executive";
 
 const PRIO_TONE: Record<string, "danger" | "warning" | "ok" | "brand" | "neutral"> = { alta: "danger", media: "warning", baja: "ok" };
 
@@ -19,11 +19,13 @@ export default function AccionesPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [enviadas, setEnviadas] = useState(0);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [cfg, setCfg] = useState<ConfigStatus | null>(null);
 
   function reload() {
     getAcciones(locale).then((a) => { setAcciones(a); setDrafts(Object.fromEntries(a.map((x) => [x.id, x.mensaje]))); }).catch(() => setAcciones([]));
   }
   useEffect(reload, [locale]);
+  useEffect(() => { getConfigStatus().then(setCfg).catch(() => {}); }, []);
 
   async function enviar(a: Accion) {
     setBusy(a.id);
@@ -56,7 +58,14 @@ export default function AccionesPage() {
         )}
       </div>
       <p className="mb-3 text-sm text-muted">{t.subtitle}</p>
-      <p className="mb-5 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">⚠️ {t.simNote}{enviadas > 0 ? ` · ${enviadas} ${t.sentToday}` : ""}</p>
+      {cfg && (cfg.whatsapp_enabled || cfg.email_enabled) ? (
+        <p className="mb-5 rounded-lg bg-green-50 px-3 py-2 text-xs text-green-700">
+          ✅ {t.realNote} · {[cfg.whatsapp_enabled && t.waActive, cfg.email_enabled && t.emailActive].filter(Boolean).join(" · ")}
+          {enviadas > 0 ? ` · ${enviadas} ${t.sentToday}` : ""}
+        </p>
+      ) : (
+        <p className="mb-5 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">⚠️ {t.simNote}{enviadas > 0 ? ` · ${enviadas} ${t.sentToday}` : ""}</p>
+      )}
 
       {acciones && acciones.length === 0 && <Card className="px-4 py-16 text-center text-muted">{t.empty}</Card>}
 

@@ -268,3 +268,121 @@ def agente_me(ctx: dict = Depends(authcore.require_agent), lang: str = "es") -> 
         "ruta_pct": r["pct"], "etapas_completadas": r["completadas"], "etapas_total": r["total"],
         "tareas_cerradas": cerrados,
     }
+
+
+# ── Coach IA con RAG (Fase 3) ─────────────────────────────────────────────────
+
+class CoachQuery(BaseModel):
+    pregunta: str
+
+
+class SimuladorMsg(BaseModel):
+    mensaje: str
+    scenario: str = "primera_llamada"
+    historia: list[dict] = []   # [{ "rol": "agente"|"cliente", "texto": "..." }]
+
+
+@router.post("/agente/simulador/chat")
+async def simulador_chat(body: SimuladorMsg, ctx: dict = Depends(authcore.require_agent), lang: str = "es") -> dict:
+    """Simulador comercial IA: el agente practica ventas contra un cliente virtual.
+
+    El LLM juega el rol de prospecto con objeciones reales. Si no hay GEMINI_API_KEY,
+    usa respuestas escritas para que la demo siempre funcione.
+    Devuelve { respuesta_cliente, feedback, turno }.
+    """
+    from app.services import knowledge_base as kb
+
+    en = lang == "en"
+    turno = len(body.historia) // 2 + 1
+
+    _ESCENARIOS = {
+        "primera_llamada": ("un prospecto que no esperaba la llamada, algo ocupado, curioso pero escéptico sobre seguros. No rechaza de plano pero hace preguntas.", "Primera llamada en frío"),
+        "objeciones": ("un cliente interesado pero con objeciones: 'es muy caro', 'necesito pensarlo', 'ya tengo seguro'. Cede gradualmente si el agente es convincente.", "Manejo de objeciones"),
+        "cierre": ("un cliente que ya mostró interés y está evaluando. Listo para cerrar pero busca un último empujón o garantía.", "Cierre de venta"),
+    }
+    desc_cliente, titulo_escenario = _ESCENARIOS.get(body.scenario, _ESCENARIOS["primera_llamada"])
+
+    fallback_responses = {
+        "primera_llamada": [
+            "Sí, ¿quién habla? Estoy un poco ocupado..." if not en else "Yes, who's calling? I'm a bit busy...",
+            "No sé... nunca pensé mucho en seguros. ¿Por qué lo necesitaría?" if not en else "I don't know... never really thought about insurance. Why would I need it?",
+            "¿Cuánto cuesta algo así? Porque si es muy caro no me interesa." if not en else "How much does something like that cost? If it's too expensive, I'm not interested.",
+            "Bueno, quizás podría escuchar más. ¿Cuándo podría reunirnos?" if not en else "Well, maybe I could hear more. When could we meet?",
+        ],
+        "objeciones": [
+            "Mire, ya tengo un seguro de vida. ¿Por qué cambiaría?" if not en else "Look, I already have life insurance. Why would I switch?",
+            "Es que es muy caro para lo que ofrecen..." if not en else "It's just too expensive for what they offer...",
+            "Necesito pensarlo, no tomo decisiones así de rápido." if not en else "I need to think about it, I don't make decisions that fast.",
+            "¿Me podría dar algo por escrito para revisar con mi familia?" if not en else "Could you give me something in writing to review with my family?",
+        ],
+        "cierre": [
+            "Sí, me interesa, pero ¿qué garantía tengo de que van a pagar si pasa algo?" if not en else "Yes, I'm interested, but what guarantee do I have that you'll pay if something happens?",
+            "¿Y si pago un año y después no puedo seguir pagando?" if not en else "What if I pay for a year and then can't keep paying?",
+            "Está bien, me convenciste. ¿Cómo empezamos?" if not en else "Alright, you convinced me. How do we start?",
+        ],
+    }
+
+    idx = min(len(body.historia) // 2, 3)
+    fallback = fallback_responses.get(body.scenario, fallback_responses["primera_llamada"])
+    fallback_resp = fallback[idx] if idx < len(fallback) else ("Gracias, voy a considerar tu propuesta." if not en else "Thanks, I'll consider your proposal.")
+
+    terminado = turno >= 5
+
+    if not settings.gemini_api_key:
+        feedback_texts = [
+            "Buena apertura. Recordá presentarte siempre con nombre y empresa." if not en else "Good opening. Remember to always introduce yourself with name and company.",
+            "Bien escuchado. Cuando el cliente objeta precio, reformulá el valor antes de bajar el costo." if not en else "Good listening. When the client objects on price, reframe the value before lowering the cost.",
+            "Excelente manejo. La técnica de alternativas (¿martes o jueves?) acelera el cierre." if not en else "Excellent handling. The alternatives technique (Tuesday or Thursday?) accelerates closure.",
+            "Vas bien. Cerrá con un resumen de beneficios antes de pedir el compromiso." if not en else "Going well. Close with a benefits summary before asking for commitment.",
+        ]
+        feedback = feedback_texts[min(idx, len(feedback_texts) - 1)]
+        return {"respuesta_cliente": fallback_resp, "feedback": feedback, "turno": turno, "terminado": terminado, "source": "simulado"}
+
+    try:
+        import litellm
+
+        idioma = "English" if en else "español rioplatense"
+        sys_prompt = (
+            f"Sos {desc_cliente} "
+            f"Respondé siempre en {idioma}, en máximo 2-3 oraciones. "
+            "No rompas el personaje. Si el agente hace un buen argumento, mostrá apertura gradual."
+        )
+        messages = [{"role": "system", "content": sys_prompt}]
+        for h in body.historia[-6:]:
+            messages.append({"role": "user" if h["rol"] == "agente" else "assistant", "content": h["texto"]})
+        messages.append({"role": "user", "content": body.mensaje})
+
+        resp_cliente = await litellm.acompletion(
+            model=settings.llm_model, api_key=settings.gemini_api_key,
+            messages=messages, temperature=0.7, max_tokens=200,
+        )
+        resp_texto = resp_cliente["choices"][0]["message"]["content"].strip()
+
+        feedback_prompt = (
+            f"En 1-2 oraciones, da feedback de coach al agente sobre lo que dijo: '{body.mensaje}'. "
+            f"Scenario: {titulo_escenario}. Sé específico y constructivo. Respondé en {idioma}."
+        )
+        resp_feedback = await litellm.acompletion(
+            model=settings.llm_model, api_key=settings.gemini_api_key,
+            messages=[{"role": "user", "content": feedback_prompt}], temperature=0.4, max_tokens=150,
+        )
+        feedback = resp_feedback["choices"][0]["message"]["content"].strip()
+        return {"respuesta_cliente": resp_texto, "feedback": feedback, "turno": turno, "terminado": terminado, "source": "llm"}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("simulador.llm_error", error=str(exc))
+        return {"respuesta_cliente": fallback_resp, "feedback": "—", "turno": turno, "terminado": terminado, "source": "simulado"}
+
+
+@router.post("/agente/coach")
+async def agente_coach(body: CoachQuery, ctx: dict = Depends(authcore.require_agent), lang: str = "es") -> dict:
+    """Coach IA del agente: responde preguntas usando la base de conocimiento (RAG).
+
+    Fuentes: kb_documents (productos, guiones, objeciones). Si hay GEMINI_API_KEY
+    usa LLM con contexto; si no, retorna el fragmento más relevante por texto.
+    """
+    from app.services import knowledge_base
+
+    tenant = ctx["tenant_id"]
+    if not body.pregunta.strip():
+        raise HTTPException(status_code=400, detail="Pregunta vacía")
+    return await knowledge_base.coach_answer(body.pregunta.strip(), tenant, lang)

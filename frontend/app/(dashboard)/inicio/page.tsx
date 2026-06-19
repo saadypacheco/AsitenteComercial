@@ -9,7 +9,7 @@ import { Avatar, Badge, Sparkline, ToneDot } from "@/components/executive";
 import { Card } from "@/components/ui";
 import { getUser } from "@/lib/auth";
 import { useLocale } from "@/lib/locale-context";
-import { askAi, getCommand, search, type Command, type SearchHit, type Tone } from "@/lib/queries/executive";
+import { askAi, getCommand, getLiderOnboarding, search, type Command, type SearchHit, type Tone } from "@/lib/queries/executive";
 
 const CHIP_KEYS = ["mensajes", "audios", "imagenes", "personas", "pendientes", "eventos", "grupos", "capacitaciones"] as const;
 const BORDER: Record<Tone, string> = { brand: "border-t-brand", ok: "border-t-ok", danger: "border-t-danger", warning: "border-t-warning", neutral: "border-t-line" };
@@ -36,7 +36,13 @@ export default function InicioPage() {
   const [respuesta, setRespuesta] = useState<{ answer: string; source: string } | null>(null);
   const [pensando, setPensando] = useState(false);
 
-  useEffect(() => setUser(getUser()?.nombre ?? "Cecilia"), []);
+  useEffect(() => {
+    const u = getUser();
+    setUser(u?.nombre ?? "Cecilia");
+    if (u?.rol === "lider") {
+      getLiderOnboarding().then((d) => { if (!d.completado) window.location.href = "/lider/bienvenida"; }).catch(() => {});
+    }
+  }, []);
   useEffect(() => {
     getCommand(locale).then(setC).catch(() => setC(null));
   }, [locale]);
