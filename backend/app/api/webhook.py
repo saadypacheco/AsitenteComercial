@@ -29,19 +29,29 @@ _STATE_EVENTS = {
 }
 
 
-def _valid_signature(body: bytes, signature: str | None) -> bool:
+def _valid_signature(body: bytes, *signatures: str | None) -> bool:
+    """Valida HMAC-SHA256. Acepta varios headers para compatibilidad con distintas versiones de WAHA.
+
+    Sin WEBHOOK_SECRET configurado: pasa siempre (solo válido en dev).
+    En prod, WEBHOOK_SECRET debe estar seteado y WAHA debe tener WHATSAPP_HOOK_HMAC_KEY=mismo valor.
+    """
     if not settings.webhook_secret:
-        return True  # sin secreto configurado (solo dev) — en prod SIEMPRE setearlo
-    if not signature:
-        return False
+        return True
     expected = hmac.new(settings.webhook_secret.encode(), body, hashlib.sha256).hexdigest()
-    return hmac.compare_digest(expected, signature)
+    for sig in signatures:
+        if sig and hmac.compare_digest(expected, sig.lower()):
+            return True
+    return False
 
 
 @router.post("/webhook")
-async def ingest(request: Request, x_webhook_hmac: str | None = Header(default=None)) -> dict:
+async def ingest(
+    request: Request,
+    x_waha_signature: str | None = Header(default=None),    # WAHA >= 2024
+    x_webhook_hmac: str | None = Header(default=None),      # compatibilidad legado
+) -> dict:
     body = await request.body()
-    if not _valid_signature(body, x_webhook_hmac):
+    if not _valid_signature(body, x_waha_signature, x_webhook_hmac):
         raise HTTPException(status_code=401, detail="firma inválida")
 
     event = await request.json()

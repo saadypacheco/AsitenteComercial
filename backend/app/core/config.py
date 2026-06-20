@@ -79,5 +79,8 @@ class Settings(BaseSettings):
 
     storage_bucket: str = "wa-media"
 
+    # Monitoreo de errores (Sentry). Vacío = deshabilitado.
+    sentry_dsn: str = ""
+
 
 settings = Settings()

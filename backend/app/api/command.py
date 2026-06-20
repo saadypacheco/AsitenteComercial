@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from app.api.gestion import _exec, _rows, _scope
-from app.core.auth import require_tenant, scoped_agente_ids, view_ctx
+from app.core.auth import current_user, require_tenant, scoped_agente_ids, view_ctx
 from app.core.config import settings
 from app.services import email as email_svc
 from app.services import waha
@@ -258,9 +258,11 @@ class AccionEjecutar(BaseModel):
 
 
 @router.post("/dashboard/acciones/ejecutar")
-def ejecutar_accion(body: AccionEjecutar, tenant: str = Depends(require_tenant)) -> dict:
+def ejecutar_accion(body: AccionEjecutar, user: dict = Depends(current_user)) -> dict:
     """Aprueba y envía la acción por WhatsApp (WAHA) o email según el canal.
     Si no hay contacto resoluble o el servicio no está configurado, registra como simulado."""
+    tenant = user["tenant_id"]
+    aprobado_por = user.get("sub")
     contact = _resolve_contact(body.ref_id, body.canal, tenant)
     modo = "simulado"
 
@@ -280,9 +282,9 @@ def ejecutar_accion(body: AccionEjecutar, tenant: str = Depends(require_tenant))
             modo = result.get("modo", "simulado")
 
     _exec(
-        "insert into acciones_log (tenant_id, ref_id, tipo, destinatario, canal, mensaje, modo) "
-        "values (%s,%s,%s,%s,%s,%s,%s)",
-        (tenant, body.ref_id, body.tipo, body.destinatario, body.canal, body.mensaje, modo),
+        "insert into acciones_log (tenant_id, ref_id, tipo, destinatario, canal, mensaje, modo, aprobado_por) "
+        "values (%s,%s,%s,%s,%s,%s,%s,%s)",
+        (tenant, body.ref_id, body.tipo, body.destinatario, body.canal, body.mensaje, modo, aprobado_por),
     )
     if body.ref_id.startswith("pend-"):
         _exec("update pendientes set estado='en_proceso' where id=%s and tenant_id=%s",
@@ -293,8 +295,11 @@ def ejecutar_accion(body: AccionEjecutar, tenant: str = Depends(require_tenant))
 @router.get("/dashboard/acciones/historial")
 def acciones_historial(tenant: str = Depends(require_tenant)) -> list:
     return _rows(
-        "select tipo, destinatario, canal, mensaje, modo, created_at from acciones_log "
-        "where tenant_id=%s order by created_at desc limit 20", (tenant,),
+        "select al.tipo, al.destinatario, al.canal, al.mensaje, al.modo, al.created_at, "
+        "u.email as aprobado_por_email "
+        "from acciones_log al "
+        "left join app_users u on u.id = al.aprobado_por "
+        "where al.tenant_id=%s order by al.created_at desc limit 20", (tenant,),
     )
 
 

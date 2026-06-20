@@ -13,6 +13,18 @@ from app.core.config import settings
 
 logger = structlog.get_logger()
 
+if settings.sentry_dsn:
+    import sentry_sdk
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    from sentry_sdk.integrations.starlette import StarletteIntegration
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        environment=settings.environment,
+        integrations=[StarletteIntegration(), FastApiIntegration()],
+        traces_sample_rate=0.1,   # 10% de requests trazados (ajustar si escala)
+        send_default_pii=False,   # no enviar IPs ni cookies (privacidad)
+    )
+
 app = FastAPI(title="mentorcomercial API", version="0.1.0")
 
 # CORS: el dashboard (Next.js) llama a estos endpoints desde el navegador.
