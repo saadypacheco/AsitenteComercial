@@ -54,6 +54,21 @@ def send_text(jid: str, text: str, session: str = _SESSION) -> dict:
         return {"modo": "error", "ok": False}
 
 
+def session_status(session: str = _SESSION) -> dict:
+    """Estado de la sesión WAHA (para health check). Devuelve {status} o lanza en error."""
+    if not enabled():
+        return {"status": "disabled"}
+    import httpx
+    resp = httpx.get(
+        f"{settings.waha_base_url}/api/sessions/{session}",
+        headers={"X-Api-Key": settings.waha_api_key},
+        timeout=5,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    return {"status": data.get("status", "unknown")}
+
+
 def get_group_name(group_jid: str, session: str = _SESSION) -> str | None:
     """Nombre (subject) de un grupo, consultando la API de WAHA. None si no se pudo.
 

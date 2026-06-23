@@ -53,16 +53,26 @@ def agente_verify(body: AgenteVerify) -> dict:
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=401, detail="Enlace inválido o expirado") from exc
     aid = payload.get("agente_id")
+    tid = payload.get("tenant_id")
     if not aid:
         raise HTTPException(status_code=401, detail="Enlace no es de agente")
-    rows = _rows("select id, tenant_id, nombre, apellido, email, celular from agentes where id = %s and estado <> 'baja'", (aid,))
+    rows = _rows(
+        "select id, tenant_id, nombre, apellido, email, celular from agentes "
+        "where id = %s and tenant_id = %s and estado <> 'baja'",
+        (aid, tid),
+    )
     if not rows:
         raise HTTPException(status_code=401, detail="Agente no válido")
     a = rows[0]
-    token = authcore.make_token({
-        "id": a["id"], "email": a.get("email") or a.get("celular") or str(a["id"]),
-        "tenant_id": a["tenant_id"], "nombre": a["nombre"], "rol": "agente", "agente_id": a["id"],
-    })
+    # TTL corto para tokens de agente (24h) — si el agente es dado de baja,
+    # el acceso expira en máximo 24h sin necesidad de check DB en cada request.
+    token = authcore.make_token(
+        {
+            "id": a["id"], "email": a.get("email") or a.get("celular") or str(a["id"]),
+            "tenant_id": a["tenant_id"], "nombre": a["nombre"], "rol": "agente", "agente_id": a["id"],
+        },
+        ttl_hours=24,
+    )
     return {"access_token": token, "agente": {"nombre": a["nombre"], "apellido": a["apellido"]}}
 
 

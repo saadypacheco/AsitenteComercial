@@ -42,14 +42,15 @@ def verify_password(password: str, stored: str) -> bool:
 
 
 # ── JWT ──────────────────────────────────────────────────────────────────────
-def make_token(user: dict) -> str:
+def make_token(user: dict, ttl_hours: int | None = None) -> str:
+    ttl = ttl_hours if ttl_hours is not None else settings.jwt_ttl_hours
     payload = {
         "sub": str(user["id"]),
         "email": user["email"],
         "tenant_id": str(user["tenant_id"]),
         "nombre": user.get("nombre"),
         "rol": user.get("rol", "lider"),
-        "exp": int(time.time()) + settings.jwt_ttl_hours * 3600,
+        "exp": int(time.time()) + ttl * 3600,
     }
     if user.get("agente_id"):
         payload["agente_id"] = str(user["agente_id"])
