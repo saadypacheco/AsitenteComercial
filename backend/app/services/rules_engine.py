@@ -77,7 +77,7 @@ def _process_tenant(tenant_id: str) -> None:
         "a.superior_id "
         "from agentes a "
         "left join messages m on m.tenant_id=a.tenant_id "
-        "  and (m.jid like '%'||regexp_replace(coalesce(a.celular,''), '[^0-9]', '', 'g')||'%') "
+        "  and (m.jid like '%%'||regexp_replace(coalesce(a.celular,''), '[^0-9]', '', 'g')||'%%') "
         "where a.tenant_id=%s and a.estado='activo' "
         "group by a.id",
         (tenant_id,),
