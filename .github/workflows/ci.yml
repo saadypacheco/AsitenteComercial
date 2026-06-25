@@ -31,7 +31,8 @@ jobs:
             "psycopg[binary]>=3.1" \
             "psycopg_pool>=3.2" \
             "pytest>=8.2" \
-            "pytest-asyncio>=0.23"
+            "pytest-asyncio>=0.23" \
+            "litellm>=1.40"
 
       - name: Correr tests
         working-directory: backend

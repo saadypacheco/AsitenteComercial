@@ -519,10 +519,10 @@ def _build_recomendaciones(en: bool, alertas: list, equipo: list, oportunidades:
         if en:
             recs.append({"prioridad": "media", "tono": "ok",
                          "accion": f"Follow up: {o['titulo']}",
-                         "motivo": f"${o['potencial']:,} potential · {o['probabilidad']}% close"})
+                         "motivo": f"{o['probabilidad']}% probability of closing"})
         else:
             recs.append({"prioridad": "media", "tono": "ok",
                          "accion": f"Seguir: {o['titulo']}",
-                         "motivo": f"US${o['potencial']:,} potencial · {o['probabilidad']}% cierre"})
+                         "motivo": f"{o['probabilidad']}% de probabilidad de cierre"})
 
     return recs

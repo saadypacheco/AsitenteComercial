@@ -63,13 +63,21 @@ def _decode(token: str) -> dict:
     return pyjwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
 
 
+# Blacklist en memoria de JTIs de magic tokens ya canjeados.
+# Protege contra reutilización dentro del TTL (15 min).
+# En producción persistir en Redis/DB; aquí es suficiente para un proceso.
+_used_magic_jtis: set[str] = set()
+
+
 def make_magic_token(user: dict) -> str:
     """Token de un solo propósito ('magic'), corto, para login sin contraseña."""
+    jti = secrets.token_hex(16)          # ID único de este link; se invalida al usarse
     payload = {
         "sub": str(user["id"]),
         "email": user["email"],
         "tenant_id": str(user["tenant_id"]),
         "purpose": "magic",
+        "jti": jti,
         "exp": int(time.time()) + settings.magic_ttl_minutes * 60,
     }
     if user.get("agente_id"):
@@ -82,6 +90,10 @@ def decode_magic_token(token: str) -> dict:
     payload = _decode(token)
     if payload.get("purpose") != "magic":
         raise ValueError("token no es de tipo magic")
+    jti = payload.get("jti")
+    if not jti or jti in _used_magic_jtis:
+        raise ValueError("enlace ya utilizado")
+    _used_magic_jtis.add(jti)
     return payload
 
 
@@ -119,13 +131,16 @@ def require_agent(creds: HTTPAuthorizationCredentials | None = Depends(_bearer))
 
 def view_ctx(creds: HTTPAuthorizationCredentials | None = Depends(_bearer)) -> dict:
     """Contexto de vista del panel: tenant + scope (None=owner ve todo; si hay scope,
-    el líder ve solo su sub-árbol de agentes)."""
+    el líder ve solo su sub-árbol de agentes).
+    Rechaza tokens de agente (rol=agente) — el panel no es accesible desde la app del agente."""
     if not creds:
         raise HTTPException(status_code=401, detail="No autenticado")
     try:
         p = _decode(creds.credentials)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=401, detail="Token inválido o expirado") from exc
+    if p.get("rol") == "agente":
+        raise HTTPException(status_code=403, detail="Acceso restringido al panel de control")
     return {"tenant_id": p["tenant_id"], "scope_root": p.get("scope")}
 
 

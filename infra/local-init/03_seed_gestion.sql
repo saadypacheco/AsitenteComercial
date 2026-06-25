@@ -36,13 +36,17 @@ begin
   on conflict do nothing;
 
   -- AGENTES (jerarquía variable: María líder; Juan/Ana bajo María; Luis/Sofía bajo Juan)
+  -- on conflict: si el id ya existe (re-seed), actualiza email/celular por si estaban NULL
+  -- (esto ocurre cuando 03_seed fue modificado después de la primera inicialización del volumen)
   insert into agentes (id, tenant_id, contact_id, nombre, apellido, celular, email, estado, superior_id, ciudad, origen_alta) values
     (e1, t, b1, 'María', 'López', '5491111', 'maria@demo.com', 'activo', null, 'Miami',  'manual'),
     (e2, t, b2, 'Juan',  'Pérez', '5492222', 'juan@demo.com',  'activo', e1,   'Miami',  'manual'),
     (e3, t, b3, 'Ana',   'Torres','5493333', 'ana@demo.com',   'activo', e1,   'Orlando','csv'),
     (e4, t, b4, 'Luis',  'Gómez', '5494444', 'luis@demo.com',  'activo', e2,   'Tampa',  'csv'),
     (e5, t, b5, 'Sofía', 'Ruíz',  '5495555', 'sofia@demo.com', 'activo', e2,   'Miami',  'capacitacion')
-  on conflict do nothing;
+  on conflict (id) do update
+    set email   = coalesce(agentes.email,   excluded.email),
+        celular = coalesce(agentes.celular, excluded.celular);
 
   -- ACTIVIDAD REAL: mensajes en 7 días por agente → alimenta ranking/grupos.
   -- (gen-<contacto>-<n>; spread en 168 h; alternando entre los 2 grupos)

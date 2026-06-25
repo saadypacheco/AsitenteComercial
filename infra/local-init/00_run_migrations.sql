@@ -17,3 +17,8 @@
 \i /migrations/0016_multilider.sql
 \i /migrations/0017_reuniones.sql
 \i /migrations/0018_clientes.sql
+\i /migrations/0019_briefing.sql
+\i /migrations/0020_lider_onboarding.sql
+\i /migrations/0021_rules_engine.sql
+\i /migrations/0022_knowledge_base.sql
+\i /migrations/0023_acciones_log_audit.sql
