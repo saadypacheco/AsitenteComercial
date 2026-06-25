@@ -7,7 +7,7 @@
 // el mismo fondo continuo. Si existe /public/login-hero3.jpg se usa de fondo.
 import { useEffect, useState } from "react";
 
-import { login, requestMagicLink } from "@/lib/auth";
+import { getToken, login, requestMagicLink } from "@/lib/auth";
 import { DEFAULT_LOCALE, getDictionary, getStoredLocale, storeLocale, type Locale } from "@/lib/i18n";
 
 type Mode = "signin" | "recover";
@@ -36,7 +36,10 @@ export default function LoginPage() {
 
   const t = getDictionary(locale).login;
 
-  useEffect(() => setLocale(getStoredLocale()), []);
+  useEffect(() => {
+    if (getToken()) { window.location.href = "/inicio"; return; }
+    setLocale(getStoredLocale());
+  }, []);
   function toggleLocale() {
     const next: Locale = locale === "es" ? "en" : "es";
     setLocale(next);
@@ -190,7 +193,7 @@ export default function LoginPage() {
           <h1 className="text-6xl font-bold leading-tight">
             {t.welcome}
             <br />
-            Cecilia
+            {t.heroName}
           </h1>
           <p className="mt-4 max-w-sm text-base leading-relaxed text-white/85">{t.heroText}</p>
         </div>
@@ -205,7 +208,7 @@ export default function LoginPage() {
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/15 backdrop-blur">▮▮</span>
             <span className="text-sm font-semibold tracking-wide">{t.loginBrand}</span>
           </div>
-          <h1 className="text-3xl font-bold leading-tight">{t.welcome} Cecilia</h1>
+          <h1 className="text-3xl font-bold leading-tight">{t.welcome} {t.heroName}</h1>
         </div>
 
         <div className="w-full max-w-sm">{formInner}</div>

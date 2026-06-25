@@ -33,6 +33,8 @@ def get_pool():
                     max_size=settings.db_pool_max,
                     max_idle=300,        # recicla conexiones ociosas (el pooler corta las viejas)
                     timeout=30,          # espera máx. por una conexión libre
+                    reconnect_timeout=5, # reintenta reconectar conexiones caídas hasta 5 s
+                    check=ConnectionPool.check_connection,  # valida la conexión antes de entregarla
                     open=True,
                 )
     return _pool
