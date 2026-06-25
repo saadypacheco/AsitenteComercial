@@ -25,7 +25,7 @@ export default function LoginPage() {
   const [locale, setLocale] = useState<Locale>(DEFAULT_LOCALE);
   const [mode, setMode] = useState<Mode>("signin");
 
-  const [email, setEmail] = useState("cecilia@demo.com");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -118,7 +118,6 @@ export default function LoginPage() {
             <a className="text-white/75 underline" href="#">{t.terms}</a> {t.and}{" "}
             <a className="text-white/75 underline" href="#">{t.privacy}</a>.
           </p>
-          <p className="mt-4 text-center text-xs text-white/50">Demo: cecilia@demo.com · demo1234</p>
         </>
       ) : (
         <>
@@ -185,7 +184,7 @@ export default function LoginPage() {
       <section className="relative z-10 hidden flex-col justify-between p-12 text-white md:flex">
         <div className="flex items-center gap-2">
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/15 backdrop-blur">▮▮</span>
-          <span className="text-sm font-semibold tracking-wide">{t.brand}</span>
+          <span className="text-sm font-semibold tracking-wide">{t.loginBrand}</span>
         </div>
         <div>
           <h1 className="text-6xl font-bold leading-tight">
@@ -195,7 +194,7 @@ export default function LoginPage() {
           </h1>
           <p className="mt-4 max-w-sm text-base leading-relaxed text-white/85">{t.heroText}</p>
         </div>
-        <div className="text-xs text-white/60">© 2026 {t.brand} · {t.footer}</div>
+        <div className="text-xs text-white/60">© 2026 {t.loginBrand} · {t.footer}</div>
       </section>
 
       {/* ── Formulario (glass sobre el fondo) ──────────────────────────── */}
@@ -204,7 +203,7 @@ export default function LoginPage() {
         <div className="mb-8 text-center text-white md:hidden">
           <div className="mb-3 flex items-center justify-center gap-2">
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/15 backdrop-blur">▮▮</span>
-            <span className="text-sm font-semibold tracking-wide">{t.brand}</span>
+            <span className="text-sm font-semibold tracking-wide">{t.loginBrand}</span>
           </div>
           <h1 className="text-3xl font-bold leading-tight">{t.welcome} Cecilia</h1>
         </div>

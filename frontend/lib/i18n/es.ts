@@ -317,8 +317,9 @@ export const es = {
     startBtn: "Comenzar",
   },
   login: {
-    brand: "Asistente Comercial", // marca amigable (depende del idioma)
-    welcome: "Bienvenida",        // "Bienvenida Cecilia"
+    brand: "Asistente",                    // sidebar
+    loginBrand: "Tu Asistente Personal",   // hero del login
+    welcome: "Bienvenida",                 // "Bienvenida Cecilia"
     heroText:
       "Tu panel de inteligencia comercial sobre WhatsApp: el pulso del día, tus pendientes, las oportunidades detectadas y el ranking de tu equipo, en un solo lugar.",
     footer: "Inteligencia comercial",

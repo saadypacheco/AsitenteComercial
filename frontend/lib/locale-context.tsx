@@ -12,9 +12,9 @@ type Ctx = { locale: Locale; setLocale: (l: Locale) => void; toggle: () => void;
 const LocaleContext = createContext<Ctx | null>(null);
 
 export function LocaleProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE);
-
-  useEffect(() => setLocaleState(getStoredLocale()), []);
+  // Lazy initializer: reads localStorage on the first client render so the locale
+  // is correct from the start — avoids a second render + double API fetch.
+  const [locale, setLocaleState] = useState<Locale>(() => getStoredLocale());
 
   function setLocale(l: Locale) {
     setLocaleState(l);

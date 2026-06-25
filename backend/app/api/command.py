@@ -7,6 +7,8 @@ Filtrado por el tenant del JWT (FR-009). Etiquetas de catálogo como claves
 (estado/prioridad/nivel) → las localiza el frontend; las frases (recomendaciones)
 se arman en el idioma pedido acá.
 """
+from concurrent.futures import ThreadPoolExecutor
+
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
@@ -330,38 +332,123 @@ def command(ctx: dict = Depends(view_ctx), lang: str = "es") -> dict:
     tenant = ctx["tenant_id"]
     p = (tenant,)
     scope = scoped_agente_ids(tenant, ctx["scope_root"])
-    scA, spA = _scope("a.id", scope)            # agentes
-    scP, spP = _scope("agente_id", scope)       # pendientes (tabla)
-    scPP, spPP = _scope("p.agente_id", scope)   # pendientes (alias p)
+    scA, spA = _scope("a.id", scope)
+    scP, spP = _scope("agente_id", scope)
+    scPP, spPP = _scope("p.agente_id", scope)
+    cli_expr = "coalesce(p.cliente_en, p.cliente)" if en else "coalesce(p.cliente, p.titulo_en, p.titulo)"
+    tit_expr = "coalesce(p.titulo_en, p.titulo)" if en else "p.titulo"
+    otit = "coalesce(title_en, title)" if en else "title"
+    odesc = "coalesce(description_en, description)" if en else "description"
 
-    # ── KPIs ─────────────────────────────────────────────────────────────────
-    conv = _rows(
-        f"select "
-        f"(select count(distinct chat_id) from messages where tenant_id=%s and wa_timestamp >= {TODAY}) as hoy, "
-        f"(select count(distinct chat_id) from messages where tenant_id=%s and wa_timestamp >= {YEST} and wa_timestamp < {TODAY}) as ayer",
-        (tenant, tenant),
-    )[0]
-    ventas = _rows(
-        f"select count(*) as cnt, coalesce(sum(valor),0)::int as valor, "
-        f"(select count(*) from commercial_events where tenant_id=%s and type='venta' and created_at >= {YEST} and created_at < {TODAY}) as ayer "
-        f"from commercial_events where tenant_id=%s and type='venta' and created_at >= {TODAY}",
-        (tenant, tenant),
-    )[0]
-    criticos = _rows(
-        f"select count(*) as n from pendientes where tenant_id=%s and prioridad='critico' and estado<>'cerrado'{scP}",
-        (tenant, *spP),
-    )[0]["n"]
-    riesgo = _rows(
-        f"select count(*) as n from pendientes where tenant_id=%s and estado<>'cerrado' "
-        f"and prioridad in ('critico','alto') and cliente is not null{scP}",
-        (tenant, *spP),
-    )[0]["n"]
-    ag = _rows(
-        f"select count(*) filter (where a.estado='activo') as act, count(*) as total "
-        f"from agentes a where a.tenant_id=%s and a.estado<>'baja'{scA}",
-        (tenant, *spA),
-    )[0]
+    # ── 10 queries independientes en paralelo (pool max=5 → 2 batches ~300 ms c/u)
+    def q_conv():
+        return _rows(
+            f"select "
+            f"(select count(distinct chat_id) from messages where tenant_id=%s and wa_timestamp >= {TODAY}) as hoy, "
+            f"(select count(distinct chat_id) from messages where tenant_id=%s and wa_timestamp >= {YEST} and wa_timestamp < {TODAY}) as ayer",
+            (tenant, tenant),
+        )[0]
 
+    def q_ventas():
+        return _rows(
+            f"select count(*) as cnt, coalesce(sum(valor),0)::int as valor, "
+            f"(select count(*) from commercial_events where tenant_id=%s and type='venta' and created_at >= {YEST} and created_at < {TODAY}) as ayer "
+            f"from commercial_events where tenant_id=%s and type='venta' and created_at >= {TODAY}",
+            (tenant, tenant),
+        )[0]
+
+    def q_criticos():
+        return _rows(
+            f"select count(*) as n from pendientes where tenant_id=%s and prioridad='critico' and estado<>'cerrado'{scP}",
+            (tenant, *spP),
+        )[0]["n"]
+
+    def q_riesgo():
+        return _rows(
+            f"select count(*) as n from pendientes where tenant_id=%s and estado<>'cerrado' "
+            f"and prioridad in ('critico','alto') and cliente is not null{scP}",
+            (tenant, *spP),
+        )[0]["n"]
+
+    def q_ag():
+        return _rows(
+            f"select count(*) filter (where a.estado='activo') as act, count(*) as total "
+            f"from agentes a where a.tenant_id=%s and a.estado<>'baja'{scA}",
+            (tenant, *spA),
+        )[0]
+
+    def q_equipo():
+        return _rows(
+            "select a.id, trim(a.nombre || ' ' || coalesce(a.apellido,'')) as nombre, "
+            "(select count(*) from pendientes pp where pp.agente_id=a.id and pp.estado<>'cerrado') as abiertas, "
+            "(select count(*) from pendientes pp where pp.agente_id=a.id and pp.estado='cerrado') as cerrados, "
+            "(select count(*) from pendientes pp where pp.agente_id=a.id and pp.estado<>'cerrado' and pp.prioridad='critico') as crit "
+            f"from agentes a where a.tenant_id=%s and a.estado<>'baja'{scA} order by abiertas desc, cerrados desc",
+            (tenant, *spA),
+        )
+
+    def q_ranking():
+        return _rows(
+            "select trim(a.nombre || ' ' || coalesce(a.apellido,'')) as nombre, "
+            "(select count(*) from messages m where m.sender_id=a.contact_id and m.tenant_id=%s "
+            " and m.wa_timestamp >= now()-interval '7 days') as interacciones, "
+            "(select count(*) from pendientes pp where pp.agente_id=a.id and pp.estado='cerrado') as ventas "
+            f"from agentes a where a.tenant_id=%s and a.estado<>'baja'{scA} order by ventas desc, interacciones desc limit 5",
+            (tenant, tenant, *spA),
+        )
+
+    def q_alertas():
+        return _rows(
+            f"select p.id, {cli_expr} as cliente, {tit_expr} as titulo, p.prioridad, p.vip, "
+            "round(extract(epoch from now()-p.created_at)/3600)::int as horas, "
+            "nullif(trim(coalesce(a.nombre,'') || ' ' || coalesce(a.apellido,'')), '') as responsable "
+            "from pendientes p left join agentes a on a.id=p.agente_id "
+            f"where p.tenant_id=%s and p.prioridad='critico' and p.estado<>'cerrado'{scPP} "
+            "order by p.created_at limit 6",
+            (tenant, *spPP),
+        )
+
+    def q_oportunidades():
+        return _rows(
+            f"select id, {otit} as titulo, {odesc} as producto, importance as nivel, "
+            "round(coalesce(confidence,0)*100)::int as probabilidad, coalesce(valor,0)::int as potencial "
+            "from commercial_events where tenant_id=%s and type in ('venta','consulta','seguimiento') "
+            "and status='open' order by valor desc nulls last, created_at desc limit 5",
+            p,
+        )
+
+    def q_serie():
+        return _rows(
+            "select gs::date as dia, "
+            "(select count(*) from messages m where m.tenant_id=%s and m.wa_timestamp >= gs and m.wa_timestamp < gs + interval '1 day') as msgs "
+            "from generate_series(date_trunc('day',now())-interval '6 days', date_trunc('day',now()), interval '1 day') gs",
+            p,
+        )
+
+    with ThreadPoolExecutor(max_workers=10) as ex:
+        f_conv         = ex.submit(q_conv)
+        f_ventas       = ex.submit(q_ventas)
+        f_criticos     = ex.submit(q_criticos)
+        f_riesgo       = ex.submit(q_riesgo)
+        f_ag           = ex.submit(q_ag)
+        f_equipo       = ex.submit(q_equipo)
+        f_ranking      = ex.submit(q_ranking)
+        f_alertas      = ex.submit(q_alertas)
+        f_oportunidades = ex.submit(q_oportunidades)
+        f_serie        = ex.submit(q_serie)
+
+        conv          = f_conv.result()
+        ventas        = f_ventas.result()
+        criticos      = f_criticos.result()
+        riesgo        = f_riesgo.result()
+        ag            = f_ag.result()
+        equipo_raw    = f_equipo.result()
+        ranking       = f_ranking.result()
+        alertas       = f_alertas.result()
+        oportunidades = f_oportunidades.result()
+        serie         = f_serie.result()
+
+    # ── Post-procesado (sin BD) ───────────────────────────────────────────────
     kpis = {
         "conversaciones": {"value": conv["hoy"], "delta": _delta(conv["hoy"], conv["ayer"]), "tono": "brand"},
         "ventas": {"value": ventas["cnt"], "valor": ventas["valor"], "delta": _delta(ventas["cnt"], ventas["ayer"]), "tono": "ok"},
@@ -370,15 +457,6 @@ def command(ctx: dict = Depends(view_ctx), lang: str = "es") -> dict:
         "conectados": {"value": ag["act"], "total": ag["total"], "tono": "ok"},
     }
 
-    # ── Estado del equipo ────────────────────────────────────────────────────
-    equipo_raw = _rows(
-        "select a.id, trim(a.nombre || ' ' || coalesce(a.apellido,'')) as nombre, "
-        "(select count(*) from pendientes pp where pp.agente_id=a.id and pp.estado<>'cerrado') as abiertas, "
-        "(select count(*) from pendientes pp where pp.agente_id=a.id and pp.estado='cerrado') as cerrados, "
-        "(select count(*) from pendientes pp where pp.agente_id=a.id and pp.estado<>'cerrado' and pp.prioridad='critico') as crit "
-        f"from agentes a where a.tenant_id=%s and a.estado<>'baja'{scA} order by abiertas desc, cerrados desc",
-        (tenant, *spA),
-    )
     equipo = []
     for e in equipo_raw:
         if e["abiertas"] >= 3:
@@ -389,51 +467,11 @@ def command(ctx: dict = Depends(view_ctx), lang: str = "es") -> dict:
             estado, tono = "normal", "brand"
         equipo.append({**e, "estado": estado, "tono": tono})
 
-    # ── Ranking comercial ────────────────────────────────────────────────────
-    ranking = _rows(
-        "select trim(a.nombre || ' ' || coalesce(a.apellido,'')) as nombre, "
-        "(select count(*) from messages m where m.sender_id=a.contact_id and m.tenant_id=%s "
-        " and m.wa_timestamp >= now()-interval '7 days') as interacciones, "
-        "(select count(*) from pendientes pp where pp.agente_id=a.id and pp.estado='cerrado') as ventas "
-        f"from agentes a where a.tenant_id=%s and a.estado<>'baja'{scA} order by ventas desc, interacciones desc limit 5",
-        (tenant, tenant, *spA),
-    )
     for r in ranking:
         base = (r["interacciones"] or 0) + (r["ventas"] or 0)
         r["conversiones"] = round((r["ventas"] or 0) / base * 100) if base else 0
 
-    # ── Alertas enriquecidas (pendientes críticos abiertos) ──────────────────
-    cli_expr = "coalesce(p.cliente_en, p.cliente)" if en else "coalesce(p.cliente, p.titulo_en, p.titulo)"
-    tit_expr = "coalesce(p.titulo_en, p.titulo)" if en else "p.titulo"
-    alertas = _rows(
-        f"select p.id, {cli_expr} as cliente, {tit_expr} as titulo, p.prioridad, p.vip, "
-        "round(extract(epoch from now()-p.created_at)/3600)::int as horas, "
-        "nullif(trim(coalesce(a.nombre,'') || ' ' || coalesce(a.apellido,'')), '') as responsable "
-        "from pendientes p left join agentes a on a.id=p.agente_id "
-        f"where p.tenant_id=%s and p.prioridad='critico' and p.estado<>'cerrado'{scPP} "
-        "order by p.created_at limit 6", (tenant, *spPP),
-    )
-
-    # ── Oportunidades enriquecidas ───────────────────────────────────────────
-    otit = "coalesce(title_en, title)" if en else "title"
-    odesc = "coalesce(description_en, description)" if en else "description"
-    oportunidades = _rows(
-        f"select id, {otit} as titulo, {odesc} as producto, importance as nivel, "
-        "round(coalesce(confidence,0)*100)::int as probabilidad, coalesce(valor,0)::int as potencial "
-        "from commercial_events where tenant_id=%s and type in ('venta','consulta','seguimiento') "
-        "and status='open' order by valor desc nulls last, created_at desc limit 5", p,
-    )
-
-    # ── Actividad (serie de 7 días) ──────────────────────────────────────────
-    serie = _rows(
-        "select gs::date as dia, "
-        "(select count(*) from messages m where m.tenant_id=%s and m.wa_timestamp >= gs and m.wa_timestamp < gs + interval '1 day') as msgs "
-        "from generate_series(date_trunc('day',now())-interval '6 days', date_trunc('day',now()), interval '1 day') gs",
-        p,
-    )
     actividad = {"serie_7d": [s["msgs"] for s in serie], "total_7d": sum(s["msgs"] for s in serie)}
-
-    # ── Recomendaciones IA (derivadas, localizadas) ──────────────────────────
     recomendaciones = _build_recomendaciones(en, alertas, equipo, oportunidades)
 
     return {
