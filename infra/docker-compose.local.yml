@@ -69,6 +69,7 @@ services:
     volumes:
       - ../frontend:/app
       - mc_node_modules:/app/node_modules
+      - mc_next_build:/app/.next
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8002
       # En bind-mounts de Windows→Linux, inotify NO propaga eventos de archivo, así que
@@ -78,6 +79,7 @@ services:
     command: sh -c "npm install && npm run dev -- -p 3002 -H 0.0.0.0"
     ports:
       - "127.0.0.1:3002:3002"
+      - "127.0.0.1:3003:3003"
     depends_on:
       - backend
 
@@ -135,5 +137,6 @@ services:
 volumes:
   mc_pgdata:
   mc_node_modules:
+  mc_next_build:
   mc_waha_sessions:
   mc_waha_media:

@@ -110,6 +110,11 @@ Tres roles sobre el MISMO backend:
 - **Onboarding del agente:** ✅ existe + **Fase 1 hecha** (journey a la 1ª venta + gamificación + tema oscuro Empresa). **Falta Fases 2-4** (ver [ANALISIS_ONBOARDING.md](ANALISIS_ONBOARDING.md)): motor de reglas, RAG/coach IA, simulador IA + centro predictivo. Persistir XP/racha en tabla (hoy derivado). **Onboarding del LÍDER:** ❌ no construido — gap.
 - **Asistente conversacional:** ✅ **decidido Telegram** (ADR `architect-kb/decisions/2026-06-18-asistente-telegram-mentorcomercial.md`) + spike (`services/telegram.py` + `assistant.py`). **Falta:** crear bot en BotFather → `TELEGRAM_BOT_TOKEN`, y Fase 2 (acciones + habilitación por líder, scope-aware).
 
+**Arquitectura / performance (post-cierre):**
+- 🟡 **Migración a Next.js Server Components** — eliminar el fetch cliente-a-FastAPI en favor de fetch server-side directo. Requiere migrar auth de localStorage+JWT a cookies httpOnly (el server necesita leer el token para hacer el fetch en el servidor). Beneficio: cero spinners, cero hydration errors, datos disponibles en el HTML inicial. Bloqueante: rediseño del flujo de auth. Ver conversación 2026-06-24.
+- 🟡 **Stored Procedures para endpoints pesados** (`/dashboard/command`, `/dashboard/acciones`) — reemplazar las 10 queries paralelas (ThreadPoolExecutor) por una sola función PostgreSQL que devuelve JSON. Una round-trip en vez de 10, el query planner de Postgres optimiza internamente. Ver conversación 2026-06-24.
+- 🟡 **SWR / React Query** — agregar cache en el cliente (30s TTL) para evitar refetch al navegar entre páginas. Cambio mínimo: envolver las funciones de `lib/queries/` con `useSWR`. Post-cierre.
+
 **Features / mejoras técnicas:**
 - **Importador CSV de agentes** (auto-match por celular con la captura).
 - **US3 / fix E — transcripción de audios (Whisper)** (gancho en el worker; falta el motor).

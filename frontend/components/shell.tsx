@@ -6,7 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
-import { getUser, logout, requireAuth, type SessionUser } from "@/lib/auth";
+import { getToken, getUser, logout, type SessionUser } from "@/lib/auth";
 import { useLocale } from "@/lib/locale-context";
 
 // Rutas del menú. href=null → sección aún no construida (se muestra "Pronto").
@@ -30,18 +30,17 @@ const NAV: { key: NavKey; href: string | null; badge?: boolean }[] = [
 export function Shell({ children }: { children: ReactNode }) {
   const { t, locale, toggle } = useLocale();
   const pathname = usePathname();
+  const [ready, setReady] = useState(false);
   const [user, setUser] = useState<SessionUser | null>(null);
   const [open, setOpen] = useState(false);
   const ti = t.inicio;
 
   useEffect(() => {
-    requireAuth();
+    if (!getToken()) { window.location.href = "/login"; return; }
     const u = getUser();
-    if (u?.rol === "agente") {
-      window.location.href = "/agente"; // un agente no entra al panel de la líder
-      return;
-    }
+    if (u?.rol === "agente") { window.location.href = "/agente"; return; }
     setUser(u);
+    setReady(true);
   }, []);
 
   useEffect(() => setOpen(false), [pathname]); // cerrar drawer al navegar
@@ -81,6 +80,8 @@ export function Shell({ children }: { children: ReactNode }) {
       <span className="text-sm font-semibold text-ink">{t.login.brand}</span>
     </div>
   );
+
+  if (!ready) return <div className="min-h-screen bg-[#f5f7fb]" />;
 
   return (
     <div className="min-h-screen bg-[#f5f7fb] md:flex">

@@ -5,9 +5,11 @@
 // resolver hoy y qué recomienda la IA. Datos reales (rebanada F-002) + derivados.
 import { useEffect, useState } from "react";
 
+import Link from "next/link";
+
 import { Avatar, Badge, Sparkline, ToneDot } from "@/components/executive";
 import { Card } from "@/components/ui";
-import { getUser } from "@/lib/auth";
+import { getToken, getUser } from "@/lib/auth";
 import { useLocale } from "@/lib/locale-context";
 import { askAi, getCommand, getLiderOnboarding, search, type Command, type SearchHit, type Tone } from "@/lib/queries/executive";
 
@@ -25,6 +27,7 @@ export default function InicioPage() {
   const { locale, t: dict } = useLocale();
   const t = dict.command;
 
+  const [ready, setReady] = useState(false);
   const [user, setUser] = useState("Cecilia");
   const [c, setC] = useState<Command | null>(null);
 
@@ -37,15 +40,18 @@ export default function InicioPage() {
   const [pensando, setPensando] = useState(false);
 
   useEffect(() => {
+    if (!getToken()) { window.location.href = "/login"; return; }
+    setReady(true);
     const u = getUser();
     setUser(u?.nombre ?? "Cecilia");
-    if (u?.rol === "lider") {
+    if (u?.rol === "lider" && u?.alcance === "equipo") {
       getLiderOnboarding().then((d) => { if (!d.completado) window.location.href = "/lider/bienvenida"; }).catch(() => {});
     }
   }, []);
   useEffect(() => {
+    if (!ready) return;
     getCommand(locale).then(setC).catch(() => setC(null));
-  }, [locale]);
+  }, [locale, ready]);
 
   async function runSearch() {
     if (!q.trim()) return;
@@ -63,13 +69,15 @@ export default function InicioPage() {
   const k = c?.kpis;
   const kpis = k
     ? [
-        { icon: "💬", label: t.kpiConversaciones, value: k.conversaciones.value, delta: k.conversaciones.delta, tone: k.conversaciones.tono },
-        { icon: "💵", label: t.kpiVentas, value: k.ventas.value, delta: k.ventas.delta, tone: k.ventas.tono, sub: k.ventas.valor ? money(k.ventas.valor) : undefined },
-        { icon: "🚨", label: t.kpiCriticos, value: k.criticos.value, delta: null, tone: k.criticos.tono },
-        { icon: "⚠️", label: t.kpiRiesgo, value: k.riesgo.value, delta: null, tone: k.riesgo.tono },
-        { icon: "🟢", label: t.kpiConectados, value: `${k.conectados.value}/${k.conectados.total}`, delta: null, tone: k.conectados.tono },
+        { icon: "💬", label: t.kpiConversaciones, value: k.conversaciones.value, delta: k.conversaciones.delta, tone: k.conversaciones.tono, href: "/hoy" },
+        { icon: "💵", label: t.kpiVentas, value: k.ventas.value, delta: k.ventas.delta, tone: k.ventas.tono, sub: k.ventas.valor ? money(k.ventas.valor) : undefined, href: "/eventos" },
+        { icon: "🚨", label: t.kpiCriticos, value: k.criticos.value, delta: null, tone: k.criticos.tono, href: "/pendientes" },
+        { icon: "⚠️", label: t.kpiRiesgo, value: k.riesgo.value, delta: null, tone: k.riesgo.tono, href: "/clientes" },
+        { icon: "🟢", label: t.kpiConectados, value: `${k.conectados.value}/${k.conectados.total}`, delta: null, tone: k.conectados.tono, href: "/agentes" },
       ]
     : [];
+
+  if (!ready) return <div className="min-h-screen bg-[#f5f7fb]" />;
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6 md:px-8">
@@ -83,7 +91,7 @@ export default function InicioPage() {
       {/* ── KPIs ──────────────────────────────────────────────────────────── */}
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {kpis.map((x) => (
-          <div key={x.label} className={`rounded-2xl border border-line border-t-[3px] bg-white p-4 shadow-card ${BORDER[x.tone]}`}>
+          <Link key={x.label} href={x.href} className={`rounded-2xl border border-line border-t-[3px] bg-white p-4 shadow-card transition hover:shadow-card-lg hover:-translate-y-0.5 ${BORDER[x.tone]}`}>
             <div className="flex items-center justify-between">
               <span className="text-lg">{x.icon}</span>
               {x.delta != null && (
@@ -95,7 +103,7 @@ export default function InicioPage() {
             <p className={`mt-2 text-2xl font-bold leading-none ${TXT[x.tone]}`}>{x.value}</p>
             <p className="mt-1 text-[11px] leading-tight text-muted">{x.label}</p>
             {x.sub && <p className="mt-0.5 text-[11px] font-semibold text-ok">{x.sub}</p>}
-          </div>
+          </Link>
         ))}
         {!c && Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-24 animate-pulse rounded-2xl bg-white shadow-card" />)}
       </div>

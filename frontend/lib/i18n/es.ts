@@ -319,7 +319,8 @@ export const es = {
   login: {
     brand: "Asistente",                    // sidebar
     loginBrand: "Tu Asistente Personal",   // hero del login
-    welcome: "Bienvenida",                 // "Bienvenida Cecilia"
+    welcome: "Bienvenidos,",
+    heroName: "equipo de líderes",
     heroText:
       "Tu panel de inteligencia comercial sobre WhatsApp: el pulso del día, tus pendientes, las oportunidades detectadas y el ranking de tu equipo, en un solo lugar.",
     footer: "Inteligencia comercial",

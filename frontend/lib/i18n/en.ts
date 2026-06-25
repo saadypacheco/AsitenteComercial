@@ -315,7 +315,8 @@ export const en: typeof es = {
   login: {
     brand: "Assistant",                    // sidebar
     loginBrand: "Your Personal Assistant", // login hero
-    welcome: "Welcome",                    // "Welcome Cecilia"
+    welcome: "Welcome,",
+    heroName: "leadership team",
     heroText:
       "Your commercial intelligence panel over WhatsApp: the day's pulse, your pending items, detected opportunities and your team ranking, all in one place.",
     footer: "Commercial intelligence",
