@@ -23,7 +23,7 @@ def search_text(question: str, tenant_id: str | None = None, limit: int = 4) -> 
     query = " | ".join(w for w in question.split() if len(w) > 2)
     if not query:
         return []
-    sc = "and tenant_id=%s" if tenant_id else ""
+    sc = "and tenant_id=%s " if tenant_id else ""
     params: tuple = (query, tenant_id, limit) if tenant_id else (query, limit)
     rows = _rows(
         "select titulo, contenido, categoria, "
@@ -58,7 +58,7 @@ async def search(question: str, tenant_id: str | None = None, limit: int = 4) ->
     """Búsqueda híbrida: vector si hay embedding, texto si no."""
     vector = await _embed(question)
     if vector is not None:
-        sc = "and tenant_id=%s" if tenant_id else ""
+        sc = "and tenant_id=%s " if tenant_id else ""
         params: tuple = (str(vector), tenant_id, limit) if tenant_id else (str(vector), limit)
         rows = _rows(
             "select titulo, contenido, categoria "
