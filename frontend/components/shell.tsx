@@ -1,24 +1,141 @@
 "use client";
 
-// Chrome del panel: sidebar navegable (desktop) + drawer (móvil) + topbar con
-// usuario, idioma y logout. Compartido por todas las secciones vía el layout.
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { getToken, getUser, logout, type SessionUser } from "@/lib/auth";
 import { useLocale } from "@/lib/locale-context";
+import { askAi } from "@/lib/queries/executive";
 
-// Rutas del menú: 6 secciones enfocadas en el seguimiento del onboarding comercial.
-type NavKey = "inicio" | "agentes" | "reuniones" | "simulador" | "chat" | "ajustes";
+// Rutas del menú: 5 secciones enfocadas en el seguimiento del onboarding comercial.
+type NavKey = "inicio" | "agentes" | "reuniones" | "simulador" | "ajustes";
 const NAV: { key: NavKey; href: string; icon: string }[] = [
   { key: "inicio",    href: "/inicio",    icon: "🏠" },
   { key: "agentes",   href: "/agentes",   icon: "👥" },
   { key: "reuniones", href: "/reuniones", icon: "📹" },
   { key: "simulador", href: "/simulador", icon: "🎯" },
-  { key: "chat",      href: "/chat",      icon: "💬" },
   { key: "ajustes",   href: "/ajustes",   icon: "⚙️" },
 ];
+
+type Msg = { role: "user" | "ai"; text: string };
+
+const QUICK_ES = ["¿Quién está atascado?", "Resumí la semana", "¿Quién no inició?"];
+const QUICK_EN = ["Who is stuck?", "Summarize the week", "Who hasn't started?"];
+
+function FloatingChat({ locale }: { locale: string }) {
+  const es = locale === "es";
+  const [open, setOpen] = useState(false);
+  const [msgs, setMsgs] = useState<Msg[]>([]);
+  const [input, setInput] = useState("");
+  const [thinking, setThinking] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [msgs]);
+
+  async function send(text: string) {
+    const q = text.trim();
+    if (!q || thinking) return;
+    setInput("");
+    setMsgs((m) => [...m, { role: "user", text: q }]);
+    setThinking(true);
+    const res = await askAi(q, locale).catch(() => ({
+      answer: es ? "Error al procesar la consulta." : "Error processing the query.",
+      source: "error",
+    }));
+    setMsgs((m) => [...m, { role: "ai", text: res.answer }]);
+    setThinking(false);
+  }
+
+  const quick = es ? QUICK_ES : QUICK_EN;
+
+  return (
+    <>
+      {/* Panel */}
+      {open && (
+        <div className="fixed bottom-20 right-5 z-50 flex w-[340px] flex-col overflow-hidden rounded-2xl border border-line bg-white shadow-[0_8px_32px_-8px_rgba(0,0,0,0.18)] md:right-6">
+          {/* Header */}
+          <div className="flex items-center justify-between bg-brand px-4 py-3">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🧠</span>
+              <span className="text-sm font-bold text-white">{es ? "Chat IA" : "AI Chat"}</span>
+            </div>
+            <button onClick={() => setOpen(false)} className="grid h-6 w-6 place-items-center rounded-full bg-white/20 text-white hover:bg-white/30 text-xs">✕</button>
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2" style={{ maxHeight: 320, minHeight: 200 }}>
+            {msgs.length === 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {quick.map((q) => (
+                  <button key={q} onClick={() => send(q)}
+                    className="rounded-full border border-line bg-soft px-3 py-1 text-xs text-muted hover:border-brand hover:text-brand">
+                    {q}
+                  </button>
+                ))}
+              </div>
+            )}
+            {msgs.map((m, i) => (
+              <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div className={`max-w-[85%] rounded-xl px-3 py-2 text-xs leading-relaxed ${
+                  m.role === "user"
+                    ? "bg-brand text-white rounded-br-sm"
+                    : "bg-soft text-ink rounded-bl-sm"
+                }`}>
+                  {m.text}
+                </div>
+              </div>
+            ))}
+            {thinking && (
+              <div className="flex justify-start">
+                <div className="rounded-xl rounded-bl-sm bg-soft px-3 py-2 text-xs text-muted">
+                  <span className="animate-pulse">{es ? "Pensando…" : "Thinking…"}</span>
+                </div>
+              </div>
+            )}
+            <div ref={bottomRef} />
+          </div>
+
+          {/* Input */}
+          <div className="border-t border-line p-2 flex gap-2">
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send(input)}
+              placeholder={es ? "Escribí tu consulta…" : "Type your question…"}
+              disabled={thinking}
+              className="flex-1 rounded-lg bg-soft px-3 py-2 text-xs text-ink placeholder:text-faint focus:outline-none focus:ring-1 focus:ring-brand disabled:opacity-50"
+            />
+            <button onClick={() => send(input)} disabled={thinking || !input.trim()}
+              className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand text-white disabled:opacity-40 text-sm">
+              ➤
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Trigger button */}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="fixed bottom-5 right-5 z-50 grid h-13 w-13 place-items-center rounded-full bg-brand text-white shadow-[0_4px_16px_-4px_rgba(99,102,241,0.5)] transition hover:opacity-90 active:scale-95 md:right-6"
+        style={{ width: 52, height: 52 }}
+        aria-label={es ? "Abrir chat IA" : "Open AI chat"}
+      >
+        {open ? (
+          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
+          </svg>
+        ) : (
+          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+      </button>
+    </>
+  );
+}
 
 export function Shell({ children }: { children: ReactNode }) {
   const { t, locale, toggle } = useLocale();
@@ -36,7 +153,7 @@ export function Shell({ children }: { children: ReactNode }) {
     setReady(true);
   }, []);
 
-  useEffect(() => setOpen(false), [pathname]); // cerrar drawer al navegar
+  useEffect(() => setOpen(false), [pathname]);
 
   const nav = (
     <nav className="space-y-1">
@@ -44,9 +161,7 @@ export function Shell({ children }: { children: ReactNode }) {
         const active = pathname.startsWith(href);
         const label = ti.nav[key];
         return (
-          <Link
-            key={key}
-            href={href}
+          <Link key={key} href={href}
             className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
               active ? "bg-brand-soft text-brand" : "text-muted hover:bg-soft hover:text-ink"
             }`}
@@ -97,11 +212,9 @@ export function Shell({ children }: { children: ReactNode }) {
             <span className="rounded-full bg-brand-soft px-2.5 py-1 text-xs font-semibold text-brand">👥 {ti.scopeTeam}</span>
           )}
           <div className="flex-1" />
-          <button
-            onClick={toggle}
+          <button onClick={toggle}
             className="rounded-full border border-line bg-white px-3 py-1 text-xs font-semibold text-muted shadow-card"
-            aria-label="toggle language"
-          >
+            aria-label="toggle language">
             {locale === "es" ? "EN" : "ES"}
           </button>
           <span className="flex items-center gap-2">
@@ -110,15 +223,16 @@ export function Shell({ children }: { children: ReactNode }) {
             </span>
             <span className="hidden text-right text-sm leading-tight sm:block">
               <span className="block font-semibold text-ink">{user?.nombre ?? "Cecilia"}</span>
-              <button onClick={logout} className="block text-xs text-muted hover:text-brand">
-                {ti.logout}
-              </button>
+              <button onClick={logout} className="block text-xs text-muted hover:text-brand">{ti.logout}</button>
             </span>
           </span>
         </header>
 
         <main className="min-w-0 flex-1">{children}</main>
       </div>
+
+      {/* Floating AI chat — disponible en todas las páginas */}
+      <FloatingChat locale={locale} />
     </div>
   );
 }

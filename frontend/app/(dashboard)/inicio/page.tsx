@@ -326,23 +326,6 @@ export default function InicioPage() {
             </Link>
           </Card>
 
-          {/* Quick links */}
-          <Card className="p-4">
-            <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-brand">
-              {es ? "Accesos rápidos" : "Quick access"}
-            </h2>
-            <div className="space-y-2">
-              <Link href="/chat" className="flex items-center gap-2 rounded-lg bg-brand-soft px-3 py-2.5 text-sm font-semibold text-brand hover:opacity-90">
-                💬 {es ? "Hacer una consulta a la IA →" : "Ask the AI →"}
-              </Link>
-              <Link href="/agentes" className="flex items-center gap-2 rounded-lg bg-soft px-3 py-2.5 text-sm font-medium text-muted hover:bg-line">
-                👥 {es ? "Ver directorio de agentes →" : "View agent directory →"}
-              </Link>
-              <Link href="/simulador" className="flex items-center gap-2 rounded-lg bg-soft px-3 py-2.5 text-sm font-medium text-muted hover:bg-line">
-                🎯 {es ? "Ir al simulador →" : "Open simulator →"}
-              </Link>
-            </div>
-          </Card>
         </aside>
       </div>
     </div>
