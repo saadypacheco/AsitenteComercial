@@ -48,6 +48,7 @@ export default function InicioPage() {
   const [programa, setPrograma] = useState<Programa | null>(null);
   const [rows, setRows] = useState<AgentRow[]>([]);
   const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<"progress" | "risk" | "name">("progress");
 
   useEffect(() => {
     if (!getToken()) { window.location.href = "/login"; return; }
@@ -85,7 +86,15 @@ export default function InicioPage() {
   const atRisk = rows.filter((r) => ["at_risk", "never_started"].includes(getStatus(r))).length;
   const avgPct = total > 0 ? Math.round(rows.reduce((s, r) => s + r.pct, 0) / total) : 0;
 
-  const filteredRows = rows.filter((r) => !search.trim() || r.nombre.toLowerCase().includes(search.toLowerCase()));
+  const RISK_ORDER: Record<Status, number> = { never_started: 0, at_risk: 1, on_track: 2, completed: 3 };
+
+  const filteredRows = rows
+    .filter((r) => !search.trim() || r.nombre.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      if (sortBy === "name") return a.nombre.localeCompare(b.nombre);
+      if (sortBy === "risk") return RISK_ORDER[getStatus(a)] - RISK_ORDER[getStatus(b)];
+      return b.pct - a.pct; // default: progress desc
+    });
 
   const fecha = (s: string | null) => s ? new Date(s).toLocaleDateString(locale, { day: "2-digit", month: "short" }) : "—";
 
@@ -166,19 +175,32 @@ export default function InicioPage() {
             <h2 className="text-sm font-bold uppercase tracking-wide text-brand">
               👥 {es ? "Progreso por agente" : "Progress by agent"}
             </h2>
-            <div className="relative w-full sm:w-56">
-              <svg className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" strokeLinecap="round" />
-              </svg>
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder={es ? "Buscar agente…" : "Search agent…"}
-                className="w-full rounded-lg border border-line bg-soft py-1.5 pl-8 pr-8 text-xs text-ink placeholder:text-faint focus:border-brand focus:outline-none"
-              />
-              {search && (
-                <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-ink text-xs">✕</button>
-              )}
+            <div className="flex gap-2">
+              {/* Search */}
+              <div className="relative w-44">
+                <svg className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" strokeLinecap="round" />
+                </svg>
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder={es ? "Buscar agente…" : "Search agent…"}
+                  className="w-full rounded-lg border border-line bg-soft py-1.5 pl-8 pr-7 text-xs text-ink placeholder:text-faint focus:border-brand focus:outline-none"
+                />
+                {search && (
+                  <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted hover:text-ink">✕</button>
+                )}
+              </div>
+              {/* Sort */}
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                className="rounded-lg border border-line bg-soft py-1.5 pl-2 pr-6 text-xs text-ink focus:border-brand focus:outline-none"
+              >
+                <option value="progress">{es ? "↓ Progreso" : "↓ Progress"}</option>
+                <option value="risk">{es ? "⚠ Riesgo" : "⚠ Risk"}</option>
+                <option value="name">{es ? "A→Z Nombre" : "A→Z Name"}</option>
+              </select>
             </div>
           </div>
 
