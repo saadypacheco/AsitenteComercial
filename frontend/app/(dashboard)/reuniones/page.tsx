@@ -1,12 +1,11 @@
 "use client";
 
-// REUNIONES que se procesan solas (Feature B): pegás la transcripción → la IA saca
-// resumen + temas + acciones, y las acciones se crean como tareas de seguimiento.
 import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/executive";
 import { Card } from "@/components/ui";
 import { useLocale } from "@/lib/locale-context";
+import { getProgramaCapacitacion, type Programa } from "@/lib/queries/gestion";
 import { getReuniones, procesarReunion, type ActaItem, type ProcResult } from "@/lib/queries/reuniones";
 
 const EJEMPLO = `Cecilia: Buenos días equipo, arrancamos la reunión de líderes de la semana. El objetivo es mejorar la conversión de los nuevos agentes.
@@ -20,6 +19,7 @@ Cecilia: El compromiso de la semana es subir la asistencia a las formaciones al 
 export default function ReunionesPage() {
   const { locale, t: dict } = useLocale();
   const t = dict.reuniones;
+  const es = locale === "es";
 
   const [titulo, setTitulo] = useState("");
   const [tipo, setTipo] = useState("lideres");
@@ -27,11 +27,29 @@ export default function ReunionesPage() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ProcResult | null>(null);
   const [lista, setLista] = useState<ActaItem[]>([]);
+  const [programa, setPrograma] = useState<Programa | null>(null);
+  const [filterTipo, setFilterTipo] = useState<string>("all");
+  const [filterSearch, setFilterSearch] = useState("");
+
+  // Filtro por sesión desde URL (e.g. /reuniones#asistencia o ?sesion=X)
+  const [sesionHighlight, setSesionHighlight] = useState<string | null>(null);
 
   function reload() {
     getReuniones().then(setLista).catch(() => setLista([]));
   }
-  useEffect(reload, []);
+
+  useEffect(() => {
+    reload();
+    getProgramaCapacitacion(locale).then(setPrograma).catch(() => {});
+    const p = new URLSearchParams(window.location.search);
+    setSesionHighlight(p.get("sesion"));
+    // Si hay hash #asistencia, scroll a esa sección
+    if (window.location.hash === "#asistencia") {
+      setTimeout(() => {
+        document.getElementById("asistencia")?.scrollIntoView({ behavior: "smooth" });
+      }, 400);
+    }
+  }, [locale]);
 
   async function procesar() {
     if (!titulo.trim() || !transcript.trim()) return;
@@ -45,14 +63,141 @@ export default function ReunionesPage() {
 
   const tipoLabel = (x: string) => (x === "formacion" ? t.tipoFormacion : x === "lideres" ? t.tipoLideres : t.tipoOtro);
 
+  // Stats de actas procesadas
+  const totalActas = lista.length;
+  const totalAcciones = lista.reduce((s, r) => s + r.n_acciones, 0);
+  const lastActa = lista[0] ?? null;
+
+  // Sesiones del programa — todas las pasadas y futuras
+  const now = new Date();
+  const allSessions = (programa?.calendario ?? []).sort((a, b) =>
+    new Date(a.fecha ?? "").getTime() - new Date(b.fecha ?? "").getTime()
+  );
+  const pastSessions = allSessions.filter((k) => k.fecha && new Date(k.fecha) < now);
+  const totalAgentes = programa?.agentes.length ?? 0;
+
+  // Asistencia promedio de sesiones pasadas
+  const avgAttendance = pastSessions.length > 0
+    ? Math.round(pastSessions.reduce((s, k) => s + (totalAgentes > 0 ? (k.asistentes / totalAgentes) * 100 : 0), 0) / pastSessions.length)
+    : 0;
+
+  // Filtro de actas
+  const filteredLista = lista.filter((r) => {
+    const matchTipo = filterTipo === "all" || r.tipo === filterTipo;
+    const matchSearch = !filterSearch.trim() || r.titulo.toLowerCase().includes(filterSearch.toLowerCase());
+    return matchTipo && matchSearch;
+  });
+
+  const fDate = (s: string | null) =>
+    s ? new Date(s).toLocaleDateString(locale, { day: "2-digit", month: "short", year: "numeric" }) : "—";
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 md:px-8">
       <h1 className="text-2xl font-bold text-ink">{dict.inicio.nav.reuniones}</h1>
-      <p className="mb-1 text-sm text-muted">{t.subtitle}</p>
-      <p className="mb-5 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">⚠️ {t.simNote}</p>
+      <p className="mb-4 text-sm text-muted">{t.subtitle}</p>
 
-      {/* Procesar */}
+      {/* ── KPI cards ─────────────────────────────────────────────────────── */}
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Card className="border-t-[3px] border-t-brand p-4">
+          <p className="text-2xl font-bold text-brand">{totalActas}</p>
+          <p className="mt-1 text-xs text-muted">{es ? "Actas procesadas" : "Processed minutes"}</p>
+        </Card>
+        <Card className="border-t-[3px] border-t-ok p-4">
+          <p className="text-2xl font-bold text-ok">{totalAcciones}</p>
+          <p className="mt-1 text-xs text-muted">{es ? "Acciones generadas" : "Actions generated"}</p>
+        </Card>
+        <Card className="border-t-[3px] border-t-warning p-4">
+          <p className="text-2xl font-bold text-warning">{pastSessions.length}</p>
+          <p className="mt-1 text-xs text-muted">{es ? "Sesiones realizadas" : "Sessions held"}</p>
+        </Card>
+        <Card className={`border-t-[3px] p-4 ${avgAttendance >= 80 ? "border-t-ok" : avgAttendance >= 50 ? "border-t-warning" : "border-t-danger"}`}>
+          <p className={`text-2xl font-bold ${avgAttendance >= 80 ? "text-ok" : avgAttendance >= 50 ? "text-warning" : "text-danger"}`}>
+            {pastSessions.length > 0 ? `${avgAttendance}%` : "—"}
+          </p>
+          <p className="mt-1 text-xs text-muted">{es ? "Asistencia promedio" : "Avg. attendance"}</p>
+        </Card>
+      </div>
+
+      {/* ── Asistencia por sesión ─────────────────────────────────────────── */}
+      {allSessions.length > 0 && (
+        <Card className="mb-5 overflow-hidden p-0" id="asistencia">
+          <div className="flex items-center justify-between border-b border-line px-5 py-3">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-brand">
+              📅 {es ? "Sesiones del programa" : "Program sessions"}
+            </h2>
+            <span className="text-xs text-muted">{es ? `${totalAgentes} agentes en total` : `${totalAgentes} agents total`}</span>
+          </div>
+          <div className="divide-y divide-line">
+            {allSessions.map((k) => {
+              const isPast = k.fecha && new Date(k.fecha) < now;
+              const attendanceRate = totalAgentes > 0 ? Math.round((k.asistentes / totalAgentes) * 100) : 0;
+              const absent = Math.max(0, totalAgentes - k.asistentes);
+              const isHighlighted = sesionHighlight === k.id;
+              return (
+                <div
+                  key={k.id}
+                  className={`flex items-center gap-4 px-5 py-3 ${isHighlighted ? "bg-brand-soft/30" : ""}`}
+                >
+                  {/* Date badge */}
+                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-soft text-center">
+                    <span className="text-[10px] font-bold leading-tight text-muted">{fDate(k.fecha).slice(0, 6)}</span>
+                  </div>
+
+                  {/* Name + estado */}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-ink">{k.nombre}</p>
+                    <p className="text-[11px] text-faint">{fDate(k.fecha)}</p>
+                  </div>
+
+                  {/* Attendance bar (only for past sessions) */}
+                  {isPast ? (
+                    <div className="w-28 shrink-0">
+                      <div className="mb-1 flex items-center justify-between text-[10px] text-muted">
+                        <span>{k.asistentes}/{totalAgentes}</span>
+                        <span className={attendanceRate >= 80 ? "text-ok" : attendanceRate >= 50 ? "text-warning" : "text-danger"}>
+                          {attendanceRate}%
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-soft">
+                        <div
+                          className={`h-full rounded-full ${attendanceRate >= 80 ? "bg-ok" : attendanceRate >= 50 ? "bg-warning" : "bg-danger"}`}
+                          style={{ width: `${attendanceRate}%` }}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="w-28 shrink-0 text-right">
+                      <span className="text-xs text-faint">{es ? "Programada" : "Scheduled"}</span>
+                    </div>
+                  )}
+
+                  {/* Absent count */}
+                  {isPast && (
+                    <div className="w-20 shrink-0 text-right">
+                      {absent > 0 ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-danger">
+                          ✗ {absent} {es ? "faltó" : "absent"}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs font-semibold text-ok">
+                          ✓ {es ? "Todos" : "All"}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
+      {/* ── Procesar transcripción ────────────────────────────────────────── */}
+      <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">⚠️ {t.simNote}</p>
       <Card className="mb-5 p-5">
+        <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-brand">
+          🎙️ {es ? "Procesar transcripción" : "Process transcript"}
+        </h2>
         <div className="grid gap-3 sm:grid-cols-[1fr_160px]">
           <input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder={t.titulo}
             className="rounded-lg border border-line px-3 py-2 text-sm focus:border-brand focus:outline-none" />
@@ -107,12 +252,40 @@ export default function ReunionesPage() {
         </Card>
       )}
 
-      {/* Listado */}
-      {lista.length === 0 ? (
-        <Card className="px-4 py-12 text-center text-muted">{t.empty}</Card>
+      {/* ── Historial de actas ────────────────────────────────────────────── */}
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-brand">
+          📋 {es ? "Historial de reuniones" : "Meeting history"}
+        </h2>
+        <div className="flex gap-2">
+          <div className="relative">
+            <input
+              value={filterSearch}
+              onChange={(e) => setFilterSearch(e.target.value)}
+              placeholder={es ? "Buscar…" : "Search…"}
+              className="w-36 rounded-lg border border-line bg-soft py-1.5 pl-3 pr-7 text-xs text-ink focus:border-brand focus:outline-none"
+            />
+            {filterSearch && (
+              <button onClick={() => setFilterSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted">✕</button>
+            )}
+          </div>
+          <select value={filterTipo} onChange={(e) => setFilterTipo(e.target.value)}
+            className="rounded-lg border border-line bg-soft py-1.5 pl-2 pr-6 text-xs text-ink focus:border-brand focus:outline-none">
+            <option value="all">{es ? "Todos" : "All"}</option>
+            <option value="lideres">{t.tipoLideres}</option>
+            <option value="formacion">{t.tipoFormacion}</option>
+            <option value="otro">{t.tipoOtro}</option>
+          </select>
+        </div>
+      </div>
+
+      {filteredLista.length === 0 ? (
+        <Card className="px-4 py-12 text-center text-muted">
+          {lista.length === 0 ? t.empty : (es ? "Sin resultados para ese filtro" : "No results for this filter")}
+        </Card>
       ) : (
         <ul className="space-y-2">
-          {lista.map((r) => (
+          {filteredLista.map((r) => (
             <li key={r.id}>
               <Card className="flex items-center gap-3 p-4">
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand">📋</span>
@@ -123,6 +296,7 @@ export default function ReunionesPage() {
                 <span className="flex shrink-0 flex-col items-end gap-1 text-xs">
                   <Badge tone="brand">{tipoLabel(r.tipo)}</Badge>
                   <span className="text-muted">✅ {r.n_acciones}</span>
+                  {r.fecha && <span className="text-faint">{fDate(r.fecha)}</span>}
                 </span>
               </Card>
             </li>

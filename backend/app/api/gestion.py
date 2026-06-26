@@ -330,6 +330,23 @@ def list_mensajes(tenant: str = Depends(require_tenant), lang: str = "es", tipo:
     )
 
 
+@router.get("/gestion/mensajes-stats")
+def mensajes_stats(tenant: str = Depends(require_tenant)) -> dict:
+    """Stats rápidos de conversaciones: mensajes nuevos (no atendidos) y grupos activos (últimos 7 días)."""
+    rows = _rows(
+        "select "
+        "  (select count(*)::int from messages m "
+        "   left join message_triage mt on mt.message_id = m.id "
+        "   where m.tenant_id = %s and coalesce(mt.status, 'new') = 'new') as nuevas, "
+        "  (select count(distinct m.chat_id)::int from messages m "
+        "   where m.tenant_id = %s "
+        "   and m.wa_timestamp >= now() - interval '7 days') as grupos_activos",
+        (tenant, tenant),
+    )
+    r = rows[0] if rows else {}
+    return {"nuevas": r.get("nuevas") or 0, "grupos_activos": r.get("grupos_activos") or 0}
+
+
 # ── Capacitaciones (lista con asistencia) ─────────────────────────────────────
 @router.get("/gestion/capacitacion/programa")
 def capacitacion_programa(ctx: dict = Depends(view_ctx), lang: str = "es") -> dict:

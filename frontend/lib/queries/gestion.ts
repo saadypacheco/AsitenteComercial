@@ -185,6 +185,14 @@ export type Mensaje = {
   transcripto: boolean;
 };
 
+export type MensajesStats = { nuevas: number; grupos_activos: number };
+
+export async function getMensajesStats(): Promise<MensajesStats> {
+  const res = await authFetch("/gestion/mensajes-stats");
+  if (!res.ok) return { nuevas: 0, grupos_activos: 0 };
+  return res.json();
+}
+
 export async function getMensajes(lang = "es", tipo = "all", q = ""): Promise<Mensaje[]> {
   const qs = new URLSearchParams({ lang, tipo, q }).toString();
   const res = await authFetch(`/gestion/mensajes?${qs}`);

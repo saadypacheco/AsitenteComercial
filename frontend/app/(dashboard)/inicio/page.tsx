@@ -7,7 +7,7 @@ import { Avatar, Badge } from "@/components/executive";
 import { Card } from "@/components/ui";
 import { getToken, getUser } from "@/lib/auth";
 import { useLocale } from "@/lib/locale-context";
-import { getAgentes, getProgramaCapacitacion, type Agente, type Programa } from "@/lib/queries/gestion";
+import { getAgentes, getMensajesStats, getProgramaCapacitacion, type Agente, type MensajesStats, type Programa } from "@/lib/queries/gestion";
 
 type AgentRow = {
   nombre: string;
@@ -49,6 +49,7 @@ export default function InicioPage() {
   const [rows, setRows] = useState<AgentRow[]>([]);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<"progress" | "risk" | "name">("progress");
+  const [mensajesStats, setMensajesStats] = useState<MensajesStats>({ nuevas: 0, grupos_activos: 0 });
 
   useEffect(() => {
     if (!getToken()) { window.location.href = "/login"; return; }
@@ -59,6 +60,7 @@ export default function InicioPage() {
 
   useEffect(() => {
     if (!ready) return;
+    getMensajesStats().then(setMensajesStats).catch(() => {});
     Promise.all([getProgramaCapacitacion(locale), getAgentes()]).then(([p, ag]) => {
       setPrograma(p);
       const agMap = new Map(ag.map((a) => [`${a.nombre} ${a.apellido ?? ""}`.trim().toLowerCase(), a]));
@@ -97,6 +99,14 @@ export default function InicioPage() {
     });
 
   const fecha = (s: string | null) => s ? new Date(s).toLocaleDateString(locale, { day: "2-digit", month: "short" }) : "—";
+
+  // Última sesión pasada del calendario de capacitación
+  const now = new Date();
+  const pastSessions = (programa?.calendario ?? [])
+    .filter((k) => k.fecha && new Date(k.fecha) < now)
+    .sort((a, b) => new Date(b.fecha!).getTime() - new Date(a.fecha!).getTime());
+  const lastSession = pastSessions[0] ?? null;
+  const nonAttendees = lastSession ? Math.max(0, total - lastSession.asistentes) : 0;
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6 md:px-8">
@@ -147,7 +157,8 @@ export default function InicioPage() {
       </header>
 
       {/* ── KPIs ───────────────────────────────────────────────────────── */}
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {/* Fila 1: onboarding */}
         <Card className="border-t-[3px] border-t-brand p-4">
           <p className="text-2xl font-bold text-brand">{total}</p>
           <p className="mt-1 text-xs text-muted">{es ? "Agentes en onboarding" : "Agents in onboarding"}</p>
@@ -160,10 +171,34 @@ export default function InicioPage() {
           <p className="text-2xl font-bold text-danger">{atRisk}</p>
           <p className="mt-1 text-xs text-muted">{es ? "En riesgo / sin iniciar" : "At risk / not started"}</p>
         </Card>
+
+        {/* Fila 2: meetings + conversaciones */}
         <Card className="border-t-[3px] border-t-warning p-4">
           <p className="text-2xl font-bold text-warning">{avgPct}%</p>
           <p className="mt-1 text-xs text-muted">{es ? "Progreso promedio" : "Avg. progress"}</p>
         </Card>
+        <Link href="/reuniones#asistencia" className="block">
+          <Card className={`h-full border-t-[3px] p-4 transition hover:shadow-md ${nonAttendees > 0 ? "border-t-danger" : "border-t-ok"}`}>
+            <p className={`text-2xl font-bold ${nonAttendees > 0 ? "text-danger" : "text-ok"}`}>{nonAttendees}</p>
+            <p className="mt-1 text-xs text-muted">{es ? "No asistieron" : "Didn't attend"}</p>
+            {lastSession && (
+              <p className="mt-0.5 truncate text-[10px] text-faint">
+                {es ? "Última:" : "Last:"} {lastSession.nombre}
+              </p>
+            )}
+          </Card>
+        </Link>
+        <Link href="/mensajes" className="block">
+          <Card className={`h-full border-t-[3px] p-4 transition hover:shadow-md ${mensajesStats.nuevas > 0 ? "border-t-brand" : "border-t-ok"}`}>
+            <p className={`text-2xl font-bold ${mensajesStats.nuevas > 0 ? "text-brand" : "text-ok"}`}>{mensajesStats.nuevas}</p>
+            <p className="mt-1 text-xs text-muted">{es ? "Conversaciones pendientes" : "Pending conversations"}</p>
+            {mensajesStats.grupos_activos > 0 && (
+              <p className="mt-0.5 text-[10px] text-faint">
+                {mensajesStats.grupos_activos} {es ? "grupos activos" : "active groups"}
+              </p>
+            )}
+          </Card>
+        </Link>
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[1fr_260px]">
