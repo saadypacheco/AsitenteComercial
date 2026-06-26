@@ -143,7 +143,7 @@ export const en: typeof es = {
   },
   reuniones: {
     title: "Meetings",
-    subtitle: "Attendance tracking and AI-powered meeting summaries.",
+    subtitle: "Attendance & AI summaries.",
     titulo: "Meeting title",
     tipo: "Type",
     tipoFormacion: "Training",

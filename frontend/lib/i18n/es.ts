@@ -147,7 +147,7 @@ export const es = {
   },
   reuniones: {
     title: "Reuniones",
-    subtitle: "Seguimiento de asistencia y resúmenes de reuniones con IA.",
+    subtitle: "Asistencia y resúmenes con IA.",
     titulo: "Título de la reunión",
     tipo: "Tipo",
     tipoFormacion: "Formación",
