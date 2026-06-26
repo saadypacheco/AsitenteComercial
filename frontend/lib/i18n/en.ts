@@ -91,7 +91,7 @@ export const en: typeof es = {
       inicio: "Home", acciones: "Actions", mensajes: "Messages", grupos: "Groups", eventos: "Events",
       pendientes: "Pending", clientes: "Clients", oportunidades: "Opportunities", agentes: "Agents",
       capacitaciones: "Training", reuniones: "Meetings", reportes: "Reports", iaInsights: "AI Insights",
-      ajustes: "Settings",
+      ajustes: "Settings", simulador: "Simulator", chat: "AI Chat",
     },
     chips: {
       mensajes: "Messages", audios: "Audio", imagenes: "Images", personas: "People",

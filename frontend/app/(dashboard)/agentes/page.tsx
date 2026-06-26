@@ -30,7 +30,7 @@ const AgentMap = dynamic(() => import("@/components/agent-map"), {
 const EMPTY: AgenteInput = { nombre: "", apellido: "", celular: "", email: "", ciudad: "", region: "", superior_id: "", estado: "activo", lat: null, lng: null };
 
 export default function AgentesPage() {
-  const { t: dict } = useLocale();
+  const { t: dict, locale } = useLocale();
   const t = dict.gestion;
 
   const [agentes, setAgentes] = useState<Agente[] | null>(null);
@@ -98,8 +98,21 @@ export default function AgentesPage() {
     setBusy(false);
   }
 
+  const [search, setSearch] = useState("");
   const conMapa = agentes?.filter((a) => a.lat != null && a.lng != null).length ?? 0;
   const inputCls = "w-full rounded-lg border border-line px-3 py-2 text-sm focus:border-brand focus:outline-none";
+
+  const filteredAgentes = agentes?.filter((a) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (
+      a.nombre.toLowerCase().includes(q) ||
+      (a.apellido ?? "").toLowerCase().includes(q) ||
+      (a.celular ?? "").includes(q) ||
+      (a.email ?? "").toLowerCase().includes(q) ||
+      (a.ciudad ?? "").toLowerCase().includes(q)
+    );
+  });
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 md:px-8">
@@ -108,6 +121,22 @@ export default function AgentesPage() {
         <button onClick={startNew} className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white shadow-card">
           + {t.newBtn}
         </button>
+      </div>
+
+      {/* Buscador rápido */}
+      <div className="mb-4 relative">
+        <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+          <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" strokeLinecap="round" />
+        </svg>
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={locale === "es" ? "Buscar por nombre, celular, email o ciudad…" : "Search by name, phone, email or city…"}
+          className="w-full rounded-xl border border-line bg-white py-2.5 pl-9 pr-4 text-sm text-ink placeholder:text-faint focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/15"
+        />
+        {search && (
+          <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-ink">✕</button>
+        )}
       </div>
 
       {/* Stats ejecutivos */}
@@ -181,8 +210,14 @@ export default function AgentesPage() {
       )}
 
       {view === "lista" && (
+      <>
+      {filteredAgentes?.length === 0 && search && (
+        <Card className="px-4 py-8 text-center text-sm text-muted">
+          {locale === "es" ? `Sin resultados para "${search}"` : `No results for "${search}"`}
+        </Card>
+      )}
       <div className="grid gap-3 sm:grid-cols-2">
-        {agentes?.map((a) => (
+        {filteredAgentes?.map((a) => (
           <Card key={a.id} className="p-4">
             <div className="flex items-start justify-between gap-2">
               <div className="flex min-w-0 items-center gap-3">
@@ -201,8 +236,24 @@ export default function AgentesPage() {
               </div>
             </div>
             <div className="mt-3 space-y-1 text-sm text-ink2">
-              {a.celular && <p>📱 {a.celular}</p>}
-              {a.email && <p className="truncate">✉️ {a.email}</p>}
+              {a.celular && (
+                <p className="flex items-center justify-between">
+                  <span>📱 {a.celular}</span>
+                  <a href={`tel:${a.celular}`}
+                    className="ml-2 rounded-lg bg-ok px-2.5 py-1 text-xs font-bold text-white hover:opacity-90">
+                    📞 {locale === "es" ? "Llamar" : "Call"}
+                  </a>
+                </p>
+              )}
+              {a.email && (
+                <p className="flex items-center justify-between">
+                  <span className="truncate">✉️ {a.email}</span>
+                  <a href={`mailto:${a.email}`}
+                    className="ml-2 shrink-0 rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-muted hover:bg-soft">
+                    {locale === "es" ? "Email" : "Email"}
+                  </a>
+                </p>
+              )}
               <p className="flex items-center gap-3 pt-1 text-xs text-muted">
                 <span><span className={`font-bold ${a.abiertas >= 3 ? "text-danger" : "text-ink"}`}>{a.abiertas}</span> {t.agOpenItems}</span>
                 <span>· <span className="font-bold text-ok">{a.cerrados}</span> {dict.command.deals}</span>
@@ -222,6 +273,7 @@ export default function AgentesPage() {
           </Card>
         ))}
       </div>
+      </>
       )}
     </div>
   );

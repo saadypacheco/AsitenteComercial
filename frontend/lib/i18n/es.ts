@@ -95,7 +95,7 @@ export const es = {
       inicio: "Inicio", acciones: "Acciones", mensajes: "Mensajes", grupos: "Grupos", eventos: "Eventos",
       pendientes: "Pendientes", clientes: "Clientes", oportunidades: "Oportunidades", agentes: "Agentes",
       capacitaciones: "Capacitaciones", reuniones: "Reuniones", reportes: "Reportes", iaInsights: "IA Insights",
-      ajustes: "Ajustes",
+      ajustes: "Ajustes", simulador: "Simulador", chat: "Chat IA",
     },
     chips: {
       mensajes: "Mensajes", audios: "Audios", imagenes: "Imágenes", personas: "Personas",

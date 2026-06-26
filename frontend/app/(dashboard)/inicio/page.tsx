@@ -1,302 +1,303 @@
 "use client";
 
-// INICIO — Centro de Control Comercial Inteligente. Responde de un vistazo: cómo
-// está el equipo, qué clientes requieren atención, qué oportunidades hay, qué
-// resolver hoy y qué recomienda la IA. Datos reales (rebanada F-002) + derivados.
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import Link from "next/link";
-
-import { Avatar, Badge, Sparkline, ToneDot } from "@/components/executive";
+import { Avatar, Badge } from "@/components/executive";
 import { Card } from "@/components/ui";
 import { getToken, getUser } from "@/lib/auth";
 import { useLocale } from "@/lib/locale-context";
-import { askAi, getCommand, getLiderOnboarding, search, type Command, type SearchHit, type Tone } from "@/lib/queries/executive";
+import { getAgentes, getProgramaCapacitacion, type Agente, type Programa } from "@/lib/queries/gestion";
 
-const CHIP_KEYS = ["mensajes", "audios", "imagenes", "personas", "pendientes", "eventos", "grupos", "capacitaciones"] as const;
-const BORDER: Record<Tone, string> = { brand: "border-t-brand", ok: "border-t-ok", danger: "border-t-danger", warning: "border-t-warning", neutral: "border-t-line" };
-const TXT: Record<Tone, string> = { brand: "text-brand", ok: "text-ok", danger: "text-danger", warning: "text-warning", neutral: "text-ink" };
-const PRIO_TONE: Record<string, Tone> = { alta: "danger", media: "warning", baja: "ok", critico: "danger", alto: "warning" };
-const NIVEL_TONE: Record<string, Tone> = { alto: "danger", medio: "warning", bajo: "ok" };
+type AgentRow = {
+  nombre: string;
+  pct: number;
+  etapa_actual: string | null;
+  completados: number;
+  // from Agente
+  celular: string | null;
+  cerrados: number;
+  estado: string;
+};
 
-function money(n: number) {
-  return "$" + (n ?? 0).toLocaleString("en-US");
+type Status = "completed" | "on_track" | "at_risk" | "never_started";
+
+function getStatus(row: AgentRow): Status {
+  if (row.pct >= 100) return "completed";
+  if (row.pct === 0 && row.completados === 0) return "never_started";
+  if (row.pct < 30) return "at_risk";
+  return "on_track";
 }
+
+const STATUS_TONE: Record<Status, "ok" | "brand" | "warning" | "danger"> = {
+  completed: "ok",
+  on_track: "brand",
+  at_risk: "warning",
+  never_started: "danger",
+};
 
 export default function InicioPage() {
   const { locale, t: dict } = useLocale();
-  const t = dict.command;
-
   const [ready, setReady] = useState(false);
-  const [user, setUser] = useState("Cecilia");
-  const [c, setC] = useState<Command | null>(null);
-
-  const [chip, setChip] = useState<string>("mensajes");
-  const [q, setQ] = useState("");
-  const [hits, setHits] = useState<SearchHit[] | null>(null);
-
-  const [pregunta, setPregunta] = useState("");
-  const [respuesta, setRespuesta] = useState<{ answer: string; source: string } | null>(null);
-  const [pensando, setPensando] = useState(false);
+  const [userName, setUserName] = useState("Cecilia");
+  const [programa, setPrograma] = useState<Programa | null>(null);
+  const [agentesData, setAgentesData] = useState<Agente[]>([]);
+  const [rows, setRows] = useState<AgentRow[]>([]);
 
   useEffect(() => {
     if (!getToken()) { window.location.href = "/login"; return; }
-    setReady(true);
     const u = getUser();
-    setUser(u?.nombre ?? "Cecilia");
-    if (u?.rol === "lider" && u?.alcance === "equipo") {
-      getLiderOnboarding().then((d) => { if (!d.completado) window.location.href = "/lider/bienvenida"; }).catch(() => {});
-    }
+    setUserName(u?.nombre ?? "Cecilia");
+    setReady(true);
   }, []);
+
   useEffect(() => {
     if (!ready) return;
-    getCommand(locale).then(setC).catch(() => setC(null));
-  }, [locale, ready]);
-
-  async function runSearch() {
-    if (!q.trim()) return;
-    setHits(await search(q, chip).catch(() => []));
-  }
-  async function preguntar(texto: string) {
-    setPregunta(texto);
-    setPensando(true);
-    setRespuesta(await askAi(texto, locale).catch(() => ({ answer: "—", source: "error" })));
-    setPensando(false);
-  }
-  const hace = (h: number) => (locale === "es" ? `hace ${h}h` : `${h}h ago`);
-  const nivelLabel: Record<string, string> = { alto: dict.inicio.nivelAlto, medio: dict.inicio.nivelMedio, bajo: dict.inicio.nivelBajo };
-
-  const k = c?.kpis;
-  const kpis = k
-    ? [
-        { icon: "💬", label: t.kpiConversaciones, value: k.conversaciones.value, delta: k.conversaciones.delta, tone: k.conversaciones.tono, href: "/hoy" },
-        { icon: "💵", label: t.kpiVentas, value: k.ventas.value, delta: k.ventas.delta, tone: k.ventas.tono, sub: k.ventas.valor ? money(k.ventas.valor) : undefined, href: "/eventos" },
-        { icon: "🚨", label: t.kpiCriticos, value: k.criticos.value, delta: null, tone: k.criticos.tono, href: "/pendientes" },
-        { icon: "⚠️", label: t.kpiRiesgo, value: k.riesgo.value, delta: null, tone: k.riesgo.tono, href: "/clientes" },
-        { icon: "🟢", label: t.kpiConectados, value: `${k.conectados.value}/${k.conectados.total}`, delta: null, tone: k.conectados.tono, href: "/agentes" },
-      ]
-    : [];
+    Promise.all([getProgramaCapacitacion(locale), getAgentes()]).then(([p, ag]) => {
+      setPrograma(p);
+      setAgentesData(ag);
+      // Join by nombre (best available key)
+      const agMap = new Map(ag.map((a) => [`${a.nombre} ${a.apellido ?? ""}`.trim().toLowerCase(), a]));
+      const r: AgentRow[] = p.agentes.map((pa) => {
+        const match = agMap.get(pa.nombre.toLowerCase()) ?? ag.find((a) => a.nombre.toLowerCase() === pa.nombre.split(" ")[0].toLowerCase());
+        return {
+          nombre: pa.nombre,
+          pct: pa.pct,
+          etapa_actual: pa.etapa_actual,
+          completados: pa.completados,
+          celular: match?.celular ?? null,
+          cerrados: match?.cerrados ?? 0,
+          estado: match?.estado ?? "activo",
+        };
+      });
+      setRows(r.sort((a, b) => b.pct - a.pct));
+    }).catch(() => {});
+  }, [ready, locale]);
 
   if (!ready) return <div className="min-h-screen bg-[#f5f7fb]" />;
 
+  const total = rows.length;
+  const completed = rows.filter((r) => getStatus(r) === "completed").length;
+  const atRisk = rows.filter((r) => ["at_risk", "never_started"].includes(getStatus(r))).length;
+  const avgPct = total > 0 ? Math.round(rows.reduce((s, r) => s + r.pct, 0) / total) : 0;
+
+  const labelEs = locale === "es";
+  const L = {
+    hello: labelEs ? `¡Hola, ${userName}!` : `Hi, ${userName}!`,
+    subtitle: labelEs ? "Centro de control del onboarding comercial" : "Commercial onboarding control center",
+    kpiTotal: labelEs ? "Agentes en onboarding" : "Agents in onboarding",
+    kpiCompleted: labelEs ? "Completaron el path" : "Completed path",
+    kpiAtRisk: labelEs ? "En riesgo / sin iniciar" : "At risk / not started",
+    kpiAvg: labelEs ? "Progreso promedio" : "Avg. progress",
+    tableTitle: labelEs ? "Progreso por agente" : "Progress by agent",
+    colAgent: labelEs ? "Agente" : "Agent",
+    colStage: labelEs ? "Etapa actual" : "Current stage",
+    colProgress: labelEs ? "Progreso" : "Progress",
+    colFirstClient: labelEs ? "Primer cliente" : "First client",
+    colStatus: labelEs ? "Estado" : "Status",
+    statusLabels: {
+      completed: labelEs ? "Completado" : "Completed",
+      on_track: labelEs ? "En camino" : "On track",
+      at_risk: labelEs ? "En riesgo" : "At risk",
+      never_started: labelEs ? "Sin iniciar" : "Never started",
+    } as Record<Status, string>,
+    firstClientDone: (n: number) => labelEs ? `${n} cierre${n !== 1 ? "s" : ""}` : `${n} close${n !== 1 ? "s" : ""}`,
+    firstClientPending: labelEs ? "Pendiente" : "Pending",
+    sessionsTitle: labelEs ? "Próximas sesiones" : "Upcoming sessions",
+    alertsTitle: labelEs ? "Alertas" : "Alerts",
+    noSessions: labelEs ? "Sin sesiones programadas" : "No sessions scheduled",
+    noAlerts: labelEs ? "Sin alertas" : "No alerts",
+    chatLink: labelEs ? "Hacer una consulta a la IA →" : "Ask the AI →",
+    navAgentes: labelEs ? "Ver directorio de agentes →" : "View agent directory →",
+  };
+
+  const fecha = (s: string | null) => s ? new Date(s).toLocaleDateString(locale, { day: "2-digit", month: "short" }) : "—";
+
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6 md:px-8">
-      <header className="mb-5">
-        <h1 className="text-2xl font-bold text-ink">
-          {dict.inicio.hello} {user}! <span className="text-brand">👋</span>
-        </h1>
-        <p className="mt-0.5 text-sm text-muted">{dict.inicio.todaySummary} {new Date().toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric" })}</p>
+      {/* Header */}
+      <header className="mb-6">
+        <h1 className="text-2xl font-bold text-ink">{L.hello} <span className="text-brand">👋</span></h1>
+        <p className="mt-0.5 text-sm text-muted">{L.subtitle}</p>
+        {programa && <p className="mt-0.5 text-xs text-faint">{programa.programa.nombre}</p>}
       </header>
 
-      {/* ── KPIs ──────────────────────────────────────────────────────────── */}
-      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        {kpis.map((x) => (
-          <Link key={x.label} href={x.href} className={`rounded-2xl border border-line border-t-[3px] bg-white p-4 shadow-card transition hover:shadow-card-lg hover:-translate-y-0.5 ${BORDER[x.tone]}`}>
-            <div className="flex items-center justify-between">
-              <span className="text-lg">{x.icon}</span>
-              {x.delta != null && (
-                <span className={`text-xs font-bold ${x.delta >= 0 ? "text-ok" : "text-danger"}`}>
-                  {x.delta >= 0 ? "▲" : "▼"} {Math.abs(x.delta)}%
-                </span>
-              )}
-            </div>
-            <p className={`mt-2 text-2xl font-bold leading-none ${TXT[x.tone]}`}>{x.value}</p>
-            <p className="mt-1 text-[11px] leading-tight text-muted">{x.label}</p>
-            {x.sub && <p className="mt-0.5 text-[11px] font-semibold text-ok">{x.sub}</p>}
-          </Link>
-        ))}
-        {!c && Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-24 animate-pulse rounded-2xl bg-white shadow-card" />)}
+      {/* KPIs */}
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Card className="border-t-[3px] border-t-brand p-4">
+          <p className="text-2xl font-bold text-brand">{total}</p>
+          <p className="mt-1 text-xs text-muted">{L.kpiTotal}</p>
+        </Card>
+        <Card className="border-t-[3px] border-t-ok p-4">
+          <p className="text-2xl font-bold text-ok">{completed}</p>
+          <p className="mt-1 text-xs text-muted">{L.kpiCompleted}</p>
+        </Card>
+        <Card className="border-t-[3px] border-t-danger p-4">
+          <p className="text-2xl font-bold text-danger">{atRisk}</p>
+          <p className="mt-1 text-xs text-muted">{L.kpiAtRisk}</p>
+        </Card>
+        <Card className="border-t-[3px] border-t-warning p-4">
+          <p className="text-2xl font-bold text-warning">{avgPct}%</p>
+          <p className="mt-1 text-xs text-muted">{L.kpiAvg}</p>
+        </Card>
       </div>
 
-      {/* ── Buscador global (destacado) ───────────────────────────────────── */}
-      <Card className="mb-5 border-t-[3px] border-t-brand p-4 shadow-card-lg">
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <svg className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-              <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" strokeLinecap="round" />
-            </svg>
-            <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && runSearch()}
-              placeholder={locale === "es" ? "Buscar mensajes, clientes, teléfonos, grupos, eventos o pendientes…" : "Search messages, clients, phones, groups, events or pending items…"}
-              className="w-full rounded-xl border-2 border-line bg-white py-3 pl-11 pr-4 text-base text-ink shadow-card transition placeholder:text-faint focus:border-brand focus:outline-none focus:ring-4 focus:ring-brand/15" />
-          </div>
-          <button onClick={runSearch} className="shrink-0 rounded-xl bg-brand px-6 text-sm font-semibold text-white shadow-card transition hover:opacity-95">{dict.inicio.searchBtn}</button>
+      <div className="grid gap-5 lg:grid-cols-[1fr_280px]">
+        {/* Main: agent progress table */}
+        <div className="space-y-5">
+          <Card className="overflow-hidden p-0">
+            <div className="border-b border-line px-5 py-3">
+              <h2 className="text-sm font-bold uppercase tracking-wide text-brand">👥 {L.tableTitle}</h2>
+            </div>
+            {rows.length === 0 && (
+              <div className="px-5 py-8 text-center text-sm text-muted">…</div>
+            )}
+            <ul className="divide-y divide-line">
+              {rows.map((row) => {
+                const status = getStatus(row);
+                return (
+                  <li key={row.nombre} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:gap-4">
+                    {/* Avatar + name */}
+                    <div className="flex min-w-0 items-center gap-3 sm:w-44">
+                      <Avatar name={row.nombre} />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-ink">{row.nombre}</p>
+                        {row.celular && (
+                          <a href={`tel:${row.celular}`} className="block text-xs text-brand hover:underline">
+                            📱 {row.celular}
+                          </a>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Stage */}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs text-muted">
+                        {row.etapa_actual ?? (status === "never_started" ? (labelEs ? "Sin iniciar" : "Not started") : (labelEs ? "Finalizado" : "Finished"))}
+                      </p>
+                      <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-soft">
+                        <div
+                          className={`h-full rounded-full transition-all ${
+                            status === "completed" ? "bg-ok" : status === "at_risk" || status === "never_started" ? "bg-warning" : "bg-brand"
+                          }`}
+                          style={{ width: `${row.pct}%` }}
+                        />
+                      </div>
+                      <p className="mt-0.5 text-[11px] text-muted">{row.pct}%</p>
+                    </div>
+
+                    {/* First client */}
+                    <div className="w-24 shrink-0 text-right">
+                      {row.cerrados > 0 ? (
+                        <span className="text-xs font-semibold text-ok">{L.firstClientDone(row.cerrados)}</span>
+                      ) : (
+                        <span className="text-xs text-faint">{L.firstClientPending}</span>
+                      )}
+                      <p className="text-[10px] text-faint">{L.colFirstClient}</p>
+                    </div>
+
+                    {/* Status badge */}
+                    <div className="shrink-0">
+                      <Badge tone={STATUS_TONE[status]}>{L.statusLabels[status]}</Badge>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
+
+          {/* Stage stepper */}
+          {programa && programa.etapas.length > 0 && (
+            <Card className="p-5">
+              <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-brand">
+                {labelEs ? "Etapas del programa" : "Program stages"}
+              </h2>
+              <ol className="flex gap-2 overflow-x-auto pb-1">
+                {programa.etapas.map((e, i) => {
+                  const done = e.pct === 100;
+                  return (
+                    <li key={e.id} className="flex min-w-[120px] flex-1 flex-col items-center text-center">
+                      <div className="flex w-full items-center">
+                        <span className={`h-0.5 flex-1 ${i === 0 ? "bg-transparent" : done ? "bg-ok" : "bg-line"}`} />
+                        <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-bold ${
+                          done ? "bg-ok text-white" : e.en_curso > 0 ? "bg-brand text-white" : "bg-soft text-faint"
+                        }`}>
+                          {done ? "✓" : e.orden}
+                        </span>
+                        <span className={`h-0.5 flex-1 ${i === programa.etapas.length - 1 ? "bg-transparent" : done ? "bg-ok" : "bg-line"}`} />
+                      </div>
+                      <p className="mt-2 text-xs font-semibold text-ink">{e.nombre}</p>
+                      <p className="text-[11px] text-muted">{e.completados}/{e.completados + e.en_curso + e.pendientes} · {e.pct}%</p>
+                    </li>
+                  );
+                })}
+              </ol>
+            </Card>
+          )}
         </div>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {CHIP_KEYS.map((x) => (
-            <button key={x} onClick={() => setChip(x)}
-              className={`rounded-full border px-3 py-1 text-xs font-medium ${chip === x ? "border-brand bg-brand-soft text-brand" : "border-line text-muted hover:bg-soft"}`}>
-              {dict.inicio.chips[x]}
-            </button>
-          ))}
-        </div>
-        {hits !== null && (
-          <div className="mt-3 border-t border-line pt-3">
-            {hits.length === 0 ? (
-              <p className="text-sm text-muted">{dict.inicio.searchEmptyPre} “{q}”. {dict.inicio.searchEmptyPost}</p>
-            ) : (
+
+        {/* Sidebar */}
+        <aside className="space-y-4">
+          {/* Upcoming sessions */}
+          <Card className="p-4">
+            <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-brand">📅 {L.sessionsTitle}</h2>
+            {programa && programa.calendario.length > 0 ? (
               <ul className="space-y-2">
-                {hits.slice(0, 6).map((h) => (
-                  <li key={h.message_id} className="rounded-lg bg-soft px-3 py-2 text-sm">
-                    <span className="text-ink">{h.texto}</span>
-                    <span className="mt-0.5 block text-xs text-muted">{h.remitente} · {h.chat}</span>
+                {programa.calendario.slice(0, 5).map((k) => (
+                  <li key={k.id} className="flex items-center gap-2.5 rounded-lg border border-line px-3 py-2">
+                    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-soft text-center">
+                      <span className="text-[10px] font-bold leading-tight text-brand">{fecha(k.fecha)}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-semibold text-ink">{k.nombre}</p>
+                      <p className="text-[11px] text-muted">👥 {k.asistentes}</p>
+                    </div>
                   </li>
                 ))}
               </ul>
+            ) : (
+              <p className="text-sm text-muted">{L.noSessions}</p>
             )}
-          </div>
-        )}
-      </Card>
+            <Link href="/reuniones" className="mt-3 block text-xs font-semibold text-brand hover:underline">
+              {labelEs ? "Ver reuniones →" : "View meetings →"}
+            </Link>
+          </Card>
 
-      {/* ── Recomendaciones IA (hero) ─────────────────────────────────────── */}
-      <Card className="mb-5 overflow-hidden">
-        <div className="bg-gradient-to-r from-brand to-brand-2 px-5 py-3">
-          <h2 className="text-sm font-bold text-white">🧠 {t.iaFor} {user}</h2>
-        </div>
-        <div className="grid gap-px bg-line sm:grid-cols-2">
-          {c?.recomendaciones.map((r, i) => (
-            <div key={i} className="flex items-start gap-3 bg-white p-4">
-              <ToneDot tone={r.tono} />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="font-semibold text-ink">{r.accion}</p>
-                  <Badge tone={PRIO_TONE[r.prioridad] ?? "neutral"}>{t.prio[r.prioridad as keyof typeof t.prio] ?? r.prioridad}</Badge>
-                </div>
-                <p className="mt-0.5 text-sm text-muted">{r.motivo}</p>
-              </div>
+          {/* Alerts */}
+          <Card className="p-4">
+            <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-warning">🔔 {L.alertsTitle}</h2>
+            {programa && programa.alertas.length > 0 ? (
+              <ul className="space-y-2">
+                {programa.alertas.map((a, i) => (
+                  <li key={i} className="rounded-lg border border-line border-l-4 border-l-warning bg-white px-3 py-2">
+                    <p className="text-xs font-semibold text-ink">{a.titulo}</p>
+                    <p className="text-[11px] text-muted">{a.detalle}</p>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted">{L.noAlerts}</p>
+            )}
+          </Card>
+
+          {/* Quick links */}
+          <Card className="p-4">
+            <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-brand">
+              {labelEs ? "Accesos rápidos" : "Quick access"}
+            </h2>
+            <div className="space-y-2">
+              <Link href="/chat" className="flex items-center gap-2 rounded-lg bg-brand-soft px-3 py-2.5 text-sm font-semibold text-brand hover:opacity-90">
+                💬 {L.chatLink}
+              </Link>
+              <Link href="/agentes" className="flex items-center gap-2 rounded-lg bg-soft px-3 py-2.5 text-sm font-medium text-muted hover:bg-line">
+                👥 {L.navAgentes}
+              </Link>
+              <Link href="/simulador" className="flex items-center gap-2 rounded-lg bg-soft px-3 py-2.5 text-sm font-medium text-muted hover:bg-line">
+                🎯 {labelEs ? "Ir al simulador →" : "Open simulator →"}
+              </Link>
             </div>
-          ))}
-          {c && c.recomendaciones.length === 0 && <div className="bg-white p-6 text-sm text-muted">{t.noRecs}</div>}
-          {!c && <div className="bg-white p-6 text-sm text-muted">…</div>}
-        </div>
-      </Card>
-
-      {/* ── Estado del equipo · Alertas críticas ──────────────────────────── */}
-      <div className="mb-5 grid gap-4 lg:grid-cols-2">
-        <Card className="p-5">
-          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-brand">👥 {t.team}</h2>
-          <ul className="space-y-3">
-            {c?.equipo.map((e) => (
-              <li key={e.id} className="flex items-center justify-between gap-3">
-                <span className="flex min-w-0 items-center gap-2">
-                  <Avatar name={e.nombre} />
-                  <span className="min-w-0">
-                    <span className="block truncate font-medium text-ink">{e.nombre}</span>
-                    <span className="block text-xs text-muted">
-                      {e.estado === "excelente" ? `${e.cerrados} ${t.deals}` : `${e.abiertas} ${t.openConv}`}
-                    </span>
-                  </span>
-                </span>
-                <Badge tone={e.tono}>{t.estadoEquipo[e.estado as keyof typeof t.estadoEquipo] ?? e.estado}</Badge>
-              </li>
-            ))}
-          </ul>
-        </Card>
-
-        <Card className="p-5">
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-danger">
-            🚨 {t.alerts}
-            <span className="rounded-full bg-danger px-2 py-0.5 text-[10px] text-white">{c?.alertas.length ?? 0}</span>
-          </h2>
-          <ul className="space-y-2.5">
-            {c?.alertas.map((a) => (
-              <li key={a.id} className="rounded-xl border border-line border-l-4 border-l-danger bg-white p-3 shadow-card">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-1.5 font-semibold text-ink">
-                      {a.cliente}
-                      {a.vip && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-700">★ {t.vip}</span>}
-                    </p>
-                    <p className="text-xs text-muted">{a.titulo}</p>
-                    <p className="mt-1 text-xs text-faint">
-                      ⏱ {hace(a.horas)} · {t.responsible}: {a.responsable ?? t.noResponsible}
-                    </p>
-                  </div>
-                  <button className="shrink-0 rounded-lg bg-brand-soft px-2.5 py-1 text-xs font-semibold text-brand">{t.quickAct}</button>
-                </div>
-              </li>
-            ))}
-            {c && c.alertas.length === 0 && <li className="text-sm text-muted">🎉</li>}
-          </ul>
-        </Card>
-      </div>
-
-      {/* ── Top Agentes · Oportunidades IA ────────────────────────────────── */}
-      <div className="mb-5 grid gap-4 lg:grid-cols-2">
-        <Card className="p-5">
-          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-brand">🏆 {t.topAgents}</h2>
-          <ul className="space-y-2">
-            {c?.ranking.map((r, i) => (
-              <li key={r.nombre} className="flex items-center gap-3 rounded-xl px-2 py-1.5 hover:bg-soft">
-                <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-bold ${i === 0 ? "bg-amber-100 text-amber-700" : i === 1 ? "bg-slate-100 text-slate-600" : i === 2 ? "bg-orange-100 text-orange-700" : "text-faint"}`}>
-                  {i + 1}
-                </span>
-                <Avatar name={r.nombre} />
-                <span className="min-w-0 flex-1 truncate font-medium text-ink">{r.nombre}</span>
-                <span className="shrink-0 text-right text-xs">
-                  <span className="block font-bold text-ink">{r.ventas} <span className="font-normal text-muted">{t.sales.toLowerCase()}</span></span>
-                  <span className="block text-brand">{r.conversiones}% {t.conversions.toLowerCase()}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </Card>
-
-        <Card className="p-5">
-          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-brand">✦ {t.opps}</h2>
-          <ul className="space-y-3">
-            {c?.oportunidades.map((o) => (
-              <li key={o.id} className="rounded-xl border border-line bg-white p-3 shadow-card">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="font-semibold text-ink">{o.titulo}</p>
-                  {o.nivel && <Badge tone={NIVEL_TONE[o.nivel] ?? "neutral"}>{nivelLabel[o.nivel] ?? o.nivel}</Badge>}
-                </div>
-                {o.producto && <p className="text-xs text-muted">{o.producto}</p>}
-                <div className="mt-2 flex items-center justify-between gap-3">
-                  <div className="flex-1">
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-soft">
-                      <div className="h-full rounded-full bg-brand" style={{ width: `${o.probabilidad}%` }} />
-                    </div>
-                    <p className="mt-0.5 text-[11px] text-muted">{o.probabilidad}% {t.closeProb}</p>
-                  </div>
-                  {o.potencial > 0 && <span className="shrink-0 text-sm font-bold text-ok">{money(o.potencial)}</span>}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      </div>
-
-      {/* ── Actividad · Preguntale a la IA ────────────────────────────────── */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="p-5">
-          <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-brand">📈 {t.activity}</h2>
-          {c && <Sparkline data={c.actividad.serie_7d} />}
-          <p className="mt-1 text-xs text-faint">{c?.actividad.total_7d ?? 0} {t.messages7d}</p>
-        </Card>
-
-        <Card className="p-5">
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-brand">
-            ✦ {dict.inicio.askAi} <Badge tone="brand">BETA</Badge>
-          </h2>
-          {respuesta && (
-            <div className="mb-3 rounded-xl bg-brand-soft p-3 text-sm text-ink2">
-              {respuesta.answer}
-              <span className="mt-1 block text-xs text-faint">{respuesta.source === "ia" ? dict.inicio.answeredIa : dict.inicio.answeredAuto}</span>
-            </div>
-          )}
-          <div className="mb-3 flex flex-wrap gap-2">
-            {dict.inicio.questions.map((p) => (
-              <button key={p} onClick={() => preguntar(p)} className="rounded-full border border-line px-3 py-1 text-xs text-muted hover:bg-soft">{p}</button>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <input value={pregunta} onChange={(e) => setPregunta(e.target.value)} onKeyDown={(e) => e.key === "Enter" && preguntar(pregunta)}
-              placeholder={dict.inicio.askPlaceholder} className="w-full rounded-lg bg-soft px-4 py-2.5 text-sm text-ink placeholder:text-faint focus:outline-none" />
-            <button onClick={() => preguntar(pregunta)} disabled={pensando} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand text-white disabled:opacity-50">
-              {pensando ? "…" : "➤"}
-            </button>
-          </div>
-        </Card>
+          </Card>
+        </aside>
       </div>
     </div>
   );

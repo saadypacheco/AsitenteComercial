@@ -9,22 +9,15 @@ import { useEffect, useState, type ReactNode } from "react";
 import { getToken, getUser, logout, type SessionUser } from "@/lib/auth";
 import { useLocale } from "@/lib/locale-context";
 
-// Rutas del menú. href=null → sección aún no construida (se muestra "Pronto").
-type NavKey = "inicio" | "acciones" | "pendientes" | "clientes" | "agentes" | "grupos" | "eventos" | "capacitaciones" | "reuniones" | "mensajes" | "reportes" | "iaInsights" | "ajustes";
-const NAV: { key: NavKey; href: string | null; badge?: boolean }[] = [
-  { key: "inicio", href: "/inicio" },
-  { key: "acciones", href: "/acciones", badge: true },
-  { key: "pendientes", href: "/pendientes" },
-  { key: "clientes", href: "/clientes", badge: true },
-  { key: "agentes", href: "/agentes" },
-  { key: "grupos", href: "/grupos" },
-  { key: "eventos", href: "/eventos" },
-  { key: "capacitaciones", href: "/capacitaciones" },
-  { key: "reuniones", href: "/reuniones", badge: true },
-  { key: "mensajes", href: "/mensajes" },
-  { key: "reportes", href: "/reportes" },
-  { key: "iaInsights", href: "/ia-insights" },
-  { key: "ajustes", href: "/ajustes" },
+// Rutas del menú: 6 secciones enfocadas en el seguimiento del onboarding comercial.
+type NavKey = "inicio" | "agentes" | "reuniones" | "simulador" | "chat" | "ajustes";
+const NAV: { key: NavKey; href: string; icon: string }[] = [
+  { key: "inicio",    href: "/inicio",    icon: "🏠" },
+  { key: "agentes",   href: "/agentes",   icon: "👥" },
+  { key: "reuniones", href: "/reuniones", icon: "📹" },
+  { key: "simulador", href: "/simulador", icon: "🎯" },
+  { key: "chat",      href: "/chat",      icon: "💬" },
+  { key: "ajustes",   href: "/ajustes",   icon: "⚙️" },
 ];
 
 export function Shell({ children }: { children: ReactNode }) {
@@ -47,27 +40,19 @@ export function Shell({ children }: { children: ReactNode }) {
 
   const nav = (
     <nav className="space-y-1">
-      {NAV.map(({ key, href, badge }) => {
-        const active = href && pathname.startsWith(href);
+      {NAV.map(({ key, href, icon }) => {
+        const active = pathname.startsWith(href);
         const label = ti.nav[key];
-        if (!href) {
-          return (
-            <span key={key} className="flex cursor-default items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-faint">
-              {label}
-              <span className="rounded bg-soft px-1.5 py-0.5 text-[9px] font-bold uppercase text-faint">{ti.soon}</span>
-            </span>
-          );
-        }
         return (
           <Link
             key={key}
             href={href}
-            className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm font-medium ${
-              active ? "bg-brand-soft text-brand" : "text-muted hover:bg-soft"
+            className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+              active ? "bg-brand-soft text-brand" : "text-muted hover:bg-soft hover:text-ink"
             }`}
           >
+            <span className="text-base leading-none">{icon}</span>
             {label}
-            {badge && <span className="rounded bg-brand px-1.5 py-0.5 text-[9px] font-bold text-white">{ti.newBadge}</span>}
           </Link>
         );
       })}
