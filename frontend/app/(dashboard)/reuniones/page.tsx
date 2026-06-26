@@ -152,170 +152,130 @@ export default function ReunionesPage() {
       {/* ── Sesiones del programa + detalle de asistencia ───────────────── */}
       {allSessions.length > 0 && (
         <Card className="mb-5 overflow-hidden p-0" id="asistencia">
-          <div className="flex items-center justify-between border-b border-line px-5 py-3">
-            <h2 className="text-sm font-bold uppercase tracking-wide text-brand">
-              📅 {es ? "Sesiones del programa" : "Program sessions"}
-            </h2>
-            <span className="text-xs text-muted">{es ? `${totalAgentes} agentes en total` : `${totalAgentes} agents total`}</span>
+          {/* Header + selector de sesión */}
+          <div className="border-b border-line px-5 py-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-bold uppercase tracking-wide text-brand">
+                📅 {es ? "Sesiones del programa" : "Program sessions"}
+              </h2>
+              <span className="text-xs text-muted">
+                {es ? `${totalAgentes} agentes · ${pastSessions.length} realizadas` : `${totalAgentes} agents · ${pastSessions.length} held`}
+              </span>
+            </div>
+            {/* Dropdown selector */}
+            <div className="relative">
+              <select
+                value={selectedSesionId ?? ""}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (!val) { setSelectedSesionId(null); setAsistencia(null); return; }
+                  setSelectedSesionId(val);
+                  loadAsistencia(val);
+                }}
+                className="w-full appearance-none rounded-xl border border-line bg-soft py-2.5 pl-4 pr-10 text-sm text-ink focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/15"
+              >
+                <option value="">{es ? "— Seleccioná una sesión realizada —" : "— Select a completed session —"}</option>
+                {pastSessions.map((k) => {
+                  const absent = Math.max(0, totalAgentes - k.asistentes);
+                  const absentLabel = absent > 0 ? ` · ${absent} ${es ? "faltó" : "absent"}` : ` · ${es ? "todos" : "all present"}`;
+                  return (
+                    <option key={k.id} value={k.id}>
+                      {fDate(k.fecha)} — {k.nombre}{absentLabel}
+                    </option>
+                  );
+                })}
+              </select>
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted">▾</span>
+            </div>
           </div>
 
-          {/* Tabla de sesiones — clic en fila para ver detalle */}
-          <div className="divide-y divide-line">
-            {allSessions.map((k) => {
-              const isPast = k.fecha && new Date(k.fecha) < now;
-              const attendanceRate = totalAgentes > 0 ? Math.round((k.asistentes / totalAgentes) * 100) : 0;
-              const absent = Math.max(0, totalAgentes - k.asistentes);
-              const isSelected = selectedSesionId === k.id;
-              return (
-                <div key={k.id}>
-                  <button
-                    onClick={() => isPast ? selectSesion(k.id) : undefined}
-                    className={`flex w-full items-center gap-4 px-5 py-3 text-left transition ${
-                      isSelected ? "bg-brand-soft/40" : isPast ? "hover:bg-soft/60 cursor-pointer" : "cursor-default"
-                    }`}
-                  >
-                    {/* Date badge */}
-                    <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg text-center ${isSelected ? "bg-brand text-white" : "bg-soft"}`}>
-                      <span className={`text-[10px] font-bold leading-tight ${isSelected ? "text-white" : "text-muted"}`}>
-                        {fDate(k.fecha).slice(0, 6)}
-                      </span>
-                    </div>
-
-                    {/* Name */}
-                    <div className="min-w-0 flex-1">
-                      <p className={`truncate text-sm font-semibold ${isSelected ? "text-brand" : "text-ink"}`}>{k.nombre}</p>
-                      <p className="text-[11px] text-faint">{fDate(k.fecha)}</p>
-                    </div>
-
-                    {/* Attendance bar */}
-                    {isPast ? (
-                      <div className="w-28 shrink-0">
-                        <div className="mb-1 flex items-center justify-between text-[10px] text-muted">
-                          <span>{k.asistentes}/{totalAgentes}</span>
-                          <span className={attendanceRate >= 80 ? "text-ok" : attendanceRate >= 50 ? "text-warning" : "text-danger"}>
-                            {attendanceRate}%
-                          </span>
-                        </div>
-                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-soft">
-                          <div
-                            className={`h-full rounded-full ${attendanceRate >= 80 ? "bg-ok" : attendanceRate >= 50 ? "bg-warning" : "bg-danger"}`}
-                            style={{ width: `${attendanceRate}%` }}
-                          />
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="w-28 shrink-0 text-right">
-                        <span className="text-xs text-faint">{es ? "Programada" : "Scheduled"}</span>
-                      </div>
-                    )}
-
-                    {/* Absent pill + chevron */}
-                    {isPast && (
-                      <div className="flex w-24 shrink-0 items-center justify-end gap-2">
-                        {absent > 0 ? (
-                          <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-danger">
-                            ✗ {absent} {es ? "faltó" : "absent"}
-                          </span>
-                        ) : (
-                          <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-semibold text-ok">
-                            ✓ {es ? "Todos" : "All"}
-                          </span>
-                        )}
-                        <span className={`text-xs text-muted transition-transform ${isSelected ? "rotate-90" : ""}`}>›</span>
-                      </div>
-                    )}
-                  </button>
-
-                  {/* Panel de detalle de asistencia inline */}
-                  {isSelected && (
-                    <div className="border-t border-brand/20 bg-soft/30 px-5 py-4" id="asistencia-detalle">
-                      {/* Header del detalle */}
-                      <div className="mb-3 flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-bold text-ink">{k.nombre}</p>
-                          <p className="text-xs text-muted">{fDate(k.fecha)}</p>
-                        </div>
-                        {/* Sort toggle */}
-                        <div className="flex rounded-lg border border-line bg-white overflow-hidden text-xs">
-                          <button
-                            onClick={() => setSortAsistencia("absent_first")}
-                            className={`px-3 py-1.5 font-medium transition ${sortAsistencia === "absent_first" ? "bg-brand text-white" : "text-muted hover:bg-soft"}`}
-                          >
-                            {es ? "Faltaron primero" : "Absent first"}
-                          </button>
-                          <button
-                            onClick={() => setSortAsistencia("present_first")}
-                            className={`px-3 py-1.5 font-medium transition ${sortAsistencia === "present_first" ? "bg-brand text-white" : "text-muted hover:bg-soft"}`}
-                          >
-                            {es ? "Asistieron primero" : "Present first"}
-                          </button>
-                        </div>
-                      </div>
-
-                      {loadingAsistencia && (
-                        <p className="py-4 text-center text-sm text-muted">{es ? "Cargando…" : "Loading…"}</p>
-                      )}
-
-                      {asistencia && (() => {
-                        const sorted = [...asistencia.agentes].sort((a, b) => {
-                          if (sortAsistencia === "absent_first") return (a.asistio ? 1 : 0) - (b.asistio ? 1 : 0);
-                          return (b.asistio ? 1 : 0) - (a.asistio ? 1 : 0);
-                        });
-                        const presentes = asistencia.agentes.filter((a) => a.asistio).length;
-                        const ausentes = asistencia.agentes.length - presentes;
-                        return (
-                          <>
-                            {/* Resumen */}
-                            <div className="mb-3 flex gap-3 text-xs">
-                              <span className="flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 font-semibold text-ok">
-                                ✓ {presentes} {es ? "asistieron" : "attended"}
-                              </span>
-                              <span className="flex items-center gap-1 rounded-full bg-red-50 px-3 py-1 font-semibold text-danger">
-                                ✗ {ausentes} {es ? "faltaron" : "absent"}
-                              </span>
-                            </div>
-
-                            {/* Lista de agentes */}
-                            <div className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-white">
-                              {sorted.map((ag) => (
-                                <div key={ag.id} className={`flex items-center gap-3 px-4 py-2.5 ${!ag.asistio ? "bg-red-50/40" : ""}`}>
-                                  {/* Status icon */}
-                                  <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-bold ${ag.asistio ? "bg-green-100 text-ok" : "bg-red-100 text-danger"}`}>
-                                    {ag.asistio ? "✓" : "✗"}
-                                  </span>
-
-                                  {/* Name */}
-                                  <div className="min-w-0 flex-1">
-                                    <p className="truncate text-sm font-semibold text-ink">
-                                      {ag.nombre} {ag.apellido ?? ""}
-                                    </p>
-                                    {ag.email && <p className="truncate text-[11px] text-muted">{ag.email}</p>}
-                                  </div>
-
-                                  {/* Status badge */}
-                                  <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${ag.asistio ? "bg-green-50 text-ok" : "bg-red-50 text-danger"}`}>
-                                    {ag.asistio ? (es ? "Asistió" : "Attended") : (es ? "Faltó" : "Absent")}
-                                  </span>
-
-                                  {/* Call button for absent agents */}
-                                  {!ag.asistio && ag.celular && (
-                                    <a href={`tel:${ag.celular}`}
-                                      className="shrink-0 rounded-lg bg-warning px-2.5 py-1 text-[11px] font-bold text-white hover:opacity-90">
-                                      📞 {es ? "Llamar" : "Call"}
-                                    </a>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </>
-                        );
-                      })()}
-                    </div>
-                  )}
+          {/* Panel de detalle — aparece al elegir una sesión */}
+          {selectedSesionId && (() => {
+            const sesion = allSessions.find((k) => k.id === selectedSesionId);
+            return (
+              <div className="px-5 py-4" id="asistencia-detalle">
+                {/* Cabecera de la sesión seleccionada */}
+                <div className="mb-4 flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-base font-bold text-ink">{sesion?.nombre}</p>
+                    <p className="text-xs text-muted">{fDate(sesion?.fecha ?? null)}</p>
+                  </div>
+                  {/* Sort toggle */}
+                  <div className="flex overflow-hidden rounded-lg border border-line bg-white text-xs">
+                    <button
+                      onClick={() => setSortAsistencia("absent_first")}
+                      className={`px-3 py-1.5 font-medium transition ${sortAsistencia === "absent_first" ? "bg-brand text-white" : "text-muted hover:bg-soft"}`}
+                    >
+                      {es ? "Faltaron primero" : "Absent first"}
+                    </button>
+                    <button
+                      onClick={() => setSortAsistencia("present_first")}
+                      className={`px-3 py-1.5 font-medium transition ${sortAsistencia === "present_first" ? "bg-brand text-white" : "text-muted hover:bg-soft"}`}
+                    >
+                      {es ? "Asistieron primero" : "Present first"}
+                    </button>
+                  </div>
                 </div>
-              );
-            })}
-          </div>
+
+                {loadingAsistencia && (
+                  <p className="py-6 text-center text-sm text-muted">{es ? "Cargando…" : "Loading…"}</p>
+                )}
+
+                {asistencia && (() => {
+                  const sorted = [...asistencia.agentes].sort((a, b) => {
+                    if (sortAsistencia === "absent_first") return (a.asistio ? 1 : 0) - (b.asistio ? 1 : 0);
+                    return (b.asistio ? 1 : 0) - (a.asistio ? 1 : 0);
+                  });
+                  const presentes = asistencia.agentes.filter((a) => a.asistio).length;
+                  const ausentes = asistencia.agentes.length - presentes;
+                  return (
+                    <>
+                      {/* Pills de resumen */}
+                      <div className="mb-3 flex gap-2 text-xs">
+                        <span className="flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 font-semibold text-ok">
+                          ✓ {presentes} {es ? "asistieron" : "attended"}
+                        </span>
+                        <span className="flex items-center gap-1 rounded-full bg-red-50 px-3 py-1 font-semibold text-danger">
+                          ✗ {ausentes} {es ? "faltaron" : "absent"}
+                        </span>
+                      </div>
+
+                      {/* Tabla de agentes */}
+                      <div className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-white">
+                        {sorted.map((ag) => (
+                          <div key={ag.id} className={`flex items-center gap-3 px-4 py-2.5 ${!ag.asistio ? "bg-red-50/30" : ""}`}>
+                            <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-bold ${ag.asistio ? "bg-green-100 text-ok" : "bg-red-100 text-danger"}`}>
+                              {ag.asistio ? "✓" : "✗"}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold text-ink">{ag.nombre} {ag.apellido ?? ""}</p>
+                              {ag.email && <p className="truncate text-[11px] text-muted">{ag.email}</p>}
+                            </div>
+                            <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${ag.asistio ? "bg-green-50 text-ok" : "bg-red-50 text-danger"}`}>
+                              {ag.asistio ? (es ? "Asistió" : "Attended") : (es ? "Faltó" : "Absent")}
+                            </span>
+                            {!ag.asistio && ag.celular && (
+                              <a href={`tel:${ag.celular}`}
+                                className="shrink-0 rounded-lg bg-warning px-2.5 py-1 text-[11px] font-bold text-white hover:opacity-90">
+                                📞 {es ? "Llamar" : "Call"}
+                              </a>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            );
+          })()}
+
+          {/* Estado vacío — sin sesión seleccionada */}
+          {!selectedSesionId && (
+            <div className="px-5 py-8 text-center text-sm text-muted">
+              {es ? "Seleccioná una sesión para ver quiénes asistieron y quiénes faltaron." : "Select a session to see who attended and who was absent."}
+            </div>
+          )}
         </Card>
       )}
 
