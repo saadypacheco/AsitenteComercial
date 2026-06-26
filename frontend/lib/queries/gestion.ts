@@ -185,6 +185,15 @@ export type Mensaje = {
   transcripto: boolean;
 };
 
+export type AsistenciaAgente = { id: string; nombre: string; apellido: string | null; email: string | null; celular: string | null; asistio: boolean };
+export type CapacitacionAsistencia = { capacitacion: { id: string; nombre: string; fecha: string | null; estado: string }; agentes: AsistenciaAgente[] };
+
+export async function getCapacitacionAsistencia(cid: string): Promise<CapacitacionAsistencia> {
+  const res = await authFetch(`/gestion/capacitaciones/${cid}/asistencia`);
+  if (!res.ok) throw new Error(`asistencia: ${res.status}`);
+  return res.json();
+}
+
 export type MensajesStats = { nuevas: number; grupos_activos: number };
 
 export async function getMensajesStats(): Promise<MensajesStats> {

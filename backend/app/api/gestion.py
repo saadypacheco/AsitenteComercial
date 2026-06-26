@@ -435,6 +435,28 @@ def sync_asistencia(cid: str, body: SyncAsistenciaBody | None = None, tenant: st
     return {"ok": True, "source": source, "participantes": len(participantes), "marcados": marcados}
 
 
+@router.get("/gestion/capacitaciones/{cid}/asistencia")
+def get_asistencia(cid: str, tenant: str = Depends(require_tenant)) -> dict:
+    """Lista de todos los agentes activos con su asistencia (asistio true/false) para una sesión."""
+    cap = _rows(
+        "select k.id, k.nombre, k.fecha, k.estado from capacitaciones k "
+        "where k.id = %s and k.tenant_id = %s",
+        (cid, tenant),
+    )
+    if not cap:
+        raise HTTPException(status_code=404, detail="Capacitación no encontrada")
+    agentes = _rows(
+        "select a.id, a.nombre, a.apellido, a.email, a.celular, "
+        "coalesce(ca.asistio, false) as asistio "
+        "from agentes a "
+        "left join capacitacion_asistencia ca on ca.agente_id = a.id and ca.capacitacion_id = %s "
+        "where a.tenant_id = %s and a.estado != 'baja' "
+        "order by ca.asistio asc nulls first, a.nombre asc",
+        (cid, tenant),
+    )
+    return {"capacitacion": cap[0], "agentes": agentes}
+
+
 @router.get("/gestion/capacitaciones")
 def list_capacitaciones(tenant: str = Depends(require_tenant), lang: str = "es") -> list:
     nombre = "coalesce(k.nombre_en, k.nombre)" if lang == "en" else "k.nombre"
