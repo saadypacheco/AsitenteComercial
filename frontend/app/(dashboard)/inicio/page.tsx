@@ -157,45 +157,38 @@ export default function InicioPage() {
       </header>
 
       {/* ── KPIs ───────────────────────────────────────────────────────── */}
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {/* Fila 1: onboarding */}
-        <Card className="border-t-[3px] border-t-brand p-4">
-          <p className="text-2xl font-bold text-brand">{total}</p>
-          <p className="mt-1 text-xs text-muted">{es ? "Agentes en onboarding" : "Agents in onboarding"}</p>
+      <div className="mb-6 grid grid-cols-3 gap-3 lg:grid-cols-6">
+        <Card className="border-t-[3px] border-t-brand p-3">
+          <p className="text-xl font-bold text-brand">{total}</p>
+          <p className="mt-1 text-[11px] text-muted">{es ? "Agentes" : "Agents"}</p>
         </Card>
-        <Card className="border-t-[3px] border-t-ok p-4">
-          <p className="text-2xl font-bold text-ok">{completed}</p>
-          <p className="mt-1 text-xs text-muted">{es ? "Completaron el path" : "Completed path"}</p>
+        <Card className="border-t-[3px] border-t-ok p-3">
+          <p className="text-xl font-bold text-ok">{completed}</p>
+          <p className="mt-1 text-[11px] text-muted">{es ? "Completaron" : "Completed"}</p>
         </Card>
-        <Card className="border-t-[3px] border-t-danger p-4">
-          <p className="text-2xl font-bold text-danger">{atRisk}</p>
-          <p className="mt-1 text-xs text-muted">{es ? "En riesgo / sin iniciar" : "At risk / not started"}</p>
+        <Card className="border-t-[3px] border-t-danger p-3">
+          <p className="text-xl font-bold text-danger">{atRisk}</p>
+          <p className="mt-1 text-[11px] text-muted">{es ? "En riesgo" : "At risk"}</p>
         </Card>
-
-        {/* Fila 2: meetings + conversaciones */}
-        <Card className="border-t-[3px] border-t-warning p-4">
-          <p className="text-2xl font-bold text-warning">{avgPct}%</p>
-          <p className="mt-1 text-xs text-muted">{es ? "Progreso promedio" : "Avg. progress"}</p>
+        <Card className="border-t-[3px] border-t-warning p-3">
+          <p className="text-xl font-bold text-warning">{avgPct}%</p>
+          <p className="mt-1 text-[11px] text-muted">{es ? "Progreso" : "Progress"}</p>
         </Card>
         <Link href="/reuniones#asistencia" className="block">
-          <Card className={`h-full border-t-[3px] p-4 transition hover:shadow-md ${nonAttendees > 0 ? "border-t-danger" : "border-t-ok"}`}>
-            <p className={`text-2xl font-bold ${nonAttendees > 0 ? "text-danger" : "text-ok"}`}>{nonAttendees}</p>
-            <p className="mt-1 text-xs text-muted">{es ? "No asistieron" : "Didn't attend"}</p>
+          <Card className={`h-full border-t-[3px] p-3 transition hover:shadow-md ${nonAttendees > 0 ? "border-t-danger" : "border-t-ok"}`}>
+            <p className={`text-xl font-bold ${nonAttendees > 0 ? "text-danger" : "text-ok"}`}>{nonAttendees}</p>
+            <p className="mt-1 text-[11px] text-muted">{es ? "No asistieron" : "Didn't attend"}</p>
             {lastSession && (
-              <p className="mt-0.5 truncate text-[10px] text-faint">
-                {es ? "Última:" : "Last:"} {lastSession.nombre}
-              </p>
+              <p className="mt-0.5 truncate text-[10px] text-faint">{lastSession.nombre}</p>
             )}
           </Card>
         </Link>
         <Link href="/mensajes" className="block">
-          <Card className={`h-full border-t-[3px] p-4 transition hover:shadow-md ${mensajesStats.nuevas > 0 ? "border-t-brand" : "border-t-ok"}`}>
-            <p className={`text-2xl font-bold ${mensajesStats.nuevas > 0 ? "text-brand" : "text-ok"}`}>{mensajesStats.nuevas}</p>
-            <p className="mt-1 text-xs text-muted">{es ? "Conversaciones pendientes" : "Pending conversations"}</p>
+          <Card className={`h-full border-t-[3px] p-3 transition hover:shadow-md ${mensajesStats.nuevas > 0 ? "border-t-brand" : "border-t-ok"}`}>
+            <p className={`text-xl font-bold ${mensajesStats.nuevas > 0 ? "text-brand" : "text-ok"}`}>{mensajesStats.nuevas}</p>
+            <p className="mt-1 text-[11px] text-muted">{es ? "Conv. pendientes" : "Pending conv."}</p>
             {mensajesStats.grupos_activos > 0 && (
-              <p className="mt-0.5 text-[10px] text-faint">
-                {mensajesStats.grupos_activos} {es ? "grupos activos" : "active groups"}
-              </p>
+              <p className="mt-0.5 text-[10px] text-faint">{mensajesStats.grupos_activos} {es ? "grupos" : "groups"}</p>
             )}
           </Card>
         </Link>
