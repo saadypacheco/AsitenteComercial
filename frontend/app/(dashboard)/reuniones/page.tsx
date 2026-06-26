@@ -122,10 +122,53 @@ export default function ReunionesPage() {
   const fDate = (s: string | null) =>
     s ? new Date(s).toLocaleDateString(locale, { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
+  // Últimas 5 sesiones realizadas para el strip del header (orden cronológico: antigua → reciente)
+  const last5 = pastSessions.slice(-5);
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 md:px-8">
-      <h1 className="text-2xl font-bold text-ink">{dict.inicio.nav.reuniones}</h1>
-      <p className="mb-4 text-sm text-muted">{t.subtitle}</p>
+
+      {/* ── Header: título + últimas 5 sesiones ──────────────────────────── */}
+      <header className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="shrink-0">
+          <h1 className="text-2xl font-bold text-ink">{dict.inicio.nav.reuniones}</h1>
+          <p className="mt-0.5 text-sm text-muted">{t.subtitle}</p>
+        </div>
+
+        {/* Strip últimas 5 sesiones — igual al stepper del home */}
+        {last5.length > 0 && (
+          <div className="w-full overflow-x-auto lg:max-w-[520px]">
+            <ol className="flex min-w-max items-start gap-1">
+              {last5.map((k, i) => {
+                const rate = totalAgentes > 0 ? Math.round((k.asistentes / totalAgentes) * 100) : 0;
+                const allPresent = k.asistentes >= totalAgentes;
+                const isSelected = selectedSesionId === k.id;
+                return (
+                  <li key={k.id} className="flex items-center">
+                    {i > 0 && <span className="mx-1 h-px w-5 shrink-0 bg-line" />}
+                    <button
+                      onClick={() => { setSelectedSesionId(k.id); loadAsistencia(k.id); setTimeout(() => document.getElementById("asistencia")?.scrollIntoView({ behavior: "smooth" }), 200); }}
+                      className="flex flex-col items-center text-center"
+                      style={{ minWidth: 72 }}
+                    >
+                      <span className={`grid h-8 w-8 place-items-center rounded-full text-xs font-bold transition ${
+                        isSelected ? "bg-brand text-white ring-2 ring-brand ring-offset-1"
+                        : allPresent ? "bg-ok text-white"
+                        : rate >= 50 ? "bg-warning text-white"
+                        : "bg-danger text-white"
+                      }`}>
+                        {allPresent ? "✓" : `${rate}%`}
+                      </span>
+                      <p className="mt-1 max-w-[72px] text-[10px] font-medium leading-tight text-ink">{k.nombre}</p>
+                      <p className="text-[10px] text-faint">{fDate(k.fecha).slice(0, 6)}</p>
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+        )}
+      </header>
 
       {/* ── KPI cards ─────────────────────────────────────────────────────── */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
