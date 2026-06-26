@@ -147,7 +147,7 @@ export const es = {
   },
   reuniones: {
     title: "Reuniones",
-    subtitle: "Pegá la transcripción y la IA saca el resumen, los temas y las tareas de seguimiento.",
+    subtitle: "Seguimiento de asistencia y resúmenes de reuniones con IA.",
     titulo: "Título de la reunión",
     tipo: "Tipo",
     tipoFormacion: "Formación",
