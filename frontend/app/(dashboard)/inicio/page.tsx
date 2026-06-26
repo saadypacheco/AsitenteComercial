@@ -14,7 +14,6 @@ type AgentRow = {
   pct: number;
   etapa_actual: string | null;
   completados: number;
-  // from Agente
   celular: string | null;
   cerrados: number;
   estado: string;
@@ -29,6 +28,12 @@ function getStatus(row: AgentRow): Status {
   return "on_track";
 }
 
+function getAlertMsg(status: Status, es: boolean): string | null {
+  if (status === "never_started") return es ? "Nunca ingresó al sistema" : "Never logged into the system";
+  if (status === "at_risk") return es ? "Progreso bajo — necesita seguimiento" : "Low progress — needs follow-up";
+  return null;
+}
+
 const STATUS_TONE: Record<Status, "ok" | "brand" | "warning" | "danger"> = {
   completed: "ok",
   on_track: "brand",
@@ -41,8 +46,8 @@ export default function InicioPage() {
   const [ready, setReady] = useState(false);
   const [userName, setUserName] = useState("Cecilia");
   const [programa, setPrograma] = useState<Programa | null>(null);
-  const [agentesData, setAgentesData] = useState<Agente[]>([]);
   const [rows, setRows] = useState<AgentRow[]>([]);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     if (!getToken()) { window.location.href = "/login"; return; }
@@ -55,8 +60,6 @@ export default function InicioPage() {
     if (!ready) return;
     Promise.all([getProgramaCapacitacion(locale), getAgentes()]).then(([p, ag]) => {
       setPrograma(p);
-      setAgentesData(ag);
-      // Join by nombre (best available key)
       const agMap = new Map(ag.map((a) => [`${a.nombre} ${a.apellido ?? ""}`.trim().toLowerCase(), a]));
       const r: AgentRow[] = p.agentes.map((pa) => {
         const match = agMap.get(pa.nombre.toLowerCase()) ?? ag.find((a) => a.nombre.toLowerCase() === pa.nombre.split(" ")[0].toLowerCase());
@@ -76,88 +79,125 @@ export default function InicioPage() {
 
   if (!ready) return <div className="min-h-screen bg-[#f5f7fb]" />;
 
+  const es = locale === "es";
   const total = rows.length;
   const completed = rows.filter((r) => getStatus(r) === "completed").length;
   const atRisk = rows.filter((r) => ["at_risk", "never_started"].includes(getStatus(r))).length;
   const avgPct = total > 0 ? Math.round(rows.reduce((s, r) => s + r.pct, 0) / total) : 0;
 
-  const labelEs = locale === "es";
-  const L = {
-    hello: labelEs ? `¡Hola, ${userName}!` : `Hi, ${userName}!`,
-    subtitle: labelEs ? "Centro de control del onboarding comercial" : "Commercial onboarding control center",
-    kpiTotal: labelEs ? "Agentes en onboarding" : "Agents in onboarding",
-    kpiCompleted: labelEs ? "Completaron el path" : "Completed path",
-    kpiAtRisk: labelEs ? "En riesgo / sin iniciar" : "At risk / not started",
-    kpiAvg: labelEs ? "Progreso promedio" : "Avg. progress",
-    tableTitle: labelEs ? "Progreso por agente" : "Progress by agent",
-    colAgent: labelEs ? "Agente" : "Agent",
-    colStage: labelEs ? "Etapa actual" : "Current stage",
-    colProgress: labelEs ? "Progreso" : "Progress",
-    colFirstClient: labelEs ? "Primer cliente" : "First client",
-    colStatus: labelEs ? "Estado" : "Status",
-    statusLabels: {
-      completed: labelEs ? "Completado" : "Completed",
-      on_track: labelEs ? "En camino" : "On track",
-      at_risk: labelEs ? "En riesgo" : "At risk",
-      never_started: labelEs ? "Sin iniciar" : "Never started",
-    } as Record<Status, string>,
-    firstClientDone: (n: number) => labelEs ? `${n} cierre${n !== 1 ? "s" : ""}` : `${n} close${n !== 1 ? "s" : ""}`,
-    firstClientPending: labelEs ? "Pendiente" : "Pending",
-    sessionsTitle: labelEs ? "Próximas sesiones" : "Upcoming sessions",
-    alertsTitle: labelEs ? "Alertas" : "Alerts",
-    noSessions: labelEs ? "Sin sesiones programadas" : "No sessions scheduled",
-    noAlerts: labelEs ? "Sin alertas" : "No alerts",
-    chatLink: labelEs ? "Hacer una consulta a la IA →" : "Ask the AI →",
-    navAgentes: labelEs ? "Ver directorio de agentes →" : "View agent directory →",
-  };
+  const filteredRows = rows.filter((r) => !search.trim() || r.nombre.toLowerCase().includes(search.toLowerCase()));
 
   const fecha = (s: string | null) => s ? new Date(s).toLocaleDateString(locale, { day: "2-digit", month: "short" }) : "—";
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6 md:px-8">
-      {/* Header */}
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold text-ink">{L.hello} <span className="text-brand">👋</span></h1>
-        <p className="mt-0.5 text-sm text-muted">{L.subtitle}</p>
-        {programa && <p className="mt-0.5 text-xs text-faint">{programa.programa.nombre}</p>}
+
+      {/* ── Header: greeting + program stages ──────────────────────────── */}
+      <header className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        {/* Greeting */}
+        <div className="shrink-0">
+          <h1 className="text-2xl font-bold text-ink">
+            {es ? `¡Hola, ${userName}!` : `Hi, ${userName}!`} <span className="text-brand">👋</span>
+          </h1>
+          <p className="mt-0.5 text-sm text-muted">
+            {es ? "Centro de control del onboarding comercial" : "Commercial onboarding control center"}
+          </p>
+          {programa && <p className="mt-0.5 text-xs text-faint">{programa.programa.nombre}</p>}
+        </div>
+
+        {/* Program stages stepper — compact, right side */}
+        {programa && programa.etapas.length > 0 && (
+          <div className="w-full overflow-x-auto lg:max-w-[520px]">
+            <ol className="flex min-w-max items-start gap-1">
+              {programa.etapas.map((e, i) => {
+                const done = e.pct === 100;
+                const active = !done && e.en_curso > 0;
+                return (
+                  <li key={e.id} className="flex items-center">
+                    {/* connector line */}
+                    {i > 0 && (
+                      <span className={`mx-1 h-px w-6 shrink-0 ${done ? "bg-ok" : "bg-line"}`} />
+                    )}
+                    <div className="flex flex-col items-center text-center" style={{ minWidth: 72 }}>
+                      <span className={`grid h-8 w-8 place-items-center rounded-full text-xs font-bold ${
+                        done ? "bg-ok text-white" : active ? "bg-brand text-white" : "bg-soft text-faint"
+                      }`}>
+                        {done ? "✓" : e.orden}
+                      </span>
+                      <p className="mt-1 max-w-[72px] text-[10px] font-medium leading-tight text-ink">{e.nombre}</p>
+                      <p className={`text-[10px] font-bold ${done ? "text-ok" : active ? "text-brand" : "text-faint"}`}>
+                        {e.pct}%
+                      </p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+        )}
       </header>
 
-      {/* KPIs */}
+      {/* ── KPIs ───────────────────────────────────────────────────────── */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Card className="border-t-[3px] border-t-brand p-4">
           <p className="text-2xl font-bold text-brand">{total}</p>
-          <p className="mt-1 text-xs text-muted">{L.kpiTotal}</p>
+          <p className="mt-1 text-xs text-muted">{es ? "Agentes en onboarding" : "Agents in onboarding"}</p>
         </Card>
         <Card className="border-t-[3px] border-t-ok p-4">
           <p className="text-2xl font-bold text-ok">{completed}</p>
-          <p className="mt-1 text-xs text-muted">{L.kpiCompleted}</p>
+          <p className="mt-1 text-xs text-muted">{es ? "Completaron el path" : "Completed path"}</p>
         </Card>
         <Card className="border-t-[3px] border-t-danger p-4">
           <p className="text-2xl font-bold text-danger">{atRisk}</p>
-          <p className="mt-1 text-xs text-muted">{L.kpiAtRisk}</p>
+          <p className="mt-1 text-xs text-muted">{es ? "En riesgo / sin iniciar" : "At risk / not started"}</p>
         </Card>
         <Card className="border-t-[3px] border-t-warning p-4">
           <p className="text-2xl font-bold text-warning">{avgPct}%</p>
-          <p className="mt-1 text-xs text-muted">{L.kpiAvg}</p>
+          <p className="mt-1 text-xs text-muted">{es ? "Progreso promedio" : "Avg. progress"}</p>
         </Card>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[1fr_280px]">
-        {/* Main: agent progress table */}
-        <div className="space-y-5">
-          <Card className="overflow-hidden p-0">
-            <div className="border-b border-line px-5 py-3">
-              <h2 className="text-sm font-bold uppercase tracking-wide text-brand">👥 {L.tableTitle}</h2>
+      <div className="grid gap-5 lg:grid-cols-[1fr_260px]">
+
+        {/* ── Agent progress table ─────────────────────────────────────── */}
+        <Card className="overflow-hidden p-0">
+          {/* Table header + search */}
+          <div className="flex flex-col gap-2 border-b border-line px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-brand">
+              👥 {es ? "Progreso por agente" : "Progress by agent"}
+            </h2>
+            <div className="relative w-full sm:w-56">
+              <svg className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" strokeLinecap="round" />
+              </svg>
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={es ? "Buscar agente…" : "Search agent…"}
+                className="w-full rounded-lg border border-line bg-soft py-1.5 pl-8 pr-8 text-xs text-ink placeholder:text-faint focus:border-brand focus:outline-none"
+              />
+              {search && (
+                <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-ink text-xs">✕</button>
+              )}
             </div>
-            {rows.length === 0 && (
-              <div className="px-5 py-8 text-center text-sm text-muted">…</div>
-            )}
-            <ul className="divide-y divide-line">
-              {rows.map((row) => {
-                const status = getStatus(row);
-                return (
-                  <li key={row.nombre} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:gap-4">
-                    {/* Avatar + name */}
+          </div>
+
+          {rows.length === 0 && <div className="px-5 py-8 text-center text-sm text-muted">…</div>}
+
+          {filteredRows.length === 0 && search && (
+            <div className="px-5 py-6 text-center text-sm text-muted">
+              {es ? `Sin resultados para "${search}"` : `No results for "${search}"`}
+            </div>
+          )}
+
+          <ul className="divide-y divide-line">
+            {filteredRows.map((row) => {
+              const status = getStatus(row);
+              const alertMsg = getAlertMsg(status, es);
+              return (
+                <li key={row.nombre} className={`px-5 py-3.5 ${alertMsg ? "bg-amber-50/40" : ""}`}>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+                    {/* Avatar + name + phone */}
                     <div className="flex min-w-0 items-center gap-3 sm:w-44">
                       <Avatar name={row.nombre} />
                       <div className="min-w-0">
@@ -170,15 +210,19 @@ export default function InicioPage() {
                       </div>
                     </div>
 
-                    {/* Stage */}
+                    {/* Stage + progress bar */}
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-xs text-muted">
-                        {row.etapa_actual ?? (status === "never_started" ? (labelEs ? "Sin iniciar" : "Not started") : (labelEs ? "Finalizado" : "Finished"))}
+                        {row.etapa_actual ?? (status === "never_started"
+                          ? (es ? "Sin iniciar" : "Not started")
+                          : (es ? "Finalizado" : "Finished"))}
                       </p>
                       <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-soft">
                         <div
                           className={`h-full rounded-full transition-all ${
-                            status === "completed" ? "bg-ok" : status === "at_risk" || status === "never_started" ? "bg-warning" : "bg-brand"
+                            status === "completed" ? "bg-ok"
+                            : status === "at_risk" || status === "never_started" ? "bg-warning"
+                            : "bg-brand"
                           }`}
                           style={{ width: `${row.pct}%` }}
                         />
@@ -189,111 +233,91 @@ export default function InicioPage() {
                     {/* First client */}
                     <div className="w-24 shrink-0 text-right">
                       {row.cerrados > 0 ? (
-                        <span className="text-xs font-semibold text-ok">{L.firstClientDone(row.cerrados)}</span>
+                        <span className="text-xs font-semibold text-ok">
+                          {es ? `${row.cerrados} cierre${row.cerrados !== 1 ? "s" : ""}` : `${row.cerrados} close${row.cerrados !== 1 ? "s" : ""}`}
+                        </span>
                       ) : (
-                        <span className="text-xs text-faint">{L.firstClientPending}</span>
+                        <span className="text-xs text-faint">{es ? "Pendiente" : "Pending"}</span>
                       )}
-                      <p className="text-[10px] text-faint">{L.colFirstClient}</p>
+                      <p className="text-[10px] text-faint">{es ? "Primer cliente" : "First client"}</p>
                     </div>
 
                     {/* Status badge */}
                     <div className="shrink-0">
-                      <Badge tone={STATUS_TONE[status]}>{L.statusLabels[status]}</Badge>
+                      <Badge tone={STATUS_TONE[status]}>
+                        {status === "completed" ? (es ? "Completado" : "Completed")
+                          : status === "on_track" ? (es ? "En camino" : "On track")
+                          : status === "at_risk" ? (es ? "En riesgo" : "At risk")
+                          : (es ? "Sin iniciar" : "Never started")}
+                      </Badge>
                     </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </Card>
+                  </div>
 
-          {/* Stage stepper */}
-          {programa && programa.etapas.length > 0 && (
-            <Card className="p-5">
-              <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-brand">
-                {labelEs ? "Etapas del programa" : "Program stages"}
-              </h2>
-              <ol className="flex gap-2 overflow-x-auto pb-1">
-                {programa.etapas.map((e, i) => {
-                  const done = e.pct === 100;
+                  {/* Inline alert — only for at-risk / never started */}
+                  {alertMsg && (
+                    <div className="mt-2 flex items-center gap-1.5 rounded-md border border-warning/30 bg-amber-50 px-2.5 py-1.5">
+                      <span className="text-xs">⚠️</span>
+                      <span className="text-xs text-amber-700">{alertMsg}</span>
+                      {row.celular && (
+                        <a href={`tel:${row.celular}`}
+                          className="ml-auto shrink-0 rounded bg-warning px-2 py-0.5 text-[10px] font-bold text-white hover:opacity-90">
+                          {es ? "Llamar" : "Call"}
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+
+        {/* ── Sidebar ──────────────────────────────────────────────────── */}
+        <aside className="space-y-4">
+          {/* Upcoming sessions + session alerts */}
+          <Card className="p-4">
+            <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-brand">📅 {es ? "Próximas sesiones" : "Upcoming sessions"}</h2>
+            {programa && programa.calendario.length > 0 ? (
+              <ul className="space-y-2">
+                {programa.calendario.slice(0, 5).map((k) => {
+                  const hasAlert = programa.alertas.some((a) => a.titulo.toLowerCase().includes(k.nombre.toLowerCase()));
                   return (
-                    <li key={e.id} className="flex min-w-[120px] flex-1 flex-col items-center text-center">
-                      <div className="flex w-full items-center">
-                        <span className={`h-0.5 flex-1 ${i === 0 ? "bg-transparent" : done ? "bg-ok" : "bg-line"}`} />
-                        <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-bold ${
-                          done ? "bg-ok text-white" : e.en_curso > 0 ? "bg-brand text-white" : "bg-soft text-faint"
-                        }`}>
-                          {done ? "✓" : e.orden}
-                        </span>
-                        <span className={`h-0.5 flex-1 ${i === programa.etapas.length - 1 ? "bg-transparent" : done ? "bg-ok" : "bg-line"}`} />
+                    <li key={k.id} className={`flex items-center gap-2.5 rounded-lg border px-3 py-2 ${hasAlert ? "border-warning/40 bg-amber-50" : "border-line"}`}>
+                      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-soft text-center">
+                        <span className="text-[10px] font-bold leading-tight text-brand">{fecha(k.fecha)}</span>
                       </div>
-                      <p className="mt-2 text-xs font-semibold text-ink">{e.nombre}</p>
-                      <p className="text-[11px] text-muted">{e.completados}/{e.completados + e.en_curso + e.pendientes} · {e.pct}%</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-semibold text-ink">{k.nombre}</p>
+                        <p className="text-[11px] text-muted">
+                          👥 {k.asistentes > 0 ? k.asistentes : (es ? "Sin confirmados ⚠️" : "No attendees ⚠️")}
+                        </p>
+                      </div>
                     </li>
                   );
                 })}
-              </ol>
-            </Card>
-          )}
-        </div>
-
-        {/* Sidebar */}
-        <aside className="space-y-4">
-          {/* Upcoming sessions */}
-          <Card className="p-4">
-            <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-brand">📅 {L.sessionsTitle}</h2>
-            {programa && programa.calendario.length > 0 ? (
-              <ul className="space-y-2">
-                {programa.calendario.slice(0, 5).map((k) => (
-                  <li key={k.id} className="flex items-center gap-2.5 rounded-lg border border-line px-3 py-2">
-                    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-soft text-center">
-                      <span className="text-[10px] font-bold leading-tight text-brand">{fecha(k.fecha)}</span>
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-xs font-semibold text-ink">{k.nombre}</p>
-                      <p className="text-[11px] text-muted">👥 {k.asistentes}</p>
-                    </div>
-                  </li>
-                ))}
               </ul>
             ) : (
-              <p className="text-sm text-muted">{L.noSessions}</p>
+              <p className="text-sm text-muted">{es ? "Sin sesiones programadas" : "No sessions scheduled"}</p>
             )}
             <Link href="/reuniones" className="mt-3 block text-xs font-semibold text-brand hover:underline">
-              {labelEs ? "Ver reuniones →" : "View meetings →"}
+              {es ? "Ver reuniones →" : "View meetings →"}
             </Link>
-          </Card>
-
-          {/* Alerts */}
-          <Card className="p-4">
-            <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-warning">🔔 {L.alertsTitle}</h2>
-            {programa && programa.alertas.length > 0 ? (
-              <ul className="space-y-2">
-                {programa.alertas.map((a, i) => (
-                  <li key={i} className="rounded-lg border border-line border-l-4 border-l-warning bg-white px-3 py-2">
-                    <p className="text-xs font-semibold text-ink">{a.titulo}</p>
-                    <p className="text-[11px] text-muted">{a.detalle}</p>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-muted">{L.noAlerts}</p>
-            )}
           </Card>
 
           {/* Quick links */}
           <Card className="p-4">
             <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-brand">
-              {labelEs ? "Accesos rápidos" : "Quick access"}
+              {es ? "Accesos rápidos" : "Quick access"}
             </h2>
             <div className="space-y-2">
               <Link href="/chat" className="flex items-center gap-2 rounded-lg bg-brand-soft px-3 py-2.5 text-sm font-semibold text-brand hover:opacity-90">
-                💬 {L.chatLink}
+                💬 {es ? "Hacer una consulta a la IA →" : "Ask the AI →"}
               </Link>
               <Link href="/agentes" className="flex items-center gap-2 rounded-lg bg-soft px-3 py-2.5 text-sm font-medium text-muted hover:bg-line">
-                👥 {L.navAgentes}
+                👥 {es ? "Ver directorio de agentes →" : "View agent directory →"}
               </Link>
               <Link href="/simulador" className="flex items-center gap-2 rounded-lg bg-soft px-3 py-2.5 text-sm font-medium text-muted hover:bg-line">
-                🎯 {labelEs ? "Ir al simulador →" : "Open simulator →"}
+                🎯 {es ? "Ir al simulador →" : "Open simulator →"}
               </Link>
             </div>
           </Card>
