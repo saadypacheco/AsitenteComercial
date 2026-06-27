@@ -9,13 +9,15 @@ import { useLocale } from "@/lib/locale-context";
 import { askAi } from "@/lib/queries/executive";
 
 // Rutas del menú: 5 secciones enfocadas en el seguimiento del onboarding comercial.
-type NavKey = "inicio" | "agentes" | "reuniones" | "simulador" | "ajustes";
+type NavKey = "inicio" | "conocimiento" | "agentes" | "reuniones" | "simulador" | "ajustes" | "paraCecilia";
 const NAV: { key: NavKey; href: string; icon: string }[] = [
-  { key: "inicio",    href: "/inicio",    icon: "🏠" },
-  { key: "agentes",   href: "/agentes",   icon: "👥" },
-  { key: "reuniones", href: "/reuniones", icon: "📹" },
-  { key: "simulador", href: "/simulador", icon: "🎯" },
-  { key: "ajustes",   href: "/ajustes",   icon: "⚙️" },
+  { key: "inicio",       href: "/inicio",        icon: "🏠" },
+  { key: "conocimiento", href: "/conocimiento",  icon: "🧠" },
+  { key: "agentes",      href: "/agentes",       icon: "👥" },
+  { key: "reuniones",    href: "/reuniones",     icon: "📹" },
+  { key: "simulador",    href: "/simulador",     icon: "🎯" },
+  { key: "ajustes",      href: "/ajustes",       icon: "⚙️" },
+  { key: "paraCecilia",  href: "/para-cecilia",  icon: "🌟" },
 ];
 
 type Msg = { role: "user" | "ai"; text: string };

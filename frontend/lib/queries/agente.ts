@@ -128,6 +128,23 @@ export async function simChat(mensaje: string, scenario: string, historia: SimMs
 }
 
 
+// ── Contenido de onboarding por etapa ────────────────────────────────────────
+export type OnboardingItem = {
+  id: string;
+  tipo: "text" | "audio" | "video" | "image" | "document";
+  cuerpo: string | null;
+  media_url: string | null;
+  storage_path: string | null;
+  created_at: string;
+  etapa_nombre: string;
+};
+
+export async function getRutaContenido(etapa_id: string, lang = "es"): Promise<OnboardingItem[]> {
+  const res = await authFetch(`/agente/ruta/contenido?etapa_id=${etapa_id}&lang=${lang}`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
 // ── Notificaciones del agente ─────────────────────────────────────────────────
 export type AgenteNotif = {
   id: string;

@@ -7,7 +7,7 @@ import { Avatar, Badge } from "@/components/executive";
 import { Card } from "@/components/ui";
 import { getUser, logout, type SessionUser } from "@/lib/auth";
 import { useLocale } from "@/lib/locale-context";
-import { getBriefingConfig, getConfigStatus, previewBriefing, saveBriefingConfig, sendBriefingNow, type BriefingConfig, type ConfigStatus } from "@/lib/queries/executive";
+import { getBriefingConfig, getConfigStatus, getOnboardingGroup, previewBriefing, saveBriefingConfig, sendBriefingNow, setOnboardingGroup, type BriefingConfig, type ConfigStatus, type OnboardingGroupConfig } from "@/lib/queries/executive";
 
 export default function AjustesPage() {
   const { locale, setLocale, t: dict } = useLocale();
@@ -20,10 +20,15 @@ export default function AjustesPage() {
   const [preview, setPreview] = useState<string | null>(null);
   const [sentModo, setSentModo] = useState<string | null>(null);
 
+  const [ogCfg, setOgCfg] = useState<OnboardingGroupConfig | null>(null);
+  const [ogSelected, setOgSelected] = useState<string>("");
+  const [ogSaved, setOgSaved] = useState(false);
+
   useEffect(() => {
     setUser(getUser());
     getConfigStatus().then(setCfg).catch(() => setCfg(null));
     getBriefingConfig().then(setBf).catch(() => setBf(null));
+    getOnboardingGroup().then((d) => { setOgCfg(d); setOgSelected(d.current ?? ""); }).catch(() => {});
   }, []);
 
   useEffect(() => { setPreview(null); }, [locale]);
@@ -37,6 +42,13 @@ export default function AjustesPage() {
   async function verPreview() {
     setPreview((await previewBriefing(locale).catch(() => ({ texto: "—" }))).texto);
   }
+  async function guardarGrupoOnboarding() {
+    await setOnboardingGroup(ogSelected || null).catch(() => {});
+    setOgCfg((prev) => prev ? { ...prev, current: ogSelected || null } : prev);
+    setOgSaved(true);
+    setTimeout(() => setOgSaved(false), 2000);
+  }
+
   async function enviarPrueba() {
     const r = await sendBriefingNow(locale).catch(() => ({ texto: "", modo: "error", ok: false, jid: null }));
     setPreview(r.texto || preview);
@@ -144,6 +156,37 @@ export default function AjustesPage() {
           {preview && (
             <pre className="mt-4 whitespace-pre-wrap rounded-xl bg-soft p-4 text-sm text-ink2">{preview}</pre>
           )}
+        </Card>
+      )}
+
+      {/* Canal WhatsApp de onboarding */}
+      {ogCfg && (
+        <Card className="mb-4 p-5">
+          <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-brand">📲 {t.onboardingGroup}</h2>
+          <p className="mb-4 text-xs text-faint">{t.onboardingGroupHint}</p>
+
+          <label className="mb-1 block text-xs font-semibold text-muted">{t.onboardingGroupLabel}</label>
+          <select
+            value={ogSelected}
+            onChange={(e) => setOgSelected(e.target.value)}
+            className="mb-3 w-full rounded-lg bg-soft px-3 py-2.5 text-sm text-ink focus:outline-none"
+          >
+            <option value="">{t.onboardingGroupNone}</option>
+            {ogCfg.groups.map((g) => (
+              <option key={g.id} value={g.id}>{g.nombre}</option>
+            ))}
+          </select>
+
+          <div className="flex items-center gap-2">
+            <button onClick={guardarGrupoOnboarding} className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:opacity-90">
+              {ogSaved ? t.onboardingGroupSaved : t.onboardingGroupSave}
+            </button>
+            {ogSelected && (
+              <button onClick={() => { setOgSelected(""); }} className="rounded-lg border border-line px-4 py-2 text-sm font-semibold text-muted hover:bg-soft">
+                {t.onboardingGroupRemove}
+              </button>
+            )}
+          </div>
         </Card>
       )}
 

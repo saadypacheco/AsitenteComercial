@@ -92,10 +92,11 @@ export const es = {
     nivelMedio: "Medio",
     nivelBajo: "Bajo",
     nav: {
-      inicio: "Inicio", acciones: "Acciones", mensajes: "Mensajes", grupos: "Grupos", eventos: "Eventos",
+      inicio: "Progreso", acciones: "Acciones", mensajes: "Mensajes", grupos: "Grupos", eventos: "Eventos",
       pendientes: "Pendientes", clientes: "Clientes", oportunidades: "Oportunidades", agentes: "Agentes",
-      capacitaciones: "Capacitaciones", reuniones: "Reuniones", reportes: "Reportes", iaInsights: "IA Insights",
-      ajustes: "Ajustes", simulador: "Simulador", chat: "Chat IA",
+      capacitaciones: "Capacitaciones", reuniones: "Capacitaciones", reportes: "Reportes", iaInsights: "IA Insights",
+      ajustes: "Ajustes", simulador: "Entrenamiento", chat: "Chat IA", conocimiento: "Memoria",
+      paraCecilia: "Tu Guía",
     },
     chips: {
       mensajes: "Mensajes", audios: "Audios", imagenes: "Imágenes", personas: "Personas",
@@ -238,6 +239,13 @@ export const es = {
     briefingPreview: "Vista previa",
     briefingSend: "Enviar prueba ahora",
     briefingSent: "Enviado",
+    onboardingGroup: "Grupo WhatsApp de onboarding",
+    onboardingGroupHint: "Los mensajes que Cecilia envíe a este grupo se publicarán automáticamente en el programa de capacitación.",
+    onboardingGroupLabel: "Grupo activo",
+    onboardingGroupNone: "Ninguno (sin configurar)",
+    onboardingGroupSave: "Guardar grupo",
+    onboardingGroupSaved: "Grupo guardado ✓",
+    onboardingGroupRemove: "Quitar grupo",
   },
   reportes: {
     weeklyActivity: "Actividad semanal",
@@ -317,8 +325,8 @@ export const es = {
     startBtn: "Comenzar",
   },
   login: {
-    brand: "Asistente",                    // sidebar
-    loginBrand: "Tu Asistente Personal",   // hero del login
+    brand: "Execally",                     // sidebar
+    loginBrand: "Execally",                // hero del login
     welcome: "Bienvenidos,",
     heroName: "equipo de líderes",
     heroText:

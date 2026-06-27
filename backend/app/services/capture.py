@@ -16,6 +16,7 @@ import structlog
 from app.db.repository import CaptureRepo, get_capture_repo
 from app.models.waha import NON_PROCESSED_TYPES, WahaEvent, WahaMessagePayload
 from app.services import queue
+from app.services import onboarding_ingest
 
 logger = structlog.get_logger()
 
@@ -114,6 +115,23 @@ def _handle_new_message(event: WahaEvent, tenant_id: str, repo: CaptureRepo) -> 
     queue.enqueue(message_id=message_id, tenant_id=tenant_id)
 
     logger.info("capture.message", wa_message_id=payload.id, type=payload.type, chat=payload.chat_id)
+
+    # Canal de onboarding: si el mensaje viene del grupo designado por el tenant,
+    # lanzar el pipeline de clasificación y publicación (no bloquea la captura).
+    try:
+        onboarding_chat = onboarding_ingest.get_tenant_onboarding_chat(tenant_id)
+        if onboarding_chat and payload.chat_id == onboarding_chat and not payload.from_me:
+            onboarding_ingest.process_onboarding_message(
+                tenant_id=tenant_id,
+                message_id=message_id,
+                tipo=payload.type,
+                body=payload.text,
+                media_url=payload.raw.get("mediaUrl") if payload.has_media else None,
+                mime_type=payload.mime_type,
+            )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("capture.onboarding_ingest_error", error=str(exc))
+
     return {"captured": True, "duplicate": False, "wa_message_id": payload.id, "message_id": message_id}
 
 

@@ -194,6 +194,26 @@ export async function askAi(question: string, lang = "es"): Promise<{ answer: st
   return res.json();
 }
 
+// ── Canal WhatsApp de onboarding ─────────────────────────────────────────────
+export type OnboardingGroup = { id: string; nombre: string };
+export type OnboardingGroupConfig = { current: string | null; groups: OnboardingGroup[] };
+
+export async function getOnboardingGroup(): Promise<OnboardingGroupConfig> {
+  const res = await authFetch("/gestion/ajustes/onboarding-group");
+  if (!res.ok) throw new Error(`onboarding-group: ${res.status}`);
+  return res.json();
+}
+
+export async function setOnboardingGroup(wa_chat_id: string | null): Promise<{ ok: boolean }> {
+  const res = await authFetch("/gestion/ajustes/onboarding-group", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ wa_chat_id }),
+  });
+  if (!res.ok) throw new Error(`onboarding-group set: ${res.status}`);
+  return res.json();
+}
+
 export async function search(q: string, tipo: string): Promise<SearchHit[]> {
   const qs = new URLSearchParams({ q, tipo }).toString();
   const res = await authFetch(`/dashboard/search?${qs}`);

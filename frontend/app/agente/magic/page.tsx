@@ -24,7 +24,7 @@ export default function AgenteMagicPage() {
       <div className="w-full max-w-xs rounded-3xl bg-white p-8 shadow-card-lg">
         <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-2xl bg-brand text-lg text-white">🎓</div>
         {status === "verifying" ? (
-          <p className="text-sm text-muted">{t.verifying}</p>
+          <p className="text-sm text-muted" suppressHydrationWarning>{t.verifying}</p>
         ) : (
           <>
             <p className="mb-4 text-sm text-danger">{t.invalid}</p>

@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Asistente",
-  description: "Inteligencia comercial sobre WhatsApp",
+  title: "Execally",
+  description: "Commercial intelligence on WhatsApp",
 };
 
 // Mobile-first: la pantalla chica es el caso base (Principio VI).

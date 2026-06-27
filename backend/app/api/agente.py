@@ -99,6 +99,25 @@ def agente_ruta(ctx: dict = Depends(authcore.require_agent), lang: str = "es") -
     return _ruta(ctx["agente_id"], ctx["tenant_id"], lang == "en")
 
 
+@router.get("/agente/ruta/contenido")
+def agente_ruta_contenido(etapa_id: str, ctx: dict = Depends(authcore.require_agent), lang: str = "es") -> list:
+    """Contenido de onboarding publicado en una etapa (texto, audio, video).
+    Solo devuelve contenido del tenant del agente; el agente no puede ver etapas
+    de otros tenants."""
+    en = lang == "en"
+    nombre_e = "coalesce(e.nombre_en, e.nombre)" if en else "e.nombre"
+    tenant = ctx["tenant_id"]
+    return _rows(
+        f"select oc.id, oc.tipo, oc.cuerpo, oc.media_url, oc.storage_path, oc.created_at, "
+        f"{nombre_e} as etapa_nombre "
+        "from onboarding_contenido oc "
+        "join capacitacion_etapas e on e.id = oc.etapa_id "
+        "where oc.tenant_id = %s and oc.etapa_id = %s::uuid and oc.publicado = true "
+        "order by oc.created_at asc",
+        (tenant, etapa_id),
+    )
+
+
 @router.post("/agente/ruta/avanzar")
 def agente_avanzar(ctx: dict = Depends(authcore.require_agent)) -> dict:
     """Completa la etapa en curso y abre la siguiente (idempotente por etapa)."""

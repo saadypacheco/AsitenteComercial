@@ -8,8 +8,8 @@ import { Fragment, useEffect, useState } from "react";
 import { getUser, logout, requireAgent } from "@/lib/auth";
 import { useLocale } from "@/lib/locale-context";
 import {
-  askCoach, avanzar, getAgenda, getAgenteNotificaciones, getJourney, getMe, getRanking, getRuta, marcarAgenteNotifLeida, simChat,
-  type AgenteMe, type AgenteNotif, type CoachResp, type Journey, type Mission, type RankItem, type Ruta, type Sesion, type SimMsg,
+  askCoach, avanzar, getAgenda, getAgenteNotificaciones, getJourney, getMe, getRanking, getRuta, getRutaContenido, marcarAgenteNotifLeida, simChat,
+  type AgenteMe, type AgenteNotif, type CoachResp, type Journey, type Mission, type OnboardingItem, type RankItem, type Ruta, type Sesion, type SimMsg,
 } from "@/lib/queries/agente";
 
 type Tab = "hoy" | "agenda" | "ruta" | "progreso" | "logros" | "simular" | "novedades";
@@ -44,6 +44,8 @@ export default function AgentePage() {
   const [simResp, setSimResp] = useState<{ cliente: string; feedback: string; terminado: boolean } | null>(null);
   const [simBusy, setSimBusy] = useState(false);
   const [notifs, setNotifs] = useState<AgenteNotif[]>([]);
+  const [etapaAbierta, setEtapaAbierta] = useState<string | null>(null);
+  const [etapaContenido, setEtapaContenido] = useState<Record<string, OnboardingItem[]>>({});
 
   function reload() {
     getRuta(locale).then(setRuta).catch(() => setRuta(null));
@@ -173,15 +175,15 @@ export default function AgentePage() {
                   tab === x.k
                     ? "bg-[#38BDF8] text-white shadow-[0_4px_12px_-2px_rgba(56,189,248,0.35)]"
                     : "text-[#64748B] hover:bg-[#E2E8F0] hover:text-[#1E293B]"}`}>
-                <span className="text-lg">{x.ic}</span>{x.label}
+                <span className="text-lg">{x.ic}</span><span suppressHydrationWarning>{x.label}</span>
                 {x.badge ? (
                   <span className="ml-auto rounded-full bg-[#FB923C] px-2 py-0.5 text-[9px] font-bold text-white">{x.badge}</span>
                 ) : null}
               </button>
             ))}
             <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#94A3B8]">
-              <span className="text-lg">🛍️</span>{t.store}
-              <span className="ml-auto rounded-full bg-[#FB923C] px-2 py-0.5 text-[9px] font-bold text-white">{t.soon}</span>
+              <span className="text-lg">🛍️</span><span suppressHydrationWarning>{t.store}</span>
+              <span className="ml-auto rounded-full bg-[#FB923C] px-2 py-0.5 text-[9px] font-bold text-white" suppressHydrationWarning>{t.soon}</span>
             </div>
           </nav>
 
@@ -407,6 +409,19 @@ export default function AgentePage() {
                     {ruta.etapas.map((e) => {
                       const done = e.estado === "completado";
                       const active = e.estado === "en_curso";
+                      const abierta = etapaAbierta === e.id;
+                      const contenido = etapaContenido[e.id] ?? [];
+                      const canOpen = done || active;
+                      const toggleEtapa = () => {
+                        if (!canOpen) return;
+                        if (abierta) { setEtapaAbierta(null); return; }
+                        setEtapaAbierta(e.id);
+                        if (!etapaContenido[e.id]) {
+                          getRutaContenido(e.id, locale).then((items) =>
+                            setEtapaContenido((prev) => ({ ...prev, [e.id]: items }))
+                          );
+                        }
+                      };
                       return (
                         <li key={e.id} className="relative">
                           <span className={`absolute -left-10 top-1 grid h-9 w-9 place-items-center rounded-2xl text-sm font-black ${
@@ -417,22 +432,61 @@ export default function AgentePage() {
                               : "bg-[#CBD5E1] text-white"}`}>
                             {done ? "✓" : e.orden}
                           </span>
-                          <div className={`rounded-xl border p-3.5 ${
-                            active ? "border-[#38BDF8]/30 bg-[#F0F9FF]"
-                            : done ? "border-[#34D399]/20 bg-[#F0FDF4]"
-                            : "border-[#E2E8F0] bg-[#F8FAFC]"} ${e.estado === "pendiente" ? "opacity-60" : ""}`}>
-                            <p className="text-sm font-bold text-[#1E293B]">{stepWord(e.orden)} · {e.nombre}</p>
+                          <div
+                            className={`rounded-xl border p-3.5 ${
+                              active ? "border-[#38BDF8]/30 bg-[#F0F9FF]"
+                              : done ? "border-[#34D399]/20 bg-[#F0FDF4]"
+                              : "border-[#E2E8F0] bg-[#F8FAFC]"} ${e.estado === "pendiente" ? "opacity-60" : ""} ${canOpen ? "cursor-pointer" : ""}`}
+                            onClick={toggleEtapa}>
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm font-bold text-[#1E293B]">{stepWord(e.orden)} · {e.nombre}</p>
+                              {canOpen && <span className="text-xs text-[#94A3B8]">{abierta ? "▲" : "▼"}</span>}
+                            </div>
                             {e.descripcion && <p className="mt-0.5 text-xs text-[#64748B]">{e.descripcion}</p>}
                             <p className={`mt-1 text-[11px] font-bold ${done ? "text-[#059669]" : active ? "text-[#0284C7]" : "text-[#94A3B8]"}`}>
                               {done ? t.completedLabel : active ? t.currentLabel : t.lockedLabel}
                             </p>
                             {active && (
-                              <button onClick={siguiente} disabled={busy}
+                              <button onClick={(ev) => { ev.stopPropagation(); siguiente(); }} disabled={busy}
                                 className={`mt-2 w-full ${BTN_PRIMARY} disabled:opacity-50`}>
                                 {busy ? "…" : `✓ ${t.completeBtn}`}
                               </button>
                             )}
                           </div>
+                          {abierta && (
+                            <div className="mt-2 space-y-2 pl-1">
+                              {contenido.length === 0 ? (
+                                <p className="text-xs text-[#94A3B8] italic">
+                                  {locale === "es" ? "Sin contenido publicado aún." : "No content published yet."}
+                                </p>
+                              ) : contenido.map((item) => (
+                                <div key={item.id} className="rounded-xl border border-[#E2E8F0] bg-white p-3">
+                                  {item.tipo === "text" && item.cuerpo && (
+                                    <p className="text-sm text-[#1E293B] whitespace-pre-wrap">{item.cuerpo}</p>
+                                  )}
+                                  {item.tipo === "audio" && item.media_url && (
+                                    <audio controls src={item.media_url} className="w-full" />
+                                  )}
+                                  {item.tipo === "video" && item.media_url && (
+                                    <video controls src={item.media_url} className="w-full rounded-lg" />
+                                  )}
+                                  {item.tipo === "image" && item.media_url && (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src={item.media_url} alt="" className="w-full rounded-lg" />
+                                  )}
+                                  {(item.tipo === "document") && item.media_url && (
+                                    <a href={item.media_url} target="_blank" rel="noreferrer"
+                                      className="flex items-center gap-1 text-sm font-semibold text-[#0284C7]">
+                                      📄 {locale === "es" ? "Ver documento" : "View document"}
+                                    </a>
+                                  )}
+                                  {item.cuerpo && item.tipo !== "text" && (
+                                    <p className="mt-1 text-xs text-[#64748B]">{item.cuerpo}</p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </li>
                       );
                     })}

@@ -80,7 +80,15 @@ def list_agentes(ctx: dict = Depends(view_ctx)) -> list:
         " from etapa_progreso ep where ep.agente_id = a.id) as pct_onboarding, "
         "(select ce.nombre from etapa_progreso ep "
         " join capacitacion_etapas ce on ce.id = ep.etapa_id "
-        " where ep.agente_id = a.id and ep.estado = 'en_curso' limit 1) as etapa_actual "
+        " where ep.agente_id = a.id and ep.estado = 'en_curso' limit 1) as etapa_actual, "
+        # simulador
+        "(select count(*)::int from simulaciones sim "
+        " where sim.agente_id = a.id and sim.tenant_id = a.tenant_id) as total_simulaciones, "
+        "(select round(avg(sim.puntaje))::int from simulaciones sim "
+        " where sim.agente_id = a.id and sim.tenant_id = a.tenant_id) as puntaje_simulador, "
+        "(select sim.escenario from simulaciones sim "
+        " where sim.agente_id = a.id and sim.tenant_id = a.tenant_id "
+        " group by sim.escenario order by count(*) desc limit 1) as escenario_favorito "
         "from agentes a left join agentes s on s.id = a.superior_id "
         f"where a.tenant_id = %s and a.estado <> 'baja'{sc} "
         "order by a.nombre, a.apellido",
@@ -639,3 +647,257 @@ def lider_onboarding_completar(user: dict = Depends(current_user)) -> dict:
         (user_id,),
     )
     return {"ok": True}
+
+
+# ── Simulador ─────────────────────────────────────────────────────────────────
+
+@router.get("/gestion/simulador")
+def get_simulador_stats(lang: str = "es", ctx: dict = Depends(view_ctx)) -> dict:
+    tid = ctx["tenant_id"]
+    nombre_col = "nombre_es" if lang != "en" else "nombre_en"
+
+    # Totales globales + total de agentes activos
+    totals = _rows(
+        "select "
+        "(select count(*)::int from agentes where tenant_id=%s and estado<>'baja') as total_agentes, "
+        "(select count(distinct agente_id)::int from simulaciones where tenant_id=%s) as agentes_usaron, "
+        "(select count(*)::int from simulaciones where tenant_id=%s) as total_simulaciones, "
+        "(select round(avg(puntaje))::int from simulaciones where tenant_id=%s) as puntaje_promedio",
+        (tid, tid, tid, tid),
+    )
+    t = totals[0] if totals else {}
+    total_ag = t.get("total_agentes") or 0
+    usaron = t.get("agentes_usaron") or 0
+
+    # Escenarios con stats + % adopción
+    escenarios = _rows(
+        f"select e.clave, e.{nombre_col} as nombre, e.activo, "
+        "count(s.id)::int as total_usos, "
+        "round(avg(s.puntaje))::int as puntaje_promedio, "
+        "count(distinct s.agente_id)::int as agentes_usaron "
+        "from escenarios_simulador e "
+        "left join simulaciones s on s.escenario = e.clave and s.tenant_id = %s "
+        "where e.tenant_id = %s "
+        "group by e.id, e.clave, e.activo "
+        "order by e.activo desc, puntaje_promedio asc nulls last",
+        (tid, tid),
+    )
+
+    # Por agente por escenario: usos, puntaje promedio, último puntaje
+    detalle = _rows(
+        "select s.escenario, a.id as agente_id, "
+        "trim(a.nombre || ' ' || coalesce(a.apellido, '')) as nombre, "
+        "count(s.id)::int as usos, "
+        "round(avg(s.puntaje))::int as puntaje_promedio, "
+        "(select s2.puntaje from simulaciones s2 "
+        " where s2.agente_id = a.id and s2.escenario = s.escenario and s2.tenant_id = %s "
+        " order by s2.created_at desc limit 1) as ultimo_puntaje "
+        "from simulaciones s "
+        "join agentes a on a.id = s.agente_id "
+        "where s.tenant_id = %s "
+        "group by s.escenario, a.id, a.nombre, a.apellido "
+        "order by s.escenario, puntaje_promedio desc nulls last",
+        (tid, tid),
+    )
+
+    # Agentes que NUNCA usaron cada escenario
+    todos_agentes = _rows(
+        "select id, trim(nombre || ' ' || coalesce(apellido,'')) as nombre "
+        "from agentes where tenant_id=%s and estado<>'baja' order by nombre",
+        (tid,),
+    )
+
+    # Agrupar detalle por escenario
+    detalle_by_escenario: dict = {}
+    for row in detalle:
+        clave = row["escenario"]
+        if clave not in detalle_by_escenario:
+            detalle_by_escenario[clave] = []
+        detalle_by_escenario[clave].append(row)
+
+    # Armar respuesta de escenarios
+    agentes_ids_usaron_by_escenario: dict = {
+        e["clave"]: {r["agente_id"] for r in detalle_by_escenario.get(e["clave"], [])}
+        for e in escenarios
+    }
+    escenarios_out = []
+    for e in escenarios:
+        clave = e["clave"]
+        ag_usaron = agentes_ids_usaron_by_escenario.get(clave, set())
+        sin_practica = [a for a in todos_agentes if a["id"] not in ag_usaron]
+        pct_adopcion = round(len(ag_usaron) / total_ag * 100) if total_ag else 0
+        escenarios_out.append({
+            **e,
+            "pct_adopcion": pct_adopcion,
+            "agentes": detalle_by_escenario.get(clave, []),
+            "sin_practica": sin_practica,
+        })
+
+    return {
+        "tasa_uso": round(usaron / total_ag * 100) if total_ag else 0,
+        "agentes_usaron": usaron,
+        "total_agentes": total_ag,
+        "total_simulaciones": t.get("total_simulaciones") or 0,
+        "puntaje_promedio": t.get("puntaje_promedio"),
+        "escenarios": escenarios_out,
+    }
+
+
+@router.get("/gestion/memoria/alertas")
+def get_memoria_alertas(ctx: dict = Depends(view_ctx)) -> dict:
+    tid = ctx["tenant_id"]
+
+    # Pendientes vencidos (fecha límite pasada, sin cerrar)
+    vencidos = _rows(
+        "select p.id, p.titulo, p.prioridad, p.tipo, p.fecha_cierre, "
+        "trim(coalesce(a.nombre,'') || ' ' || coalesce(a.apellido,'')) as agente "
+        "from pendientes p "
+        "left join agentes a on a.id = p.agente_id "
+        "where p.tenant_id=%s and p.estado<>'cerrado' "
+        "and p.fecha_cierre is not null and p.fecha_cierre < now() "
+        "order by p.fecha_cierre asc limit 10",
+        (tid,),
+    )
+
+    # Agentes activos sin ninguna asistencia registrada, con más de 7 días en el sistema
+    sin_actividad = _rows(
+        "select a.id, a.nombre, a.apellido, a.celular, a.created_at "
+        "from agentes a "
+        "where a.tenant_id=%s and a.estado='activo' "
+        "and a.created_at < now() - interval '7 days' "
+        "and not exists ("
+        "  select 1 from capacitacion_asistencia ca "
+        "  join capacitaciones k on k.id = ca.capacitacion_id "
+        "  where ca.agente_id = a.id and k.tenant_id = a.tenant_id and ca.asistio = true"
+        ") "
+        "order by a.created_at asc limit 8",
+        (tid,),
+    )
+
+    # Agentes sin ninguna simulación y más de 14 días en el sistema
+    sin_simulacion = _rows(
+        "select a.id, a.nombre, a.apellido "
+        "from agentes a "
+        "where a.tenant_id=%s and a.estado='activo' "
+        "and a.created_at < now() - interval '14 days' "
+        "and not exists (select 1 from simulaciones s where s.agente_id = a.id and s.tenant_id = a.tenant_id) "
+        "order by a.nombre limit 8",
+        (tid,),
+    )
+
+    # Notificaciones internas sin leer con más de 48h
+    notif = _rows(
+        "select count(*)::int as total from mensajes_internos "
+        "where tenant_id=%s and leido=false and created_at < now() - interval '48 hours'",
+        (tid,),
+    )
+
+    return {
+        "pendientes_vencidos": vencidos,
+        "sin_actividad": sin_actividad,
+        "sin_simulacion": sin_simulacion,
+        "notificaciones_olvidadas": (notif[0]["total"] if notif else 0),
+    }
+
+
+class PatchEscenarioBody(BaseModel):
+    activo: bool
+
+
+@router.patch("/gestion/escenarios/{clave}")
+def patch_escenario(clave: str, body: PatchEscenarioBody, ctx: dict = Depends(view_ctx)) -> dict:
+    tid = ctx["tenant_id"]
+    _exec(
+        "update escenarios_simulador set activo=%s where tenant_id=%s and clave=%s",
+        (body.activo, tid, clave),
+    )
+    return {"ok": True}
+
+
+# ── Mensajería interna masiva ─────────────────────────────────────────────────
+
+class MensajeMasivoBody(BaseModel):
+    agente_ids: list[str]
+    titulo: str
+    cuerpo: str
+    tipo: str = "aviso"
+
+
+@router.post("/gestion/mensajes-internos/masivo")
+def enviar_mensaje_masivo(body: MensajeMasivoBody, ctx: dict = Depends(view_ctx)) -> dict:
+    """Envía un mensaje interno a una lista de agentes del tenant."""
+    tid = ctx["tenant_id"]
+    if not body.agente_ids:
+        return {"ok": True, "enviado_a": 0}
+
+    # Verifica que los agentes pertenezcan al tenant
+    rows = _rows(
+        "select id::text from agentes where tenant_id=%s and id = any(%s::uuid[])",
+        (tid, body.agente_ids),
+    )
+    valid_ids = [r["id"] for r in rows]
+    if not valid_ids:
+        raise HTTPException(status_code=404, detail="No se encontraron agentes válidos")
+
+    for aid in valid_ids:
+        _exec(
+            "insert into mensajes_internos (tenant_id, destinatario_id, tipo, titulo, cuerpo) "
+            "values (%s, %s::uuid, %s, %s, %s)",
+            (tid, aid, body.tipo, body.titulo, body.cuerpo),
+        )
+
+    logger.info("mensajes_internos.masivo", tenant_id=tid, enviado_a=len(valid_ids))
+    return {"ok": True, "enviado_a": len(valid_ids)}
+
+
+# ── Onboarding — canal WhatsApp (ajustes + contenido) ────────────────────────
+
+class OnboardingGroupBody(BaseModel):
+    wa_chat_id: str | None  # null para des-configurar
+
+
+@router.get("/gestion/ajustes/onboarding-group")
+def get_onboarding_group(tenant: str = Depends(require_tenant)) -> dict:
+    """Devuelve el grupo WhatsApp configurado como canal de onboarding + lista
+    de grupos disponibles capturados en la BD."""
+    row = _rows("select onboarding_wa_chat_id from tenants where id = %s", (tenant,))
+    current = row[0]["onboarding_wa_chat_id"] if row else None
+    groups = _rows(
+        "select c.wa_chat_id as id, coalesce(c.name, c.wa_chat_id) as nombre "
+        "from chats c where c.tenant_id = %s and c.type = 'group' "
+        "order by c.name nulls last",
+        (tenant,),
+    )
+    return {"current": current, "groups": groups}
+
+
+@router.patch("/gestion/ajustes/onboarding-group")
+def set_onboarding_group(body: OnboardingGroupBody, tenant: str = Depends(require_tenant)) -> dict:
+    """Designa qué grupo WhatsApp es el canal de onboarding (o lo des-configura)."""
+    _exec(
+        "update tenants set onboarding_wa_chat_id = %s where id = %s",
+        (body.wa_chat_id or None, tenant),
+    )
+    return {"ok": True, "wa_chat_id": body.wa_chat_id}
+
+
+@router.get("/gestion/onboarding/contenido")
+def get_onboarding_contenido(
+    etapa_id: str,
+    tenant: str = Depends(require_tenant),
+    lang: str = "es",
+) -> list:
+    """Contenido publicado en una etapa (texto, audio, video, etc.)
+    ordenado del más reciente al más antiguo."""
+    en = lang == "en"
+    nombre_e = "coalesce(e.nombre_en, e.nombre)" if en else "e.nombre"
+    return _rows(
+        f"select oc.id, oc.tipo, oc.cuerpo, oc.media_url, oc.storage_path, "
+        f"oc.ia_confianza, oc.ia_razon, oc.created_at, "
+        f"{nombre_e} as etapa_nombre "
+        "from onboarding_contenido oc "
+        "join capacitacion_etapas e on e.id = oc.etapa_id "
+        "where oc.tenant_id = %s and oc.etapa_id = %s::uuid and oc.publicado = true "
+        "order by oc.created_at desc",
+        (tenant, etapa_id),
+    )

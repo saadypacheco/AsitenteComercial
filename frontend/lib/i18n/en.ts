@@ -91,7 +91,9 @@ export const en: typeof es = {
       inicio: "Home", acciones: "Actions", mensajes: "Messages", grupos: "Groups", eventos: "Events",
       pendientes: "Pending", clientes: "Clients", oportunidades: "Opportunities", agentes: "Agents",
       capacitaciones: "Training", reuniones: "Meetings", reportes: "Reports", iaInsights: "AI Insights",
-      ajustes: "Settings", simulador: "Simulator", chat: "AI Chat",
+      ajustes: "Settings", simulador: "Practice", chat: "AI Chat", conocimiento: "Memory",
+      inicio: "Progress", reuniones: "Training",
+      paraCecilia: "Your Guide",
     },
     chips: {
       mensajes: "Messages", audios: "Audio", imagenes: "Images", personas: "People",
@@ -234,6 +236,13 @@ export const en: typeof es = {
     briefingPreview: "Preview",
     briefingSend: "Send a test now",
     briefingSent: "Sent",
+    onboardingGroup: "WhatsApp onboarding group",
+    onboardingGroupHint: "Messages Cecilia sends to this group will be automatically published to the onboarding program.",
+    onboardingGroupLabel: "Active group",
+    onboardingGroupNone: "None (not configured)",
+    onboardingGroupSave: "Save group",
+    onboardingGroupSaved: "Group saved ✓",
+    onboardingGroupRemove: "Remove group",
   },
   reportes: {
     weeklyActivity: "Weekly activity",
@@ -313,8 +322,8 @@ export const en: typeof es = {
     startBtn: "Start",
   },
   login: {
-    brand: "Assistant",                    // sidebar
-    loginBrand: "Your Personal Assistant", // login hero
+    brand: "Execally",                     // sidebar
+    loginBrand: "Execally",                // login hero
     welcome: "Welcome,",
     heroName: "leadership team",
     heroText:
