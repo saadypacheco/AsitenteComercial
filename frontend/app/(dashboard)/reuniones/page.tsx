@@ -8,6 +8,8 @@ import { useLocale } from "@/lib/locale-context";
 import {
   getCapacitacionAsistencia,
   getProgramaCapacitacion,
+  patchCapacitacion,
+  syncAsistencia,
   type AsistenciaAgente,
   type CapacitacionAsistencia,
   type Programa,
@@ -309,6 +311,12 @@ export default function ReunionesPage() {
   const [loadingAsistencia, setLoadingAsistencia] = useState(false);
   const [sortAsistencia, setSortAsistencia] = useState<"absent_first" | "present_first">("absent_first");
 
+  // Zoom meeting ID editable
+  const [zoomMeetingId, setZoomMeetingId] = useState("");
+  const [savingZoom, setSavingZoom] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<{ source: string; participantes: number; marcados: number } | null>(null);
+
   function reload() {
     getReuniones().then(setLista).catch(() => setLista([]));
     getReunionsPendientesDifusion().then(setPendientesDifusion).catch(() => setPendientesDifusion([]));
@@ -333,9 +341,31 @@ export default function ReunionesPage() {
   async function loadAsistencia(cid: string) {
     setLoadingAsistencia(true);
     setAsistencia(null);
+    setSyncResult(null);
     const data = await getCapacitacionAsistencia(cid).catch(() => null);
     setAsistencia(data);
+    setZoomMeetingId(data?.capacitacion?.zoom_meeting_id ?? "");
     setLoadingAsistencia(false);
+  }
+
+  async function saveZoomId() {
+    if (!selectedSesionId) return;
+    setSavingZoom(true);
+    await patchCapacitacion(selectedSesionId, { zoom_meeting_id: zoomMeetingId.trim() || null }).catch(() => {});
+    setSavingZoom(false);
+  }
+
+  async function doSync() {
+    if (!selectedSesionId) return;
+    setSyncing(true);
+    setSyncResult(null);
+    const r = await syncAsistencia(selectedSesionId).catch(() => null);
+    if (r) {
+      setSyncResult(r);
+      // Reload attendance data to reflect new values
+      loadAsistencia(selectedSesionId);
+    }
+    setSyncing(false);
   }
 
   function selectSesion(id: string) {
@@ -586,6 +616,43 @@ export default function ReunionesPage() {
                         {es ? "Asistieron primero" : "Present first"}
                       </button>
                     </div>
+                  </div>
+
+                  {/* Panel Zoom Meeting ID */}
+                  <div className="mb-4 rounded-xl border border-line bg-soft/40 px-4 py-3">
+                    <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">
+                      🎥 Zoom Meeting ID
+                    </p>
+                    <div className="flex gap-2">
+                      <input
+                        value={zoomMeetingId}
+                        onChange={(e) => setZoomMeetingId(e.target.value)}
+                        placeholder={es ? "Ej: 123 456 7890" : "e.g. 123 456 7890"}
+                        className="flex-1 rounded-lg border border-line bg-white px-3 py-1.5 text-sm text-ink focus:border-brand focus:outline-none font-mono"
+                      />
+                      <button
+                        onClick={saveZoomId}
+                        disabled={savingZoom}
+                        className="rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-semibold text-muted hover:bg-soft disabled:opacity-50"
+                      >
+                        {savingZoom ? "…" : (es ? "Guardar" : "Save")}
+                      </button>
+                      <button
+                        onClick={doSync}
+                        disabled={syncing || !zoomMeetingId.trim()}
+                        title={!zoomMeetingId.trim() ? (es ? "Ingresá el Meeting ID primero" : "Enter Meeting ID first") : ""}
+                        className="flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white shadow-card disabled:opacity-40 hover:opacity-90"
+                      >
+                        {syncing ? (es ? "Sincronizando…" : "Syncing…") : (es ? "↺ Sync Zoom" : "↺ Sync Zoom")}
+                      </button>
+                    </div>
+                    {syncResult && (
+                      <div className={`mt-2 rounded-lg px-3 py-2 text-xs font-medium ${syncResult.marcados > 0 ? "bg-green-50 text-ok" : "bg-amber-50 text-amber-700"}`}>
+                        {syncResult.source === "zoom"
+                          ? (es ? `✓ Zoom: ${syncResult.participantes} participantes · ${syncResult.marcados} marcados` : `✓ Zoom: ${syncResult.participantes} participants · ${syncResult.marcados} marked`)
+                          : (es ? `⚠ Modo simulado · ${syncResult.marcados} marcados` : `⚠ Simulated mode · ${syncResult.marcados} marked`)}
+                      </div>
+                    )}
                   </div>
 
                   {loadingAsistencia && (

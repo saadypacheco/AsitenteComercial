@@ -418,6 +418,23 @@ class SyncAsistenciaBody(BaseModel):
     simular: list[dict] | None = None  # [{"email": "...", "minutos": 45}, ...]
 
 
+class PatchCapacitacionBody(BaseModel):
+    zoom_meeting_id: str | None = None
+
+
+@router.patch("/gestion/capacitaciones/{cid}")
+def patch_capacitacion(cid: str, body: PatchCapacitacionBody, tenant: str = Depends(require_tenant)) -> dict:
+    """Actualiza campos editables de una capacitación (hoy: zoom_meeting_id)."""
+    cap = _rows("select id from capacitaciones where id = %s and tenant_id = %s", (cid, tenant))
+    if not cap:
+        raise HTTPException(status_code=404, detail="Capacitación no encontrada")
+    _exec(
+        "update capacitaciones set zoom_meeting_id = %s where id = %s and tenant_id = %s",
+        (body.zoom_meeting_id, cid, tenant),
+    )
+    return {"ok": True}
+
+
 @router.post("/gestion/capacitaciones/{cid}/sync-asistencia")
 def sync_asistencia(cid: str, body: SyncAsistenciaBody | None = None, tenant: str = Depends(require_tenant)) -> dict:
     """Concilia la asistencia de una capacitación desde Zoom (o simulada si no hay
@@ -439,7 +456,7 @@ def sync_asistencia(cid: str, body: SyncAsistenciaBody | None = None, tenant: st
 def get_asistencia(cid: str, tenant: str = Depends(require_tenant)) -> dict:
     """Lista de todos los agentes activos con su asistencia (asistio true/false) para una sesión."""
     cap = _rows(
-        "select k.id, k.nombre, k.fecha, k.estado from capacitaciones k "
+        "select k.id, k.nombre, k.fecha, k.estado, k.zoom_meeting_id from capacitaciones k "
         "where k.id = %s and k.tenant_id = %s",
         (cid, tenant),
     )

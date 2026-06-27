@@ -186,11 +186,29 @@ export type Mensaje = {
 };
 
 export type AsistenciaAgente = { id: string; nombre: string; apellido: string | null; email: string | null; celular: string | null; asistio: boolean };
-export type CapacitacionAsistencia = { capacitacion: { id: string; nombre: string; fecha: string | null; estado: string }; agentes: AsistenciaAgente[] };
+export type CapacitacionAsistencia = {
+  capacitacion: { id: string; nombre: string; fecha: string | null; estado: string; zoom_meeting_id: string | null };
+  agentes: AsistenciaAgente[];
+};
 
 export async function getCapacitacionAsistencia(cid: string): Promise<CapacitacionAsistencia> {
   const res = await authFetch(`/gestion/capacitaciones/${cid}/asistencia`);
   if (!res.ok) throw new Error(`asistencia: ${res.status}`);
+  return res.json();
+}
+
+export async function patchCapacitacion(cid: string, body: { zoom_meeting_id: string | null }): Promise<void> {
+  const res = await authFetch(`/gestion/capacitaciones/${cid}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`patch capacitacion: ${res.status}`);
+}
+
+export async function syncAsistencia(cid: string): Promise<{ ok: boolean; source: string; participantes: number; marcados: number }> {
+  const res = await authFetch(`/gestion/capacitaciones/${cid}/sync-asistencia`, { method: "POST" });
+  if (!res.ok) throw new Error(`sync: ${res.status}`);
   return res.json();
 }
 
