@@ -383,6 +383,29 @@ async def simulador_chat(body: SimuladorMsg, ctx: dict = Depends(authcore.requir
         return {"respuesta_cliente": fallback_resp, "feedback": "—", "turno": turno, "terminado": terminado, "source": "simulado"}
 
 
+@router.get("/agente/notificaciones")
+def agente_notificaciones(ctx: dict = Depends(authcore.require_agent)) -> list:
+    """Mensajes internos recibidos por el agente autenticado."""
+    return _rows(
+        "select mi.id, mi.tipo, mi.titulo, mi.cuerpo, mi.leido, mi.created_at, "
+        "       ra.titulo as reunion_titulo "
+        "from mensajes_internos mi "
+        "left join reunion_actas ra on ra.id = mi.reunion_acta_id "
+        "where mi.destinatario_id = %s "
+        "order by mi.created_at desc limit 30",
+        (ctx["agente_id"],),
+    )
+
+
+@router.patch("/agente/notificaciones/{nid}/leer")
+def agente_marcar_leido(nid: str, ctx: dict = Depends(authcore.require_agent)) -> dict:
+    _exec(
+        "update mensajes_internos set leido=true where id=%s and destinatario_id=%s",
+        (nid, ctx["agente_id"]),
+    )
+    return {"ok": True}
+
+
 @router.post("/agente/coach")
 async def agente_coach(body: CoachQuery, ctx: dict = Depends(authcore.require_agent), lang: str = "es") -> dict:
     """Coach IA del agente: responde preguntas usando la base de conocimiento (RAG).

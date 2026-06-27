@@ -244,3 +244,74 @@ export const updatePendienteEstado = (id: string, estado: string) => patchPendie
 export const reasignarPendiente = (id: string, agente_id: string) =>
   patchPendiente(id, agente_id ? { agente_id } : { clear_agente: true });
 export const escalarPendiente = (id: string) => patchPendiente(id, { prioridad: "critico" });
+
+// ── Reuniones / difusión ─────────────────────────────────────────────────────
+export type ReunionActa = {
+  id: string;
+  titulo: string;
+  tipo: string;
+  fecha: string | null;
+  resumen: string | null;
+  resumen_aprobado: string | null;
+  temas: string[] | null;
+  acciones: { titulo: string; agente: string | null; pendiente_id: string }[] | null;
+  fuente: string | null;
+  capacitacion_id: string | null;
+  estado_difusion: "pendiente" | "enviado";
+  created_at: string;
+  transcripcion?: string | null;
+  n_acciones?: number;
+};
+
+export async function getReuniones(): Promise<ReunionActa[]> {
+  const res = await authFetch("/gestion/reuniones");
+  if (!res.ok) throw new Error(`reuniones: ${res.status}`);
+  return res.json();
+}
+
+export async function getReunion(rid: string): Promise<ReunionActa> {
+  const res = await authFetch(`/gestion/reuniones/${rid}`);
+  if (!res.ok) throw new Error(`reunion: ${res.status}`);
+  return res.json();
+}
+
+export async function patchReunion(rid: string, body: { resumen_aprobado?: string; capacitacion_id?: string }): Promise<void> {
+  const res = await authFetch(`/gestion/reuniones/${rid}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`patch reunion: ${res.status}`);
+}
+
+export async function difundirReunion(rid: string): Promise<{ ok: boolean; enviado_a: number }> {
+  const res = await authFetch(`/gestion/reuniones/${rid}/difundir`, { method: "POST" });
+  if (!res.ok) throw new Error(`difundir: ${res.status}`);
+  return res.json();
+}
+
+export type MensajeInterno = {
+  id: string;
+  tipo: string;
+  titulo: string | null;
+  cuerpo: string | null;
+  leido: boolean;
+  created_at: string;
+  reunion_titulo: string | null;
+};
+
+export async function getNotificaciones(): Promise<MensajeInterno[]> {
+  const res = await authFetch("/gestion/notificaciones");
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function marcarNotificacionLeida(nid: string): Promise<void> {
+  await authFetch(`/gestion/notificaciones/${nid}/leer`, { method: "PATCH" });
+}
+
+export async function getReunionsPendientesDifusion(): Promise<ReunionActa[]> {
+  const res = await authFetch("/gestion/reuniones-pendientes-difusion");
+  if (!res.ok) return [];
+  return res.json();
+}

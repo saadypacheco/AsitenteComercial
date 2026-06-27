@@ -126,3 +126,25 @@ export async function simChat(mensaje: string, scenario: string, historia: SimMs
   if (!res.ok) throw new Error(`simulador: ${res.status}`);
   return res.json();
 }
+
+
+// ── Notificaciones del agente ─────────────────────────────────────────────────
+export type AgenteNotif = {
+  id: string;
+  tipo: string;
+  titulo: string | null;
+  cuerpo: string | null;
+  leido: boolean;
+  created_at: string;
+  reunion_titulo: string | null;
+};
+
+export async function getAgenteNotificaciones(): Promise<AgenteNotif[]> {
+  const res = await authFetch("/agente/notificaciones");
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function marcarAgenteNotifLeida(nid: string): Promise<void> {
+  await authFetch(`/agente/notificaciones/${nid}/leer`, { method: "PATCH" });
+}

@@ -8,11 +8,11 @@ import { Fragment, useEffect, useState } from "react";
 import { getUser, logout, requireAgent } from "@/lib/auth";
 import { useLocale } from "@/lib/locale-context";
 import {
-  askCoach, avanzar, getAgenda, getJourney, getMe, getRanking, getRuta, simChat,
-  type AgenteMe, type CoachResp, type Journey, type Mission, type RankItem, type Ruta, type Sesion, type SimMsg,
+  askCoach, avanzar, getAgenda, getAgenteNotificaciones, getJourney, getMe, getRanking, getRuta, marcarAgenteNotifLeida, simChat,
+  type AgenteMe, type AgenteNotif, type CoachResp, type Journey, type Mission, type RankItem, type Ruta, type Sesion, type SimMsg,
 } from "@/lib/queries/agente";
 
-type Tab = "hoy" | "agenda" | "ruta" | "progreso" | "logros" | "simular" | "ayuda";
+type Tab = "hoy" | "agenda" | "ruta" | "progreso" | "logros" | "simular" | "novedades";
 
 const PODIUM = ["from-amber-400 to-yellow-500", "from-slate-300 to-slate-400", "from-orange-400 to-amber-500"];
 
@@ -43,6 +43,7 @@ export default function AgentePage() {
   const [simMsg, setSimMsg] = useState("");
   const [simResp, setSimResp] = useState<{ cliente: string; feedback: string; terminado: boolean } | null>(null);
   const [simBusy, setSimBusy] = useState(false);
+  const [notifs, setNotifs] = useState<AgenteNotif[]>([]);
 
   function reload() {
     getRuta(locale).then(setRuta).catch(() => setRuta(null));
@@ -50,6 +51,7 @@ export default function AgentePage() {
     getAgenda(locale).then(setAgenda).catch(() => setAgenda([]));
     getRanking().then(setRanking).catch(() => setRanking([]));
     getJourney(locale).then(setJourney).catch(() => setJourney(null));
+    getAgenteNotificaciones().then(setNotifs).catch(() => setNotifs([]));
   }
   useEffect(() => {
     requireAgent();
@@ -97,13 +99,16 @@ export default function AgentePage() {
   const fmtDay = (s: string) => dt(s).toLocaleDateString(locale, { weekday: "short", day: "2-digit", month: "short" });
   const fmtTime = (s: string) => dt(s).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
 
-  const TABS: { k: Tab; ic: string; label: string }[] = [
+  const unreadCount = notifs.filter((n) => !n.leido).length;
+
+  const TABS: { k: Tab; ic: string; label: string; badge?: number }[] = [
     { k: "hoy", ic: "🏠", label: t.tabHoy },
     { k: "agenda", ic: "📅", label: t.tabAgenda },
     { k: "ruta", ic: "🎯", label: t.tabRuta },
     { k: "progreso", ic: "📈", label: t.tabProgreso },
     { k: "logros", ic: "🏅", label: t.tabLogros },
     { k: "simular", ic: "🎭", label: locale === "en" ? "Simulate" : "Simular" },
+    { k: "novedades", ic: "🔔", label: locale === "en" ? "Updates" : "Novedades", badge: unreadCount },
   ];
 
   // ── Sub-componentes inline ────────────────────────────────────────────────
@@ -169,6 +174,9 @@ export default function AgentePage() {
                     ? "bg-[#38BDF8] text-white shadow-[0_4px_12px_-2px_rgba(56,189,248,0.35)]"
                     : "text-[#64748B] hover:bg-[#E2E8F0] hover:text-[#1E293B]"}`}>
                 <span className="text-lg">{x.ic}</span>{x.label}
+                {x.badge ? (
+                  <span className="ml-auto rounded-full bg-[#FB923C] px-2 py-0.5 text-[9px] font-bold text-white">{x.badge}</span>
+                ) : null}
               </button>
             ))}
             <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#94A3B8]">
@@ -597,6 +605,54 @@ export default function AgentePage() {
                 </div>
               </div>
             )}
+            {/* ── Novedades ─────────────────────────────────────────────────── */}
+            {tab === "novedades" && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h2 className={STITLE}>🔔 {locale === "en" ? "Updates from Cecilia" : "Novedades de Cecilia"}</h2>
+                  {unreadCount > 0 && (
+                    <span className="rounded-full bg-[#FB923C] px-2.5 py-0.5 text-xs font-bold text-white">{unreadCount} {locale === "en" ? "new" : "nuevas"}</span>
+                  )}
+                </div>
+                {notifs.length === 0 ? (
+                  <div className={`${CARD} py-10 text-center text-sm text-[#94A3B8]`}>
+                    {locale === "en" ? "No updates yet." : "Todavía no hay novedades."}
+                  </div>
+                ) : (
+                  notifs.map((n) => (
+                    <div
+                      key={n.id}
+                      className={`${CARD} cursor-pointer transition hover:shadow-md ${!n.leido ? "border-l-4 border-l-[#38BDF8]" : ""}`}
+                      onClick={async () => {
+                        if (!n.leido) {
+                          await marcarAgenteNotifLeida(n.id).catch(() => {});
+                          setNotifs((prev) => prev.map((x) => x.id === n.id ? { ...x, leido: true } : x));
+                        }
+                      }}
+                    >
+                      <div className="mb-1 flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">📋</span>
+                          <p className="font-bold text-[#1E293B] text-sm">{n.titulo ?? (locale === "en" ? "Meeting summary" : "Resumen de reunión")}</p>
+                        </div>
+                        {!n.leido && (
+                          <span className="shrink-0 rounded-full bg-[#38BDF8] px-2 py-0.5 text-[9px] font-bold text-white">{locale === "en" ? "NEW" : "NUEVO"}</span>
+                        )}
+                      </div>
+                      {n.reunion_titulo && (
+                        <p className="mb-2 text-xs text-[#64748B]">📹 {n.reunion_titulo}</p>
+                      )}
+                      {n.cuerpo && (
+                        <p className="text-sm text-[#475569] leading-relaxed line-clamp-4">{n.cuerpo}</p>
+                      )}
+                      <p className="mt-2 text-[10px] text-[#94A3B8]">
+                        {new Date(n.created_at).toLocaleDateString(locale, { day: "2-digit", month: "short", year: "numeric" })}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
           </main>
 
           {/* FAB ayuda (mobile) */}
@@ -611,12 +667,15 @@ export default function AgentePage() {
           <nav className="sticky bottom-0 z-20 mx-3 mb-3 flex rounded-2xl border border-[#E2E8F0] bg-white/90 p-1.5 shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.08)] backdrop-blur-md lg:hidden">
             {TABS.map((x) => (
               <button key={x.k} onClick={() => setTab(x.k)}
-                className={`flex flex-1 flex-col items-center rounded-xl py-1.5 text-[10px] font-bold transition ${
+                className={`relative flex flex-1 flex-col items-center rounded-xl py-1.5 text-[10px] font-bold transition ${
                   tab === x.k
                     ? "bg-[#38BDF8] text-white shadow-[0_4px_12px_-2px_rgba(56,189,248,0.35)]"
                     : "text-[#94A3B8]"}`}>
                 <span className="text-lg leading-none">{x.ic}</span>
                 <span className="mt-0.5">{x.label}</span>
+                {x.badge ? (
+                  <span className="absolute right-1 top-1 rounded-full bg-[#FB923C] px-1.5 py-px text-[8px] font-bold text-white">{x.badge}</span>
+                ) : null}
               </button>
             ))}
           </nav>

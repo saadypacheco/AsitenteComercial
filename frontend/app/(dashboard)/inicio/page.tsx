@@ -7,7 +7,8 @@ import { Avatar, Badge } from "@/components/executive";
 import { Card } from "@/components/ui";
 import { getToken, getUser } from "@/lib/auth";
 import { useLocale } from "@/lib/locale-context";
-import { getAgentes, getMensajesStats, getProgramaCapacitacion, type Agente, type MensajesStats, type Programa } from "@/lib/queries/gestion";
+import { getAgentes, getMensajesStats, getNotificaciones, getProgramaCapacitacion, marcarNotificacionLeida, type Agente, type MensajeInterno, type MensajesStats, type Programa } from "@/lib/queries/gestion";
+import { getReunionsPendientesDifusion, type ActaItem } from "@/lib/queries/reuniones";
 
 type AgentRow = {
   nombre: string;
@@ -50,6 +51,8 @@ export default function InicioPage() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<"progress" | "risk" | "name">("progress");
   const [mensajesStats, setMensajesStats] = useState<MensajesStats>({ nuevas: 0, grupos_activos: 0 });
+  const [reunionesSinDifundir, setReunionesSinDifundir] = useState<ActaItem[]>([]);
+  const [notificaciones, setNotificaciones] = useState<MensajeInterno[]>([]);
 
   useEffect(() => {
     if (!getToken()) { window.location.href = "/login"; return; }
@@ -61,6 +64,8 @@ export default function InicioPage() {
   useEffect(() => {
     if (!ready) return;
     getMensajesStats().then(setMensajesStats).catch(() => {});
+    getReunionsPendientesDifusion().then(setReunionesSinDifundir).catch(() => {});
+    getNotificaciones().then(setNotificaciones).catch(() => {});
     Promise.all([getProgramaCapacitacion(locale), getAgentes()]).then(([p, ag]) => {
       setPrograma(p);
       const agMap = new Map(ag.map((a) => [`${a.nombre} ${a.apellido ?? ""}`.trim().toLowerCase(), a]));
@@ -155,6 +160,28 @@ export default function InicioPage() {
           </div>
         )}
       </header>
+
+      {/* ── Alerta reuniones sin difundir ──────────────────────────────── */}
+      {reunionesSinDifundir.length > 0 && (
+        <Link href="/reuniones" className="mb-5 block">
+          <div className="flex items-center gap-3 rounded-xl border border-warning/50 bg-amber-50 px-4 py-3 hover:bg-amber-100 transition">
+            <span className="text-2xl shrink-0">⚠️</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-amber-800">
+                {es
+                  ? `${reunionesSinDifundir.length} reunión${reunionesSinDifundir.length > 1 ? "es" : ""} sin difundir — más de 2 hs`
+                  : `${reunionesSinDifundir.length} meeting${reunionesSinDifundir.length > 1 ? "s" : ""} not broadcast yet — 2+ hours ago`}
+              </p>
+              <p className="text-xs text-amber-600 truncate">
+                {reunionesSinDifundir.map((r) => r.titulo).join(", ")}
+              </p>
+            </div>
+            <span className="text-xs font-bold text-warning shrink-0">
+              {es ? "Ir a Reuniones →" : "Go to Meetings →"}
+            </span>
+          </div>
+        </Link>
+      )}
 
       {/* ── KPIs ───────────────────────────────────────────────────────── */}
       <div className="mb-6 grid grid-cols-3 gap-3 lg:grid-cols-6">
@@ -353,6 +380,42 @@ export default function InicioPage() {
               {es ? "Ver reuniones →" : "View meetings →"}
             </Link>
           </Card>
+
+          {/* Notificaciones — resúmenes de reuniones recibidos */}
+          {notificaciones.length > 0 && (
+            <Card className="p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-sm font-bold uppercase tracking-wide text-brand">
+                  🔔 {es ? "Resúmenes recibidos" : "Received summaries"}
+                </h2>
+                {notificaciones.filter((n) => !n.leido).length > 0 && (
+                  <span className="rounded-full bg-warning px-2 py-0.5 text-[10px] font-bold text-white">
+                    {notificaciones.filter((n) => !n.leido).length}
+                  </span>
+                )}
+              </div>
+              <ul className="space-y-2">
+                {notificaciones.slice(0, 5).map((n) => (
+                  <li
+                    key={n.id}
+                    className={`rounded-lg border px-3 py-2 text-xs cursor-pointer transition hover:bg-soft ${!n.leido ? "border-brand/30 bg-brand/5" : "border-line"}`}
+                    onClick={async () => {
+                      if (!n.leido) {
+                        await marcarNotificacionLeida(n.id).catch(() => {});
+                        setNotificaciones((prev) => prev.map((x) => x.id === n.id ? { ...x, leido: true } : x));
+                      }
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-1">
+                      <p className="font-semibold text-ink truncate">{n.titulo ?? (es ? "Resumen de reunión" : "Meeting summary")}</p>
+                      {!n.leido && <span className="shrink-0 rounded-full bg-brand px-1.5 py-px text-[8px] font-bold text-white">NEW</span>}
+                    </div>
+                    {n.reunion_titulo && <p className="text-faint mt-0.5 truncate">{n.reunion_titulo}</p>}
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
 
         </aside>
       </div>
