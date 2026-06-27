@@ -46,6 +46,12 @@ export type Agente = {
   abiertas: number;
   cerrados: number;
   es_lider: boolean;
+  // Campos enriquecidos
+  sesiones_registradas: number;
+  sesiones_asistidas: number;
+  ultima_sesion_fecha: string | null;
+  pct_onboarding: number;
+  etapa_actual: string | null;
 };
 
 export type AgenteInput = {

@@ -1,9 +1,7 @@
 "use client";
 
-// Agentes (rebanada F-002): mapa con sus ubicaciones + lista con datos de contacto
-// + alta/edición/baja. El celular es su identidad de WhatsApp (puente con la captura).
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { AgentTree } from "@/components/agent-tree";
 import { Avatar, Badge } from "@/components/executive";
@@ -21,17 +19,35 @@ import {
   type AgenteInput,
 } from "@/lib/queries/gestion";
 
-// Leaflet necesita window → carga client-only.
 const AgentMap = dynamic(() => import("@/components/agent-map"), {
   ssr: false,
   loading: () => <div className="grid h-full place-items-center text-sm text-muted">…</div>,
 });
 
-const EMPTY: AgenteInput = { nombre: "", apellido: "", celular: "", email: "", ciudad: "", region: "", superior_id: "", estado: "activo", lat: null, lng: null };
+const EMPTY: AgenteInput = {
+  nombre: "", apellido: "", celular: "", email: "", ciudad: "",
+  region: "", superior_id: "", estado: "activo", lat: null, lng: null,
+};
+
+type SortKey = "nombre" | "progreso" | "asistencia" | "riesgo" | "deals";
+type FilterEstado = "todos" | "activo" | "inactivo";
+
+function getRisk(a: Agente): "ok" | "warning" | "danger" {
+  if (a.pct_onboarding >= 80) return "ok";
+  if (a.pct_onboarding === 0) return "danger";
+  if (a.pct_onboarding < 40) return "danger";
+  return "warning";
+}
+
+function getPctAsistencia(a: Agente, totalSesiones: number): number {
+  if (totalSesiones === 0) return 0;
+  return Math.round((a.sesiones_asistidas / totalSesiones) * 100);
+}
 
 export default function AgentesPage() {
   const { t: dict, locale } = useLocale();
   const t = dict.gestion;
+  const es = locale === "es";
 
   const [agentes, setAgentes] = useState<Agente[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -41,7 +57,16 @@ export default function AgentesPage() {
   const [view, setView] = useState<"lista" | "jerarquia">("lista");
   const [isOwner, setIsOwner] = useState(false);
 
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<SortKey>("nombre");
+  const [filterEstado, setFilterEstado] = useState<FilterEstado>("todos");
+
   useEffect(() => setIsOwner(getUser()?.alcance === "todo"), []);
+
+  function reload() {
+    getAgentes().then(setAgentes).catch(() => setAgentes([]));
+  }
+  useEffect(reload, []);
 
   async function toggleLider(a: Agente) {
     setBusy(true);
@@ -55,27 +80,15 @@ export default function AgentesPage() {
     setBusy(false);
   }
 
-  function reload() {
-    getAgentes().then(setAgentes).catch(() => setAgentes([]));
-  }
-  useEffect(reload, []);
-
-  function startNew() {
-    setEditId(null);
-    setForm(EMPTY);
-    setOpen(true);
-  }
+  function startNew() { setEditId(null); setForm(EMPTY); setOpen(true); }
   function startEdit(a: Agente) {
     setEditId(a.id);
     setForm({
-      nombre: a.nombre, apellido: a.apellido ?? "", celular: a.celular ?? "", email: a.email ?? "",
-      ciudad: a.ciudad ?? "", region: a.region ?? "", superior_id: a.superior_id ?? "",
-      estado: a.estado, lat: a.lat, lng: a.lng,
+      nombre: a.nombre, apellido: a.apellido ?? "", celular: a.celular ?? "",
+      email: a.email ?? "", ciudad: a.ciudad ?? "", region: a.region ?? "",
+      superior_id: a.superior_id ?? "", estado: a.estado, lat: a.lat, lng: a.lng,
     });
     setOpen(true);
-  }
-  function set<K extends keyof AgenteInput>(k: K, v: AgenteInput[K]) {
-    setForm((f) => ({ ...f, [k]: v }));
   }
 
   async function submit(e: React.FormEvent) {
@@ -98,75 +111,96 @@ export default function AgentesPage() {
     setBusy(false);
   }
 
-  const [search, setSearch] = useState("");
-  const conMapa = agentes?.filter((a) => a.lat != null && a.lng != null).length ?? 0;
   const inputCls = "w-full rounded-lg border border-line px-3 py-2 text-sm focus:border-brand focus:outline-none";
+  const conMapa = agentes?.filter((a) => a.lat != null && a.lng != null).length ?? 0;
 
-  const filteredAgentes = agentes?.filter((a) => {
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
-    return (
-      a.nombre.toLowerCase().includes(q) ||
-      (a.apellido ?? "").toLowerCase().includes(q) ||
-      (a.celular ?? "").includes(q) ||
-      (a.email ?? "").toLowerCase().includes(q) ||
-      (a.ciudad ?? "").toLowerCase().includes(q)
-    );
-  });
+  // Total sesiones pasadas (el mayor sesiones_registradas entre todos los agentes)
+  const totalSesiones = useMemo(() =>
+    Math.max(0, ...(agentes ?? []).map((a) => a.sesiones_registradas)),
+    [agentes]
+  );
+
+  const filtered = useMemo(() => {
+    if (!agentes) return [];
+    return agentes
+      .filter((a) => {
+        if (filterEstado !== "todos" && a.estado !== filterEstado) return false;
+        if (!search.trim()) return true;
+        const q = search.toLowerCase();
+        return (
+          a.nombre.toLowerCase().includes(q) ||
+          (a.apellido ?? "").toLowerCase().includes(q) ||
+          (a.celular ?? "").includes(q) ||
+          (a.email ?? "").toLowerCase().includes(q) ||
+          (a.ciudad ?? "").toLowerCase().includes(q) ||
+          (a.etapa_actual ?? "").toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => {
+        if (sortBy === "progreso") return b.pct_onboarding - a.pct_onboarding;
+        if (sortBy === "asistencia") return getPctAsistencia(b, totalSesiones) - getPctAsistencia(a, totalSesiones);
+        if (sortBy === "deals") return b.cerrados - a.cerrados;
+        if (sortBy === "riesgo") {
+          const order = { danger: 0, warning: 1, ok: 2 };
+          return order[getRisk(a)] - order[getRisk(b)];
+        }
+        return a.nombre.localeCompare(b.nombre);
+      });
+  }, [agentes, search, sortBy, filterEstado, totalSesiones]);
+
+  const fDate = (s: string | null) =>
+    s ? new Date(s).toLocaleDateString(locale, { day: "2-digit", month: "short" }) : "—";
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 md:px-8">
-      <div className="mb-4 flex items-center justify-between">
+    <div className="mx-auto max-w-6xl px-4 py-6 md:px-8">
+
+      {/* Header */}
+      <div className="mb-5 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-ink">{dict.inicio.nav.agentes}</h1>
         <button onClick={startNew} className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white shadow-card">
           + {t.newBtn}
         </button>
       </div>
 
-      {/* Buscador rápido */}
-      <div className="mb-4 relative">
-        <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-          <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" strokeLinecap="round" />
-        </svg>
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={locale === "es" ? "Buscar por nombre, celular, email o ciudad…" : "Search by name, phone, email or city…"}
-          className="w-full rounded-xl border border-line bg-white py-2.5 pl-9 pr-4 text-sm text-ink placeholder:text-faint focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/15"
-        />
-        {search && (
-          <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-ink">✕</button>
-        )}
-      </div>
-
-      {/* Stats ejecutivos */}
+      {/* KPI cards */}
       {agentes && (
         <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Card className="border-t-[3px] border-t-brand p-4"><p className="text-2xl font-bold text-brand">{agentes.length}</p><p className="text-[11px] text-muted">{t.agCount}</p></Card>
-          <Card className="border-t-[3px] border-t-ok p-4"><p className="text-2xl font-bold text-ok">{agentes.filter((a) => a.estado === "activo").length}</p><p className="text-[11px] text-muted">{t.agActivos}</p></Card>
-          <Card className="border-t-[3px] border-t-danger p-4"><p className="text-2xl font-bold text-danger">{agentes.filter((a) => a.abiertas >= 3).length}</p><p className="text-[11px] text-muted">{t.agSaturados}</p></Card>
-          <Card className="border-t-[3px] border-t-line p-4"><p className="text-2xl font-bold text-ink">{conMapa}</p><p className="text-[11px] text-muted">{t.onMap}</p></Card>
+          <Card className="border-t-[3px] border-t-brand p-4">
+            <p className="text-2xl font-bold text-brand">{agentes.length}</p>
+            <p className="text-[11px] text-muted">{t.agCount}</p>
+          </Card>
+          <Card className="border-t-[3px] border-t-ok p-4">
+            <p className="text-2xl font-bold text-ok">{agentes.filter((a) => a.estado === "activo").length}</p>
+            <p className="text-[11px] text-muted">{t.agActivos}</p>
+          </Card>
+          <Card className="border-t-[3px] border-t-danger p-4">
+            <p className="text-2xl font-bold text-danger">{agentes.filter((a) => getRisk(a) === "danger").length}</p>
+            <p className="text-[11px] text-muted">{es ? "En riesgo" : "At risk"}</p>
+          </Card>
+          <Card className="border-t-[3px] border-t-warning p-4">
+            <p className="text-2xl font-bold text-warning">
+              {totalSesiones > 0
+                ? `${Math.round(agentes.reduce((s, a) => s + getPctAsistencia(a, totalSesiones), 0) / agentes.length)}%`
+                : "—"}
+            </p>
+            <p className="text-[11px] text-muted">{es ? "Asistencia promedio" : "Avg. attendance"}</p>
+          </Card>
         </div>
       )}
-
-      {/* Mapa */}
-      <Card className="mb-5 overflow-hidden p-0">
-        <div className="h-[340px] w-full">{agentes && <AgentMap agents={agentes} />}</div>
-      </Card>
 
       {/* Form alta/edición */}
       {open && (
         <Card className="mb-5 p-5">
           <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-brand">{editId ? t.agEdit : t.agNew}</h2>
           <form onSubmit={submit} className="grid grid-cols-2 gap-3">
-            <Field label={t.fNombre}><input value={form.nombre} onChange={(e) => set("nombre", e.target.value)} autoFocus className={inputCls} /></Field>
-            <Field label={t.fApellido}><input value={form.apellido ?? ""} onChange={(e) => set("apellido", e.target.value)} className={inputCls} /></Field>
-            <Field label={t.fCelular}><input value={form.celular ?? ""} onChange={(e) => set("celular", e.target.value)} className={inputCls} /></Field>
-            <Field label={t.fEmail}><input value={form.email ?? ""} onChange={(e) => set("email", e.target.value)} className={inputCls} /></Field>
-            <Field label={t.fCiudad}><input value={form.ciudad ?? ""} onChange={(e) => set("ciudad", e.target.value)} className={inputCls} /></Field>
-            <Field label={t.fRegion}><input value={form.region ?? ""} onChange={(e) => set("region", e.target.value)} className={inputCls} /></Field>
+            <Field label={t.fNombre}><input value={form.nombre} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))} autoFocus className={inputCls} /></Field>
+            <Field label={t.fApellido}><input value={form.apellido ?? ""} onChange={(e) => setForm((f) => ({ ...f, apellido: e.target.value }))} className={inputCls} /></Field>
+            <Field label={t.fCelular}><input value={form.celular ?? ""} onChange={(e) => setForm((f) => ({ ...f, celular: e.target.value }))} className={inputCls} /></Field>
+            <Field label={t.fEmail}><input value={form.email ?? ""} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} className={inputCls} /></Field>
+            <Field label={t.fCiudad}><input value={form.ciudad ?? ""} onChange={(e) => setForm((f) => ({ ...f, ciudad: e.target.value }))} className={inputCls} /></Field>
+            <Field label={t.fRegion}><input value={form.region ?? ""} onChange={(e) => setForm((f) => ({ ...f, region: e.target.value }))} className={inputCls} /></Field>
             <Field label={t.fSuperior}>
-              <select value={form.superior_id ?? ""} onChange={(e) => set("superior_id", e.target.value)} className={inputCls}>
+              <select value={form.superior_id ?? ""} onChange={(e) => setForm((f) => ({ ...f, superior_id: e.target.value }))} className={inputCls}>
                 <option value="">{t.noSuperior}</option>
                 {agentes?.filter((a) => a.id !== editId).map((a) => (
                   <option key={a.id} value={a.id}>{a.nombre} {a.apellido ?? ""}</option>
@@ -174,13 +208,13 @@ export default function AgentesPage() {
               </select>
             </Field>
             <Field label={t.fEstado}>
-              <select value={form.estado ?? "activo"} onChange={(e) => set("estado", e.target.value)} className={inputCls}>
+              <select value={form.estado ?? "activo"} onChange={(e) => setForm((f) => ({ ...f, estado: e.target.value }))} className={inputCls}>
                 <option value="activo">{t.estadoAgente.activo}</option>
                 <option value="inactivo">{t.estadoAgente.inactivo}</option>
               </select>
             </Field>
-            <Field label={t.fLat}><input type="number" step="any" value={form.lat ?? ""} onChange={(e) => set("lat", e.target.value === "" ? null : Number(e.target.value))} className={inputCls} /></Field>
-            <Field label={t.fLng}><input type="number" step="any" value={form.lng ?? ""} onChange={(e) => set("lng", e.target.value === "" ? null : Number(e.target.value))} className={inputCls} /></Field>
+            <Field label={t.fLat}><input type="number" step="any" value={form.lat ?? ""} onChange={(e) => setForm((f) => ({ ...f, lat: e.target.value === "" ? null : Number(e.target.value) }))} className={inputCls} /></Field>
+            <Field label={t.fLng}><input type="number" step="any" value={form.lng ?? ""} onChange={(e) => setForm((f) => ({ ...f, lng: e.target.value === "" ? null : Number(e.target.value) }))} className={inputCls} /></Field>
             <div className="col-span-2 flex gap-2 pt-1">
               <button type="submit" disabled={busy || !form.nombre.trim()} className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
                 {busy ? t.saving : t.save}
@@ -191,89 +225,237 @@ export default function AgentesPage() {
         </Card>
       )}
 
-      {/* Vista: Lista / Jerarquía */}
+      {/* Vista tabs */}
       <div className="mb-4 flex gap-2">
         {(["lista", "jerarquia"] as const).map((v) => (
           <button key={v} onClick={() => setView(v)}
-            className={`rounded-full border px-3 py-1 text-xs font-medium ${view === v ? "border-brand bg-brand-soft text-brand" : "border-line text-muted hover:bg-soft"}`}>
+            className={`rounded-full border px-3 py-1 text-xs font-medium transition ${view === v ? "border-brand bg-brand-soft text-brand" : "border-line text-muted hover:bg-soft"}`}>
             {v === "lista" ? t.agViewList : t.agViewTree}
           </button>
         ))}
       </div>
 
-      {agentes && agentes.length === 0 && <Card className="px-4 py-16 text-center text-muted">{t.agEmpty}</Card>}
-
+      {/* ── Vista jerarquía ──────────────────────────────────────────────── */}
       {view === "jerarquia" && agentes && (
         <Card className="p-4">
           <AgentTree agentes={agentes} labels={{ activo: t.estadoAgente.activo, inactivo: t.estadoAgente.inactivo, saturada: t.agSaturada }} />
         </Card>
       )}
 
+      {/* ── Vista lista enriquecida ──────────────────────────────────────── */}
       {view === "lista" && (
-      <>
-      {filteredAgentes?.length === 0 && search && (
-        <Card className="px-4 py-8 text-center text-sm text-muted">
-          {locale === "es" ? `Sin resultados para "${search}"` : `No results for "${search}"`}
+        <Card className="overflow-hidden p-0">
+          {/* Barra de filtros */}
+          <div className="flex flex-col gap-2 border-b border-line px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+            {/* Search */}
+            <div className="relative flex-1 max-w-sm">
+              <svg className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" strokeLinecap="round" />
+              </svg>
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={es ? "Buscar agente…" : "Search agent…"}
+                className="w-full rounded-lg border border-line bg-soft py-1.5 pl-8 pr-7 text-xs text-ink focus:border-brand focus:outline-none"
+              />
+              {search && (
+                <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted">✕</button>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              {/* Filtro estado */}
+              <select
+                value={filterEstado}
+                onChange={(e) => setFilterEstado(e.target.value as FilterEstado)}
+                className="rounded-lg border border-line bg-soft py-1.5 pl-2 pr-6 text-xs text-ink focus:border-brand focus:outline-none"
+              >
+                <option value="todos">{es ? "Todos" : "All"}</option>
+                <option value="activo">{t.estadoAgente.activo}</option>
+                <option value="inactivo">{t.estadoAgente.inactivo}</option>
+              </select>
+              {/* Ordenar */}
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortKey)}
+                className="rounded-lg border border-line bg-soft py-1.5 pl-2 pr-6 text-xs text-ink focus:border-brand focus:outline-none"
+              >
+                <option value="nombre">{es ? "A→Z Nombre" : "A→Z Name"}</option>
+                <option value="progreso">{es ? "↓ Progreso" : "↓ Progress"}</option>
+                <option value="asistencia">{es ? "↓ Asistencia" : "↓ Attendance"}</option>
+                <option value="riesgo">{es ? "⚠ Riesgo" : "⚠ Risk"}</option>
+                <option value="deals">{es ? "↓ Cierres" : "↓ Deals"}</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Cabecera de columnas */}
+          <div className="hidden grid-cols-[2fr_1fr_1fr_1fr_auto] gap-4 border-b border-line bg-soft/60 px-5 py-2 text-[10px] font-bold uppercase tracking-wider text-muted sm:grid">
+            <span>{es ? "Agente" : "Agent"}</span>
+            <span>{es ? "Onboarding" : "Onboarding"}</span>
+            <span>{es ? "Asistencia" : "Attendance"}</span>
+            <span>{es ? "Actividad" : "Activity"}</span>
+            <span>{es ? "Acciones" : "Actions"}</span>
+          </div>
+
+          {!agentes && (
+            <div className="px-5 py-12 text-center text-sm text-muted">{es ? "Cargando…" : "Loading…"}</div>
+          )}
+
+          {filtered.length === 0 && agentes && (
+            <div className="px-5 py-12 text-center text-sm text-muted">
+              {agentes.length === 0 ? t.agEmpty : (es ? `Sin resultados para "${search}"` : `No results for "${search}"`)}
+            </div>
+          )}
+
+          <ul className="divide-y divide-line">
+            {filtered.map((a) => {
+              const risk = getRisk(a);
+              const pctAsist = getPctAsistencia(a, totalSesiones);
+              const riskColor = risk === "ok" ? "text-ok" : risk === "warning" ? "text-warning" : "text-danger";
+              const riskBg = risk === "ok" ? "bg-ok" : risk === "warning" ? "bg-warning" : "bg-danger";
+
+              return (
+                <li key={a.id} className={`px-5 py-4 transition hover:bg-soft/30 ${risk === "danger" ? "bg-red-50/20" : ""}`}>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-[2fr_1fr_1fr_1fr_auto]">
+
+                    {/* Col 1: Identidad */}
+                    <div className="flex min-w-0 items-start gap-3">
+                      <Avatar name={`${a.nombre} ${a.apellido ?? ""}`} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <p className="font-semibold text-ink">{a.nombre} {a.apellido ?? ""}</p>
+                          {a.es_lider && <Badge tone="brand">★ {t.agLiderBadge}</Badge>}
+                          <Badge tone={a.estado === "activo" ? "ok" : "warning"}>
+                            {a.estado === "activo" ? t.estadoAgente.activo : t.estadoAgente.inactivo}
+                          </Badge>
+                        </div>
+                        {(a.ciudad || a.region) && (
+                          <p className="mt-0.5 text-xs text-muted">📍 {[a.ciudad, a.region].filter(Boolean).join(", ")}</p>
+                        )}
+                        <div className="mt-1.5 flex flex-wrap gap-2 text-xs">
+                          {a.celular && (
+                            <a href={`tel:${a.celular}`} className="flex items-center gap-1 text-muted hover:text-brand">
+                              📱 {a.celular}
+                            </a>
+                          )}
+                          {a.email && (
+                            <a href={`mailto:${a.email}`} className="flex items-center gap-1 truncate max-w-[180px] text-muted hover:text-brand">
+                              ✉️ {a.email}
+                            </a>
+                          )}
+                        </div>
+                        {a.superior && (
+                          <p className="mt-0.5 text-[10px] text-faint">↳ {a.superior}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Col 2: Onboarding */}
+                    <div className="flex flex-col justify-center gap-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className={`font-bold ${riskColor}`}>{a.pct_onboarding}%</span>
+                        {risk === "danger" && <span className="text-[10px] text-danger font-semibold">⚠ riesgo</span>}
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-soft">
+                        <div className={`h-full rounded-full transition-all ${riskBg}`} style={{ width: `${a.pct_onboarding}%` }} />
+                      </div>
+                      <p className="truncate text-[10px] text-muted">
+                        {a.etapa_actual ?? (a.pct_onboarding >= 100 ? (es ? "✓ Completado" : "✓ Completed") : (es ? "Sin iniciar" : "Not started"))}
+                      </p>
+                    </div>
+
+                    {/* Col 3: Asistencia */}
+                    <div className="flex flex-col justify-center gap-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className={`font-bold ${pctAsist >= 80 ? "text-ok" : pctAsist >= 50 ? "text-warning" : "text-danger"}`}>
+                          {totalSesiones > 0 ? `${pctAsist}%` : "—"}
+                        </span>
+                        <span className="text-[10px] text-muted">{a.sesiones_asistidas}/{totalSesiones}</span>
+                      </div>
+                      {totalSesiones > 0 && (
+                        <div className="h-2 w-full overflow-hidden rounded-full bg-soft">
+                          <div
+                            className={`h-full rounded-full transition-all ${pctAsist >= 80 ? "bg-ok" : pctAsist >= 50 ? "bg-warning" : "bg-danger"}`}
+                            style={{ width: `${pctAsist}%` }}
+                          />
+                        </div>
+                      )}
+                      <p className="text-[10px] text-muted">
+                        {a.ultima_sesion_fecha
+                          ? (es ? `Última: ${fDate(a.ultima_sesion_fecha)}` : `Last: ${fDate(a.ultima_sesion_fecha)}`)
+                          : (es ? "Sin asistencia" : "No attendance")}
+                      </p>
+                    </div>
+
+                    {/* Col 4: Actividad */}
+                    <div className="flex flex-col justify-center gap-1.5">
+                      <div className="flex items-center gap-3 text-xs">
+                        <span>
+                          <span className={`font-bold ${a.abiertas >= 3 ? "text-danger" : "text-ink"}`}>{a.abiertas}</span>
+                          <span className="text-muted"> {es ? "pendientes" : "open"}</span>
+                        </span>
+                        <span>
+                          <span className="font-bold text-ok">{a.cerrados}</span>
+                          <span className="text-muted"> {es ? "cierres" : "deals"}</span>
+                        </span>
+                      </div>
+                      {a.abiertas >= 3 && (
+                        <span className="inline-flex w-fit items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-danger">
+                          ⚠ {t.agSaturada}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Col 5: Acciones */}
+                    <div className="flex flex-row flex-wrap items-center gap-1.5 sm:flex-col sm:items-end">
+                      {a.celular && (
+                        <a href={`tel:${a.celular}`}
+                          className="rounded-lg bg-ok px-2.5 py-1 text-[11px] font-bold text-white hover:opacity-90">
+                          📞 {es ? "Llamar" : "Call"}
+                        </a>
+                      )}
+                      <button onClick={() => startEdit(a)}
+                        className="rounded-lg border border-line px-2.5 py-1 text-[11px] font-semibold text-muted hover:bg-soft">
+                        ✏️ {t.agEdit}
+                      </button>
+                      {isOwner && a.email && (
+                        <button onClick={() => toggleLider(a)} disabled={busy}
+                          className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold disabled:opacity-50 ${a.es_lider ? "border-line text-muted hover:bg-soft" : "border-brand text-brand hover:bg-brand-soft"}`}>
+                          ★ {a.es_lider ? t.agRemoveLider : t.agMakeLider}
+                        </button>
+                      )}
+                      <button onClick={() => darBaja(a)} disabled={busy}
+                        className="rounded-lg border border-line px-2.5 py-1 text-[11px] font-semibold text-danger hover:bg-red-50 disabled:opacity-50">
+                        {t.agBaja}
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+
+          {filtered.length > 0 && (
+            <div className="border-t border-line px-5 py-2 text-[11px] text-muted">
+              {filtered.length} {es ? "agentes" : "agents"}{filtered.length !== agentes?.length ? ` ${es ? "de" : "of"} ${agentes?.length}` : ""}
+            </div>
+          )}
         </Card>
       )}
-      <div className="grid gap-3 sm:grid-cols-2">
-        {filteredAgentes?.map((a) => (
-          <Card key={a.id} className="p-4">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex min-w-0 items-center gap-3">
-                <Avatar name={`${a.nombre} ${a.apellido ?? ""}`} />
-                <div className="min-w-0">
-                  <p className="truncate font-semibold text-ink">{a.nombre} {a.apellido ?? ""}</p>
-                  <p className="text-xs text-muted">{a.ciudad}{a.region ? `, ${a.region}` : ""}</p>
-                </div>
-              </div>
-              <div className="flex shrink-0 flex-col items-end gap-1">
-                {a.es_lider && <Badge tone="brand">★ {t.agLiderBadge}</Badge>}
-                <Badge tone={a.estado === "activo" ? "ok" : "warning"}>
-                  {a.estado === "activo" ? t.estadoAgente.activo : t.estadoAgente.inactivo}
-                </Badge>
-                {a.abiertas >= 3 && <Badge tone="danger">{t.agSaturada}</Badge>}
-              </div>
-            </div>
-            <div className="mt-3 space-y-1 text-sm text-ink2">
-              {a.celular && (
-                <p className="flex items-center justify-between">
-                  <span>📱 {a.celular}</span>
-                  <a href={`tel:${a.celular}`}
-                    className="ml-2 rounded-lg bg-ok px-2.5 py-1 text-xs font-bold text-white hover:opacity-90">
-                    📞 {locale === "es" ? "Llamar" : "Call"}
-                  </a>
-                </p>
-              )}
-              {a.email && (
-                <p className="flex items-center justify-between">
-                  <span className="truncate">✉️ {a.email}</span>
-                  <a href={`mailto:${a.email}`}
-                    className="ml-2 shrink-0 rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-muted hover:bg-soft">
-                    {locale === "es" ? "Email" : "Email"}
-                  </a>
-                </p>
-              )}
-              <p className="flex items-center gap-3 pt-1 text-xs text-muted">
-                <span><span className={`font-bold ${a.abiertas >= 3 ? "text-danger" : "text-ink"}`}>{a.abiertas}</span> {t.agOpenItems}</span>
-                <span>· <span className="font-bold text-ok">{a.cerrados}</span> {dict.command.deals}</span>
-              </p>
-              {a.superior && <p className="text-xs text-muted">↳ {t.fSuperior}: {a.superior}</p>}
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2 border-t border-line pt-3">
-              <button onClick={() => startEdit(a)} className="rounded-lg border border-line px-3 py-1.5 text-xs font-semibold text-muted hover:bg-soft">{t.agEdit}</button>
-              {isOwner && a.email && (
-                <button onClick={() => toggleLider(a)} disabled={busy}
-                  className={`rounded-lg border px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${a.es_lider ? "border-line text-muted hover:bg-soft" : "border-brand text-brand hover:bg-brand-soft"}`}>
-                  ★ {a.es_lider ? t.agRemoveLider : t.agMakeLider}
-                </button>
-              )}
-              <button onClick={() => darBaja(a)} disabled={busy} className="rounded-lg border border-line px-3 py-1.5 text-xs font-semibold text-danger hover:bg-red-50 disabled:opacity-50">{t.agBaja}</button>
-            </div>
-          </Card>
-        ))}
-      </div>
-      </>
+
+      {/* ── Mapa — al final ──────────────────────────────────────────────── */}
+      {agentes && agentes.some((a) => a.lat != null) && (
+        <Card className="mt-5 overflow-hidden p-0">
+          <div className="border-b border-line px-5 py-3">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-brand">
+              🗺️ {es ? `Ubicaciones · ${conMapa} agentes` : `Locations · ${conMapa} agents`}
+            </h2>
+          </div>
+          <div className="h-[340px] w-full">
+            <AgentMap agents={agentes} />
+          </div>
+        </Card>
       )}
     </div>
   );
