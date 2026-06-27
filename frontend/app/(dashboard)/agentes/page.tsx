@@ -1,7 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { AgentTree } from "@/components/agent-tree";
 import { Avatar, Badge } from "@/components/executive";
@@ -45,9 +46,19 @@ function getPctAsistencia(a: Agente, totalSesiones: number): number {
 }
 
 export default function AgentesPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#f5f7fb]" />}>
+      <AgentesContent />
+    </Suspense>
+  );
+}
+
+function AgentesContent() {
   const { t: dict, locale } = useLocale();
   const t = dict.gestion;
   const es = locale === "es";
+  const params = useSearchParams();
+  const listaRef = useRef<HTMLDivElement>(null);
 
   const [agentes, setAgentes] = useState<Agente[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -60,8 +71,20 @@ export default function AgentesPage() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("nombre");
   const [filterEstado, setFilterEstado] = useState<FilterEstado>("todos");
+  const [filterProgreso, setFilterProgreso] = useState<"todos" | "completado" | "riesgo">("todos");
 
   useEffect(() => setIsOwner(getUser()?.alcance === "todo"), []);
+
+  // Leer query params de home (sort=, filter=)
+  useEffect(() => {
+    const sort = params.get("sort") as SortKey | null;
+    const filter = params.get("filter");
+    if (sort && ["nombre", "progreso", "asistencia", "riesgo", "deals"].includes(sort)) setSortBy(sort);
+    if (filter === "completado" || filter === "riesgo") setFilterProgreso(filter);
+    if (sort || filter) {
+      setTimeout(() => listaRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 300);
+    }
+  }, [params]);
 
   function reload() {
     getAgentes().then(setAgentes).catch(() => setAgentes([]));
@@ -125,6 +148,8 @@ export default function AgentesPage() {
     return agentes
       .filter((a) => {
         if (filterEstado !== "todos" && a.estado !== filterEstado) return false;
+        if (filterProgreso === "completado" && a.pct_onboarding < 100) return false;
+        if (filterProgreso === "riesgo" && getRisk(a) === "ok") return false;
         if (!search.trim()) return true;
         const q = search.toLowerCase();
         return (
@@ -146,7 +171,14 @@ export default function AgentesPage() {
         }
         return a.nombre.localeCompare(b.nombre);
       });
-  }, [agentes, search, sortBy, filterEstado, totalSesiones]);
+  }, [agentes, search, sortBy, filterEstado, filterProgreso, totalSesiones]);
+
+  function applyFilter(opts: { sort?: SortKey; estado?: FilterEstado; progreso?: "todos" | "completado" | "riesgo" }) {
+    if (opts.sort) setSortBy(opts.sort);
+    if (opts.estado) setFilterEstado(opts.estado);
+    if (opts.progreso !== undefined) setFilterProgreso(opts.progreso);
+    setTimeout(() => listaRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+  }
 
   const fDate = (s: string | null) =>
     s ? new Date(s).toLocaleDateString(locale, { day: "2-digit", month: "short" }) : "—";
@@ -162,29 +194,41 @@ export default function AgentesPage() {
         </button>
       </div>
 
-      {/* KPI cards */}
+      {/* KPI cards — clickables para filtrar */}
       {agentes && (
         <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Card className="border-t-[3px] border-t-brand p-4">
-            <p className="text-2xl font-bold text-brand">{agentes.length}</p>
-            <p className="text-[11px] text-muted">{t.agCount}</p>
-          </Card>
-          <Card className="border-t-[3px] border-t-ok p-4">
-            <p className="text-2xl font-bold text-ok">{agentes.filter((a) => a.estado === "activo").length}</p>
-            <p className="text-[11px] text-muted">{t.agActivos}</p>
-          </Card>
-          <Card className="border-t-[3px] border-t-danger p-4">
-            <p className="text-2xl font-bold text-danger">{agentes.filter((a) => getRisk(a) === "danger").length}</p>
-            <p className="text-[11px] text-muted">{es ? "En riesgo" : "At risk"}</p>
-          </Card>
-          <Card className="border-t-[3px] border-t-warning p-4">
-            <p className="text-2xl font-bold text-warning">
-              {totalSesiones > 0
-                ? `${Math.round(agentes.reduce((s, a) => s + getPctAsistencia(a, totalSesiones), 0) / agentes.length)}%`
-                : "—"}
-            </p>
-            <p className="text-[11px] text-muted">{es ? "Asistencia promedio" : "Avg. attendance"}</p>
-          </Card>
+          <button onClick={() => applyFilter({ sort: "nombre", estado: "todos", progreso: "todos" })} className="text-left">
+            <Card className={`h-full border-t-[3px] border-t-brand p-4 transition hover:shadow-md cursor-pointer ${filterEstado === "todos" && filterProgreso === "todos" && sortBy === "nombre" ? "ring-2 ring-brand/30" : ""}`}>
+              <p className="text-2xl font-bold text-brand">{agentes.length}</p>
+              <p className="text-[11px] text-muted">{t.agCount}</p>
+              <p className="mt-0.5 text-[9px] text-faint">{es ? "Ver todos →" : "View all →"}</p>
+            </Card>
+          </button>
+          <button onClick={() => applyFilter({ sort: "nombre", estado: "activo", progreso: "todos" })} className="text-left">
+            <Card className={`h-full border-t-[3px] border-t-ok p-4 transition hover:shadow-md cursor-pointer ${filterEstado === "activo" ? "ring-2 ring-ok/30" : ""}`}>
+              <p className="text-2xl font-bold text-ok">{agentes.filter((a) => a.estado === "activo").length}</p>
+              <p className="text-[11px] text-muted">{t.agActivos}</p>
+              <p className="mt-0.5 text-[9px] text-faint">{es ? "Filtrar activos →" : "Filter active →"}</p>
+            </Card>
+          </button>
+          <button onClick={() => applyFilter({ sort: "riesgo", estado: "todos", progreso: "todos" })} className="text-left">
+            <Card className={`h-full border-t-[3px] border-t-danger p-4 transition hover:shadow-md cursor-pointer ${sortBy === "riesgo" ? "ring-2 ring-danger/30" : ""}`}>
+              <p className="text-2xl font-bold text-danger">{agentes.filter((a) => getRisk(a) === "danger").length}</p>
+              <p className="text-[11px] text-muted">{es ? "En riesgo" : "At risk"}</p>
+              <p className="mt-0.5 text-[9px] text-faint">{es ? "Ver en riesgo →" : "View at risk →"}</p>
+            </Card>
+          </button>
+          <button onClick={() => applyFilter({ sort: "asistencia", estado: "todos", progreso: "todos" })} className="text-left">
+            <Card className={`h-full border-t-[3px] border-t-warning p-4 transition hover:shadow-md cursor-pointer ${sortBy === "asistencia" ? "ring-2 ring-warning/30" : ""}`}>
+              <p className="text-2xl font-bold text-warning">
+                {totalSesiones > 0
+                  ? `${Math.round(agentes.reduce((s, a) => s + getPctAsistencia(a, totalSesiones), 0) / agentes.length)}%`
+                  : "—"}
+              </p>
+              <p className="text-[11px] text-muted">{es ? "Asistencia promedio" : "Avg. attendance"}</p>
+              <p className="mt-0.5 text-[9px] text-faint">{es ? "Ordenar por asist. →" : "Sort by attendance →"}</p>
+            </Card>
+          </button>
         </div>
       )}
 
@@ -244,6 +288,7 @@ export default function AgentesPage() {
 
       {/* ── Vista lista enriquecida ──────────────────────────────────────── */}
       {view === "lista" && (
+        <div ref={listaRef}>
         <Card className="overflow-hidden p-0">
           {/* Barra de filtros */}
           <div className="flex flex-col gap-2 border-b border-line px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -381,11 +426,18 @@ export default function AgentesPage() {
                           />
                         </div>
                       )}
-                      <p className="text-[10px] text-muted">
-                        {a.ultima_sesion_fecha
-                          ? (es ? `Última: ${fDate(a.ultima_sesion_fecha)}` : `Last: ${fDate(a.ultima_sesion_fecha)}`)
-                          : (es ? "Sin asistencia" : "No attendance")}
-                      </p>
+                      <div className="flex flex-col gap-px">
+                        <p className="text-[10px] text-muted">
+                          {a.ultima_sesion_fecha
+                            ? (es ? `Última: ${fDate(a.ultima_sesion_fecha)}` : `Last: ${fDate(a.ultima_sesion_fecha)}`)
+                            : (es ? "Sin asistencia" : "No attendance")}
+                        </p>
+                        {a.sesiones_faltadas > 0 && (
+                          <p className="text-[10px] font-semibold text-danger">
+                            ✗ {a.sesiones_faltadas} {es ? "faltó" : "missed"}
+                          </p>
+                        )}
+                      </div>
                     </div>
 
                     {/* Col 4: Actividad */}
@@ -442,6 +494,7 @@ export default function AgentesPage() {
             </div>
           )}
         </Card>
+        </div>
       )}
 
       {/* ── Mapa — al final ──────────────────────────────────────────────── */}

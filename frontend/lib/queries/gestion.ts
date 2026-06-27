@@ -49,6 +49,7 @@ export type Agente = {
   // Campos enriquecidos
   sesiones_registradas: number;
   sesiones_asistidas: number;
+  sesiones_faltadas: number;
   ultima_sesion_fecha: string | null;
   pct_onboarding: number;
   etapa_actual: string | null;

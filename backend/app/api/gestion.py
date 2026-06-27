@@ -72,6 +72,9 @@ def list_agentes(ctx: dict = Depends(view_ctx)) -> list:
         " join capacitaciones k on k.id = ca.capacitacion_id "
         " where ca.agente_id = a.id and k.tenant_id = a.tenant_id and ca.asistio = true "
         " order by k.fecha desc limit 1) as ultima_sesion_fecha, "
+        "(select count(*)::int from capacitacion_asistencia ca "
+        " join capacitaciones k on k.id = ca.capacitacion_id "
+        " where ca.agente_id = a.id and k.tenant_id = a.tenant_id and ca.asistio = false) as sesiones_faltadas, "
         # progreso onboarding
         "(select round(coalesce(avg(case when ep.estado='completado' then 100 else 0 end),0))::int "
         " from etapa_progreso ep where ep.agente_id = a.id) as pct_onboarding, "

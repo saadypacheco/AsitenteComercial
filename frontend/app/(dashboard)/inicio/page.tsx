@@ -185,22 +185,34 @@ export default function InicioPage() {
 
       {/* ── KPIs ───────────────────────────────────────────────────────── */}
       <div className="mb-6 grid grid-cols-3 gap-3 lg:grid-cols-6">
-        <Card className="border-t-[3px] border-t-brand p-3">
-          <p className="text-xl font-bold text-brand">{total}</p>
-          <p className="mt-1 text-[11px] text-muted">{es ? "Agentes" : "Agents"}</p>
-        </Card>
-        <Card className="border-t-[3px] border-t-ok p-3">
-          <p className="text-xl font-bold text-ok">{completed}</p>
-          <p className="mt-1 text-[11px] text-muted">{es ? "Completaron" : "Completed"}</p>
-        </Card>
-        <Card className="border-t-[3px] border-t-danger p-3">
-          <p className="text-xl font-bold text-danger">{atRisk}</p>
-          <p className="mt-1 text-[11px] text-muted">{es ? "En riesgo" : "At risk"}</p>
-        </Card>
-        <Card className="border-t-[3px] border-t-warning p-3">
-          <p className="text-xl font-bold text-warning">{avgPct}%</p>
-          <p className="mt-1 text-[11px] text-muted">{es ? "Progreso" : "Progress"}</p>
-        </Card>
+        <Link href="/agentes" className="block">
+          <Card className="h-full border-t-[3px] border-t-brand p-3 transition hover:shadow-md cursor-pointer">
+            <p className="text-xl font-bold text-brand">{total}</p>
+            <p className="mt-1 text-[11px] text-muted">{es ? "Agentes" : "Agents"}</p>
+            <p className="mt-0.5 text-[9px] text-faint">{es ? "Ver todos →" : "View all →"}</p>
+          </Card>
+        </Link>
+        <Link href="/agentes?sort=progreso&filter=completado" className="block">
+          <Card className="h-full border-t-[3px] border-t-ok p-3 transition hover:shadow-md cursor-pointer">
+            <p className="text-xl font-bold text-ok">{completed}</p>
+            <p className="mt-1 text-[11px] text-muted">{es ? "Completaron" : "Completed"}</p>
+            <p className="mt-0.5 text-[9px] text-faint">{es ? "Ver detalle →" : "View detail →"}</p>
+          </Card>
+        </Link>
+        <Link href="/agentes?sort=riesgo" className="block">
+          <Card className="h-full border-t-[3px] border-t-danger p-3 transition hover:shadow-md cursor-pointer">
+            <p className="text-xl font-bold text-danger">{atRisk}</p>
+            <p className="mt-1 text-[11px] text-muted">{es ? "En riesgo" : "At risk"}</p>
+            <p className="mt-0.5 text-[9px] text-faint">{es ? "Ver detalle →" : "View detail →"}</p>
+          </Card>
+        </Link>
+        <Link href="/agentes?sort=progreso" className="block">
+          <Card className="h-full border-t-[3px] border-t-warning p-3 transition hover:shadow-md cursor-pointer">
+            <p className="text-xl font-bold text-warning">{avgPct}%</p>
+            <p className="mt-1 text-[11px] text-muted">{es ? "Progreso" : "Progress"}</p>
+            <p className="mt-0.5 text-[9px] text-faint">{es ? "Ver ranking →" : "View ranking →"}</p>
+          </Card>
+        </Link>
         <Link href="/reuniones#asistencia" className="block">
           <Card className={`h-full border-t-[3px] p-3 transition hover:shadow-md ${nonAttendees > 0 ? "border-t-danger" : "border-t-ok"}`}>
             <p className={`text-xl font-bold ${nonAttendees > 0 ? "text-danger" : "text-ok"}`}>{nonAttendees}</p>
