@@ -3,447 +3,292 @@
 > **Audience:** Sales leaders managing insurance agent teams.
 > **Tone:** Professional, direct, benefit-focused.
 > **Language:** English (overlays + narration).
-> **Estimated duration:** 14–17 min.
-> **Image order:** 00-introduccion → 01–11 (admin) → 12–15 (agent) → 16 (closing)
+> **Estimated duration:** 10–13 min.
+> **Nav order:** Login → Progress → Memory → Agents → Training → Practice → Settings → Agent view
 
 ---
 
-## SCREEN 0 — Introduction (`00-introduccion.png`)
-
-> *Image: woman holding a smartphone with WhatsApp open. On the monitor behind her: Cecilia's Control Dashboard — a diagram showing WhatsApp Communications flowing into the Knowledge Base and Agent Onboarding, with an Onboarding Summary panel listing agent progress (Sofia R., Carlos G., Lima G., Dana B.) and a Communication Alerts section.*
+## INTRO SLIDE
 
 **[Overlay text]**
 > "Your team is already working on WhatsApp. We just make every conversation count."
 
 **[Narration]**
 
-"This is Cecilia — a commercial sales leader managing a team of insurance agents.
+"Meet Cecilia — a commercial sales leader managing a team of insurance agents.
 
-Every day, her agents are in WhatsApp groups: talking to clients, handling objections, sharing updates, closing sales. That's where the work actually happens.
+Every day her agents are in WhatsApp groups: answering clients, handling objections, closing sales. That's where the work actually happens.
 
-The problem is that all of that activity — every conversation, every commitment made, every signal that a client is about to leave — disappears into the chat history. Nobody captures it. Nobody analyzes it. Cecilia has to read every group manually just to know what's going on.
+The problem: all of that activity — every commitment made, every signal that a client is about to leave — disappears into the chat history. Cecilia has to read every group manually just to know what's going on.
 
-Look at what Execally does instead.
+Execally changes that.
 
-On the left of the screen: WhatsApp Communications. Every message from every group flows automatically into the system — through a dedicated secondary WhatsApp number that acts as the silent observer. No apps to install on agents' phones. No manual exports.
+WhatsApp connects once. From that moment, every conversation flows automatically into the platform — captured, analyzed, and surfaced to the right person at the right time.
 
-In the center: the Agency's Knowledge Base. The system doesn't just store conversations — it learns from them. Training materials, objection scripts, product documentation — all searchable by agents in seconds through the AI Coach.
-
-On the right: Agent Onboarding. Cecilia sees in real time where each of her agents is in the training path — Sofia at 75%, Carlos at 50%, Lima at 100% — without asking anyone.
-
-And at the bottom: Communication Alerts. The AI flags the conversations that need Cecilia's attention right now, so she doesn't have to read everything to find the one thing that matters.
-
-This is the engine. Let's go inside the platform."
-
-**[Key selling point]**
-> No integrations to build. No apps to install on agents' phones. Cecilia connects one WhatsApp number to the system — and from that moment, the entire team's activity flows in automatically.
+Let's go inside."
 
 ---
 
-## SCREEN 1 — Login (`01-login.png`)
+## SCREEN 1 — Login
 
 **[Overlay text]**
-> "Your team's command center — secure access, every role in its place."
+> "Secure, role-based access. Leaders in. Agents in. Everyone sees exactly what they need."
 
 **[Narration]**
 
-"This is the first thing Cecilia and every leader on her team sees when they open the platform.
+"The login page is the first thing every person on the team sees.
 
-Clean, professional, branded. The login page reflects your operation — your colors, your identity.
+Cecilia signs in with her email and password. The system knows immediately who she is, which team she manages, and which data she's allowed to see.
 
-Every person signs in with their own email and password. From that moment, the system knows exactly who they are, which team they manage, and what data they're allowed to see.
+Forgot the password? Magic link arrives in seconds — no IT ticket, no waiting.
 
-If someone forgets their password? No IT ticket needed. A magic link arrives in their inbox in seconds — click and they're in."
-
-**[Key selling point]**
-> Security by design: every session is tenant-isolated. What Cecilia sees belongs only to her operation — no data from other clients, ever.
+Every session is completely isolated to Cecilia's operation. No other client's data is ever visible."
 
 ---
 
-## SCREEN 2 — Dashboard (`02-dashboard.png`)
+## SCREEN 2 — Progress (Home)
 
 **[Overlay text]**
-> "The full picture of your team — without opening a single report."
+> "The full picture of your team's onboarding — sorted by who needs help most."
 
 **[Narration]**
 
-"The moment Cecilia logs in, this is what she sees.
+"This is the first thing Cecilia sees after login: the Progress screen.
 
-Real-time KPIs at the top: active conversations, today's sales, critical pending items, clients at risk of leaving, and how many agents are connected right now.
+At the top, a personalized greeting alongside the five-stage onboarding path — each stage shows its team-wide completion percentage at a glance. Right now the team is strong on the early stages but lagging on 'Using the System' at 29% and 'Final Certification' at 14%. That's a problem Cecilia needs to act on today.
 
-Below that, the AI has already processed everything that happened in the team's WhatsApp groups and delivers: the executive summary of the day, critical alerts, automatically detected opportunities, and the agent ranking.
+The six KPI cards below give the instant picture: 8 agents total, 1 completed, 3 at risk, 45% average progress, 8 who didn't attend the last session, and 202 pending conversations.
 
-No one prepares these reports. No spreadsheets. The AI works while the team works.
+Every card is clickable — it takes Cecilia directly to the detail she needs.
 
-Here's the part that changes operations: every message sent in the team's WhatsApp groups is captured, analyzed, and surfaced here — with names, timestamps, and context. Cecilia doesn't need to read every group. The system tells her what happened, who needed help, and whether it was resolved."
+The alert banner at the top flags something important: three meeting summaries haven't been broadcast to the team yet. One click takes her straight to Training to handle it.
+
+Now look at the agent table. It's sorted by risk by default — so Pedro Núñez, with 0% progress and no training attendance, appears at the top. Cecilia doesn't have to hunt for who needs help. The system tells her.
+
+Each row shows four dimensions: the onboarding progress bar with percentage, training attendance rate, sales activity, and simulator usage. If an agent has never touched the practice simulator, it shows 'Never used' in red — immediately visible.
+
+The call button appears on agents at risk. One click to start the conversation."
 
 **[Key selling point]**
-> Zero setup to see data: from day one of WhatsApp connection, the dashboard fills itself. Cecilia sees everything; each sub-leader sees only their own team.
+> The table is sorted by risk by default. The agent who most needs attention is always first — no filtering, no searching, no pivot tables.
 
 ---
 
-## SCREEN 3 — AI Actions (`03-acciones.png`)
+## SCREEN 3 — Memory
 
 **[Overlay text]**
-> "The AI writes the message. You decide if it gets sent."
+> "Everything the system knows — search it, ask it, never miss what matters."
 
 **[Narration]**
 
-"This is where the AI turns data into action.
+"Memory is the intelligence hub of the platform.
 
-Every card here is a message the AI has already drafted — based on what it detected in conversations. A client who hasn't been contacted in 14 days. An agent with 3 open critical items. A renewal coming up next week.
+At the top: the global search bar. Cecilia can search across all WhatsApp messages, audio transcriptions, images, people, events, and training content in one place. Type a name, a topic, a date — the system finds it.
 
-The message is ready. The channel is chosen — WhatsApp or email. Cecilia reads it, approves it, and it goes out. That's it.
+The filter chips below let her narrow by category: Messages, Audio, People, Pending Items, Events, Groups, Training. The same unified search covers everything.
 
-If something doesn't look right, she edits it before sending. The AI proposes, the human decides.
+On the left: the Training Calendar. A mini month view showing every scheduled and upcoming session as a colored dot. Click any day to see what's planned. The upcoming sessions list at the bottom shows the next three — with their status.
 
-The status indicator at the top shows whether actions are being sent in live mode or simulation mode. In production with WhatsApp connected, these messages reach clients directly."
+On the right: 'Don't Miss Anything.' This is the panel Cecilia checks every morning.
+
+First: AI Recommendations. The AI has already analyzed everything and tells Cecilia exactly what to do — ranked by priority. Not a generic suggestion: 'Call María López — she hasn't responded to the last two follow-ups. Risk of churn.' Each recommendation shows the action, the reasoning, and the urgency level.
+
+Below that: operational alerts.
+
+Five agents haven't attended a single training session. The button next to the alert says 'Message' — Cecilia clicks it, a modal opens with a pre-written message ready to send. She edits it if she wants, then clicks 'Send to 5 agents.' Every one of them gets an internal notification instantly. No WhatsApp, no email — directly inside the platform they use.
+
+Seven agents have never used the training simulator. Same flow: one button, one pre-written message, one click to send to all seven.
+
+The AI chat is always available via the button in the bottom-right corner — Cecilia types a question in natural language and the AI responds from the system's actual data."
 
 **[Key selling point]**
-> This turns reactive management into proactive outreach — without adding work. The AI identifies the opportunity, drafts the message, and hands it to the leader for a single-click decision.
+> Alerts are actionable. Cecilia doesn't just see who's missing — she sends them a message directly from the same screen, in one click.
 
 ---
 
-## SCREEN 4 — Pending Tasks (`04-pendientes.png`)
+## SCREEN 4 — Agents
 
 **[Overlay text]**
-> "Everything that needs attention — prioritized, assigned, tracked."
+> "Every agent. Every metric. One screen."
 
 **[Narration]**
 
-"This is the team's shared task board.
+"The Agents screen gives Cecilia a complete list of her team.
 
-The summary bar at the top shows the global health at a glance: total open items, how many are critical, how many are in progress, and how many have been closed.
+Six columns: Identity with photo, phone, and location. Onboarding progress bar. Training attendance rate with last session date and missed sessions count. Sales activity — closes and open items. Simulator usage — how many times they've practiced and their average score. And a quick action column.
 
-Every item has a priority — critical, high, medium, low — and is assigned to a specific agent. The AI creates most of these automatically when it detects something that needs follow-up. Leaders can also create them manually.
+The filter and sort at the top let Cecilia switch views instantly — by risk, by name, by progress.
 
-Critical items are highlighted in red. One click to escalate. Another click to close.
+The 'Designate as Leader' option turns any agent into a sub-leader, immediately giving them their own scoped dashboard login. They'll only see their own sub-team — not the full operation.
 
-When a meeting is processed or an action triggers a follow-up, the corresponding pending item appears here automatically — no manual entry needed."
-
-**[Key selling point]**
-> No more tasks lost in chat threads or spreadsheets. Everything that needs follow-up lives here, with a full audit trail of who created it, when, and how it was resolved.
+Every piece of data here is live. Nothing is entered manually."
 
 ---
 
-## SCREEN 5 — Client Portfolio (`05-clientes.png`)
+## SCREEN 5 — Training (Capacitaciones)
 
 **[Overlay text]**
-> "Your entire book of business — who needs a call today."
+> "Meeting transcripts become tasks. Automatically."
 
 **[Narration]**
 
-"The clients screen gives Cecilia a complete view of the portfolio.
+"Training is where meetings, sessions, and attendance tracking live.
 
-At the top: total clients, how many renewals are coming up, how many haven't been contacted recently, and the total insured value.
+Cecilia has a list of all team sessions — past and upcoming — with attendance counts and status badges.
 
-Each client card shows the last contact date. If it's been too long, the system flags it. One click on 'Register contact' and the timestamp is updated.
+She clicks a session to open the attendance detail: a complete list of every agent, marked as attended or absent. This is synced automatically from Zoom — no manual checking.
 
-Adding a new client takes 30 seconds — name, phone, email, policy value, expiration date. It immediately appears in the portfolio and the AI starts tracking it.
+At the top: a dropdown to switch between sessions. The last five sessions appear immediately, with a summary strip showing dates and attendee counts.
 
-The filters let Cecilia quickly find clients at risk: renewals due soon, or those without recent contact — the two groups most likely to churn."
+Now the key feature: meeting transcripts.
+
+When a team meeting ends, Cecilia pastes the transcript, gives it a title, and clicks 'Process'. The AI extracts: a structured summary, the topics discussed, and every action item — each one automatically becoming a pending task assigned to the agent mentioned by name.
+
+Once she approves the summary, she clicks 'Broadcast' — and every agent on the team gets an internal notification with the key points and their assigned tasks. No email. No group message. Direct, inside the platform."
 
 **[Key selling point]**
-> This replaces the CRM spreadsheet. Every client is tracked, every contact is logged, and the AI surfaces the ones that need attention before they leave.
+> From transcript to assigned tasks in under 60 seconds. Every meeting becomes accountable — automatically.
 
 ---
 
-## SCREEN 6 — Agent Management (`06-agentes.png`)
+## SCREEN 6 — Practice (Entrenamiento / Simulador)
 
 **[Overlay text]**
-> "Your entire team structure — with geographic context."
+> "See who's practicing — and who isn't."
 
 **[Narration]**
 
-"The agents screen shows the full team in two views: a live map with their locations, and the hierarchy tree.
+"The Practice screen gives Cecilia visibility into simulator adoption across the team.
 
-The map shows which agents are in which cities — useful for territory planning and understanding coverage.
+Four KPIs at the top: adoption rate (what percentage of the team has used the simulator at least once), total simulation sessions, average team score, and the number of agents who've never practiced.
 
-The hierarchy view shows the reporting structure: who leads whom, which agents are in each sub-team, and their current status — active, saturated, or at risk.
+Below: one card per scenario. Right now there are five — Price Objection, Cold Call, Closing, Renewal, and Product Knowledge.
 
-From here, Cecilia can create a new agent, edit their information, remove them from the team, or designate them as a sub-leader — which automatically gives them their own scoped dashboard login.
+Each card shows: the scenario difficulty badge, the team adoption percentage for that specific scenario, the average score, and total usage.
 
-The 'saturated' badge appears automatically when the AI detects an agent with too many open items relative to their capacity."
+Expand any card and you see exactly which agents have practiced it, how many times, their average score, and their last session score — shown as a visual progress bar, color-coded green, yellow, or red.
+
+At the bottom of each card: 'No practice' section. Red chips for every agent who has never attempted that scenario. Cecilia knows exactly who to push — and from Memory, she can send them a message in one click."
 
 **[Key selling point]**
-> No org chart needed. The hierarchy is live in the system. When a new leader is designated, they get their own scoped view instantly — they only see their sub-team.
+> 'Never used' used to be invisible. Now it's a red badge at the top of the screen — and a message button that reaches every agent who hasn't practiced, in one click.
 
 ---
 
-## SCREEN 7 — AI Insights (`07-ia-insights.png`)
-
-**[Overlay text]**
-> "The AI's diagnosis of your team — before problems become visible."
-
-**[Narration]**
-
-"AI Insights is the strategic layer of the platform.
-
-On the left: personalized recommendations — the AI tells Cecilia exactly what to do today, ranked by priority. Call this client. Help this agent. Follow up on this opportunity.
-
-On the right: the executive summary — a synthesized view of everything that happened, generated automatically from WhatsApp activity.
-
-Below: two risk panels. Clients at risk of churning — with the estimated value at stake. And agents at risk of leaving the team — with an abandonment score based on activity, training completion, and sales performance.
-
-At the bottom: a natural language interface. Cecilia types a question — 'Who needs urgent attention?' — and the AI responds with data from the system."
-
-**[Key selling point]**
-> This is what separates reactive management from predictive leadership. The AI surfaces problems before they're visible to the naked eye — and quantifies the risk so Cecilia knows where to focus first.
-
----
-
-## SCREEN 8 — Meeting Notes (`08-reuniones.png`)
-
-**[Overlay text]**
-> "Paste the transcript — get the summary, topics, and action items in seconds."
-
-**[Narration]**
-
-"Every team meeting generates a transcript — from Zoom, Teams, Google Meet, or any other tool.
-
-Cecilia pastes that transcript here, gives it a title, and clicks 'Process meeting'.
-
-In seconds, the AI extracts: a structured summary, the topics discussed, and — most importantly — the action items. Each action item is automatically turned into a pending task, assigned to the agent mentioned in the conversation.
-
-No meeting minutes. No manual task creation. The output goes directly into the task board."
-
-**[Key selling point]**
-> Every meeting used to generate a list of tasks that lived in someone's notes. Now they're in the system, assigned, tracked, and visible to everyone — from the moment the meeting ends.
-
----
-
-## SCREEN 9 — Training Program (`09-capacitaciones.png`)
-
-**[Overlay text]**
-> "Your agents' learning path — visible from day one to certification."
-
-**[Narration]**
-
-"This is the structured onboarding and training program for the agent team.
-
-The progress bar at the top shows the team's overall completion rate across all 5 stages — from Welcome & Induction to Final Certification.
-
-Each stage has an individual completion percentage, showing exactly where the team is lagging. Below that: the training calendar, showing upcoming and past sessions with attendance records.
-
-The alerts panel flags issues immediately: a training session with no confirmed attendees, an agent who missed a session, a stage that's falling behind schedule.
-
-This is the oversight layer that keeps onboarding on track — without Cecilia having to chase every person individually."
-
-**[Key selling point]**
-> Agent attrition often happens in the first 90 days — before they've completed training. This gives leadership visibility into exactly where each person is in their development, so they can intervene early.
-
----
-
-## SCREEN 10 — Reports (`10-reportes.png`)
-
-**[Overlay text]**
-> "Four views of performance — updated automatically."
-
-**[Narration]**
-
-"Reports gives Cecilia the quantitative view of the operation.
-
-Four charts, always current:
-
-Weekly Activity — how many conversations happened across WhatsApp groups, by day.
-
-Sales by Agent — a ranked bar chart showing who's performing and who's not.
-
-Events by Type — what kinds of commercial events are being detected: sales, objections, follow-ups, consultations.
-
-Pipeline of Opportunities — total potential revenue in play, and how many opportunities are active.
-
-These numbers are calculated from real WhatsApp conversation data — not manual entries. They update automatically as the team works."
-
-**[Key selling point]**
-> There's no separate BI tool to maintain. The reports are built from the same data that powers the dashboard — consistent, real-time, and zero effort to maintain.
-
----
-
-## SCREEN 11 — Settings & Daily Briefing (`11-ajustes.png`)
+## SCREEN 7 — Settings
 
 **[Overlay text]**
 > "The daily briefing: your team's status, delivered to your WhatsApp every morning."
 
 **[Narration]**
 
-"Settings is where Cecilia configures her experience.
+"Settings is where Cecilia configures her daily experience.
 
-The most important setting: the Daily Briefing. Every morning at the time she chooses, a WhatsApp message arrives on her phone with: team activity, pending critical items, detected opportunities, agents at risk, and the top alerts.
+The most powerful feature here: the Daily Briefing.
 
-She can preview exactly what she'll receive — no surprises. And she can trigger a test send at any time to verify it's working.
+Every morning at the time she sets, a WhatsApp message arrives with: team activity, critical pending items, the agents most at risk, and the top detected opportunities.
 
-The system status section shows at a glance whether the AI is active, whether WhatsApp is connected, and whether email delivery is configured.
+She can preview exactly what she'll receive before enabling it. And she can trigger a test send at any time.
 
-This is the morning habit that keeps leadership informed without requiring anyone to open a laptop."
+The system status section confirms what's active: AI processing, WhatsApp connection, email delivery.
 
-**[Key selling point]**
-> Cecilia shouldn't need to log in every morning to know if her team is on track. The briefing comes to her — on the device she already checks first thing. Leadership by exception, at scale.
+Once WhatsApp is connected, everything else runs automatically. No manual pulling of reports. No morning check-ins. The briefing comes to Cecilia — on the device she already checks first."
 
 ---
 
-## AGENT ONBOARDING INTRO (`simulate.png`)
-
-> *Image: woman at desk, monitor showing "Your Interactive Training Suite" with the Sales Simulator and AI Coach running side by side, tablet showing the learning path with colored stage nodes.*
+## SCREEN 8 — Agent View: Today
 
 **[Overlay text]**
-> "The agent's world — where training, practice, and coaching happen in one place."
+> "The agent's side — where learning, practice, and coaching happen every day."
 
 **[Narration]**
 
-"Everything we've seen so far is the leadership view. But the platform only works if the agents actually use it — and for that, the experience has to be something they want to open every day, not something they're forced to check.
+"Everything we've seen is the leadership side. Now let's look at what Sofía — one of Cecilia's agents — sees when she opens the app.
 
-This is the agent's side of Execally.
+The Today screen is her personal dashboard.
 
-On the monitor: the Interactive Training Suite. On the left, the Sales Simulator — Sofia is mid-conversation with a virtual client, getting real pushback just like in the field. On the right, the AI Coach — answering her questions instantly, drawing from the company's own training materials.
+At the top: her level, XP score, and streak — how many consecutive days she's been active. Gamification isn't a gimmick: agents who track their own progress are agents who stay.
 
-On the tablet: the learning path. Five stages, each one unlocking the next. Sofia can see exactly where she is, what she's completed, and what comes next — without asking anyone.
+The journey tracker shows exactly where she is in the five-stage onboarding path. Completed stages in green, current stage highlighted, next stages locked.
 
-The streak counter at the top right shows 3 consecutive days active. That's the gamification layer: agents build habits, leaders see progress, and the system tracks everything automatically.
+Her active missions — specific goals to complete this week, each with an XP reward. When she hits one, it updates instantly.
 
-Let's go inside and see each piece up close."
-
-**[Key selling point]**
-> The agent app is the reason people stay. Most attrition happens in the first 90 days — before agents have the skills and confidence to close. This suite gives them the tools to get there faster, on their own schedule.
+Today's training sessions appear at the bottom, with direct Zoom links. One click to join."
 
 ---
 
-## SCREEN 12 — Agent App: Today (`12-agente-hoy.png`)
-
-**[Overlay text]**
-> "The agent's personal dashboard — gamified, mobile-first."
-
-**[Narration]**
-
-"This is what Sofía, one of Cecilia's agents, sees when she opens the app.
-
-At the top: her level — currently Senior, Level 3 — and her XP score. Below that, a streak counter showing how many consecutive days she's been active.
-
-The journey tracker shows exactly where she is in the 5-stage path to her first sale. The current stage is highlighted; completed stages show a green checkmark.
-
-Her active missions are shown below — specific goals to hit this week, each with an XP reward. When she completes one, it updates instantly and Cecilia sees it in the Capacitaciones screen.
-
-At the bottom: today's training sessions, with direct Zoom links. One click to join.
-
-This is the difference between a tool people use because they have to, and one they actually open every morning."
-
-**[Key selling point]**
-> Gamification isn't a gimmick — it's a retention mechanism. Agents who feel progress are agents who stay. The XP and level system makes the platform something agents want to use.
-
----
-
-## SCREEN 13 — Agent App: Learning Path (`13-agente-ruta.png`)
-
-**[Overlay text]**
-> "Five stages to first sale — every step tracked."
-
-**[Narration]**
-
-"The Path tab shows Sofía's personal learning roadmap.
-
-Five stages: Welcome & Induction, Get to Know the Products, Sales Techniques, Using the System, and Final Certification.
-
-Each stage is listed with its description and current status — Completed, In Progress, or Locked. The active stage has a prominent button to mark it complete once done.
-
-When Sofía marks a stage complete, the next one unlocks automatically and Cecilia sees the update in the Training screen — no check-ins, no follow-up messages needed.
-
-The overall progress bar at the top shows 60% — three stages done, one in progress, one locked."
-
-**[Key selling point]**
-> The learning path solves the single biggest onboarding failure: agents who don't know what they need to learn, in what order. The system tells them exactly where they are and what comes next.
-
----
-
-## SCREEN 14 — Agent App: Sales Simulator (`14-agente-simulador.png`)
+## SCREEN 9 — Agent View: Sales Simulator
 
 **[Overlay text]**
 > "Practice selling — against a virtual client that pushes back."
 
 **[Narration]**
 
-"The Sales Simulator is where agents get their reps in — before they're in front of a real client.
+"The Sales Simulator is where agents build real skills before they're in front of real clients.
 
-Three scenarios to choose from: Cold Call, Objection Handling, and Closing.
+Sofía picks a scenario — let's say Cold Call. She types her opening pitch. The virtual client responds — skeptical, busy, brushing her off — exactly the kind of pushback she'll face.
 
-Sofía types her pitch. The virtual client responds — skeptical, busy, price-sensitive — exactly the kind of pushback she'll face in the real world.
+The conversation runs five rounds. At the end, the AI evaluates: what worked, where the pitch fell apart, specific language to improve.
 
-The conversation runs 5 rounds. At the end, the AI coach evaluates the session: what worked, what to improve, where the pitch broke down.
-
-Powered by Gemini AI, the responses evolve based on what the agent says. No two simulations are identical. Agents can run it as many times as they want — the feedback gets more specific each time."
+Powered by Gemini AI, the responses change based on what she says. No two simulations are the same. She can run it as many times as she wants — and Cecilia sees every session in the Practice screen."
 
 **[Key selling point]**
-> Most agents don't practice enough before their first real calls. The simulator gives them a safe space to fail, learn, and improve — at any hour, as many times as needed, with immediate AI feedback.
+> The simulator connects the two sides of the platform: agents practice independently, and leadership sees who's putting in the reps and who isn't.
 
 ---
 
-## SCREEN 15 — Agent App: AI Coach (`15-agente-coach.png`)
+## SCREEN 10 — Agent View: AI Coach
 
 **[Overlay text]**
 > "Ask anything about products, objections, or scripts — get an instant answer."
 
 **[Narration]**
 
-"The AI Coach is the agent's knowledge base, available 24/7.
+"The AI Coach is the agent's 24/7 knowledge base.
 
 Sofía types any question: How do I handle a price objection? What does the life insurance policy cover? What's the script for a renewal call?
 
-The coach responds with specific, actionable guidance — drawn from the company's actual training materials that have been uploaded to the knowledge base.
+The Coach responds with specific, actionable guidance — drawn only from the company's own training materials. Not a generic chatbot. Not hallucinated answers. The same source Cecilia would use.
 
-Unlike a generic chatbot, the Coach only answers from the documents the company has provided. If it doesn't know, it says so — and tells the agent to check with their leader. No hallucinated answers.
-
-This replaces the 'I'll ask María' text messages that interrupt the team every day."
-
-**[Key selling point]**
-> Every hour an agent waits for an answer from their leader is a lost sales opportunity. The AI Coach gives them the answer in seconds — from the same source the leader would use — without interrupting anyone.
+This replaces the 'I'll ask María' messages that interrupt the team leader every hour."
 
 ---
 
-## CLOSING — Summary (`16-closing.png`)
+## CLOSING
 
 **[Overlay text]**
-> "One platform. Every layer of your commercial operation."
+> "One platform. Leadership. Agents. WhatsApp. All connected."
 
 **[Narration]**
 
-"Let's recap what this system delivers:
+"Let's bring it together.
 
-For **leadership**: real-time visibility of the entire team, AI-generated action plans, risk detection before problems surface, and a daily briefing that arrives on your phone every morning.
+For **leadership**: the Progress screen shows every agent's risk in one view, sorted with who needs help first. Memory surfaces alerts, AI recommendations, and lets Cecilia send targeted messages to specific groups in one click. Training turns every meeting transcript into assigned tasks automatically. Practice shows exactly who's putting in the reps.
 
-For **agents**: a mobile-first app with a gamified learning path, a sales simulator to practice before real calls, and an AI coach available at any hour.
+For **agents**: a mobile-first app with a gamified learning path, a sales simulator for real practice, and an AI coach available at any hour.
 
-For **the operation**: WhatsApp conversations captured and analyzed automatically, meeting transcripts turned into tasks, and a client portfolio tracked without manual entry.
+For **the operation**: WhatsApp conversations flow in automatically. Meetings become tasks. Client touchpoints are tracked. Everything connects.
 
-This isn't a CRM. It's not a training platform. It's not a reporting tool.
-
-It's all three — built around WhatsApp, where your team already works."
-
-**[Call to action]**
-> Ready to connect your team's WhatsApp and see your operation in real time? We can have the system running with your data in under 48 hours.
+Ready to see it running with your team's data? We can have it live in under 48 hours."
 
 ---
 
-## Image Reference Map
+## Screenshot Reference
 
-| File | Section | Status |
-|------|---------|--------|
-| `00-introduccion.png` | SCREEN 0 — Intro: woman at desk with Execally | ✅ |
-| `01-login.png` | SCREEN 1 — Login | ✅ |
-| `02-dashboard.png` | SCREEN 2 — Dashboard | ✅ |
-| `03-acciones.png` | SCREEN 3 — AI Actions | ✅ |
-| `04-pendientes.png` | SCREEN 4 — Pending Tasks | ✅ |
-| `05-clientes.png` | SCREEN 5 — Client Portfolio | ✅ |
-| `06-agentes.png` | SCREEN 6 — Agent Management | ✅ |
-| `07-ia-insights.png` | SCREEN 7 — AI Insights | ✅ |
-| `08-reuniones.png` | SCREEN 8 — Meeting Notes | ✅ |
-| `09-capacitaciones.png` | SCREEN 9 — Training Program | ✅ |
-| `10-reportes.png` | SCREEN 10 — Reports | ✅ |
-| `11-ajustes.png` | SCREEN 11 — Settings & Daily Briefing | ✅ |
-| `simulate.png` | AGENT ONBOARDING INTRO — Training Suite promo | ✅ |
-| `12-agente-hoy.png` | SCREEN 12 — Agent: Today | ✅ |
-| `13-agente-ruta.png` | SCREEN 13 — Agent: Learning Path | ✅ |
-| `14-agente-simulador.png` | SCREEN 14 — Agent: Sales Simulator | ✅ |
-| `15-agente-coach.png` | SCREEN 15 — Agent: AI Coach | ✅ |
-| `16-closing.png` | CLOSING — Summary | ✅ |
+| Screenshot | Section |
+|-----------|---------|
+| `01-login.png` | Login screen |
+| `02-progress.png` | Progress / Home — agent table sorted by risk |
+| `03-memory.png` | Memory — search + alerts + calendar |
+| `04-memory-modal.png` | Memory — send message modal open |
+| `05-agents.png` | Agents — full list with simulator column |
+| `06-training.png` | Training — session list + session selector |
+| `07-training-attendance.png` | Training — attendance detail for a session |
+| `08-practice.png` | Practice — scenario cards expanded |
+| `09-settings.png` | Settings — daily briefing config |
+| `10-agent-today.png` | Agent app — Today tab |
+| `11-agent-simulator.png` | Agent app — Sales Simulator mid-conversation |
+| `12-agent-coach.png` | Agent app — AI Coach |
 
 ---
 
