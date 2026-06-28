@@ -7,6 +7,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { getToken, getUser, logout, type SessionUser } from "@/lib/auth";
 import { useLocale } from "@/lib/locale-context";
 import { askAi } from "@/lib/queries/executive";
+import { getNavBadges, type NavBadges } from "@/lib/queries/gestion";
 
 // Rutas del menú: 5 secciones enfocadas en el seguimiento del onboarding comercial.
 type NavKey = "inicio" | "conocimiento" | "agentes" | "reuniones" | "simulador" | "ajustes" | "paraCecilia";
@@ -145,6 +146,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [user, setUser] = useState<SessionUser | null>(null);
   const [open, setOpen] = useState(false);
+  const [badges, setBadges] = useState<NavBadges>({ inicio: 0, conocimiento: 0, agentes: 0, reuniones: 0 });
   const ti = t.inicio;
 
   useEffect(() => {
@@ -155,6 +157,15 @@ export function Shell({ children }: { children: ReactNode }) {
     setReady(true);
   }, []);
 
+  useEffect(() => {
+    if (!ready) return;
+    getNavBadges().then(setBadges).catch(() => {});
+    const interval = setInterval(() => {
+      getNavBadges().then(setBadges).catch(() => {});
+    }, 60_000);
+    return () => clearInterval(interval);
+  }, [ready]);
+
   useEffect(() => setOpen(false), [pathname]);
 
   const nav = (
@@ -162,6 +173,7 @@ export function Shell({ children }: { children: ReactNode }) {
       {NAV.map(({ key, href, icon }) => {
         const active = pathname.startsWith(href);
         const label = ti.nav[key];
+        const badge = badges[key as keyof NavBadges] ?? 0;
         return (
           <Link key={key} href={href}
             className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
@@ -169,7 +181,12 @@ export function Shell({ children }: { children: ReactNode }) {
             }`}
           >
             <span className="text-base leading-none">{icon}</span>
-            {label}
+            <span className="flex-1">{label}</span>
+            {badge > 0 && !active && (
+              <span className="grid h-5 min-w-[20px] place-items-center rounded-full bg-danger px-1 text-[10px] font-bold leading-none text-white">
+                {badge > 99 ? "99+" : badge}
+              </span>
+            )}
           </Link>
         );
       })}

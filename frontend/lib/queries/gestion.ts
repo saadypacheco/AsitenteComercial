@@ -423,3 +423,16 @@ export async function patchEscenario(clave: string, activo: boolean): Promise<vo
   });
   if (!res.ok) throw new Error(`patch escenario: ${res.status}`);
 }
+
+export type NavBadges = {
+  inicio: number;
+  conocimiento: number;
+  agentes: number;
+  reuniones: number;
+};
+
+export async function getNavBadges(): Promise<NavBadges> {
+  const res = await authFetch("/gestion/nav-badges");
+  if (!res.ok) throw new Error(`nav-badges: ${res.status}`);
+  return res.json();
+}
