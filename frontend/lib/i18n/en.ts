@@ -88,11 +88,10 @@ export const en: typeof es = {
     nivelMedio: "Medium",
     nivelBajo: "Low",
     nav: {
-      inicio: "Home", acciones: "Actions", mensajes: "Messages", grupos: "Groups", eventos: "Events",
+      inicio: "Progress", acciones: "Actions", mensajes: "Messages", grupos: "Groups", eventos: "Events",
       pendientes: "Pending", clientes: "Clients", oportunidades: "Opportunities", agentes: "Agents",
-      capacitaciones: "Training", reuniones: "Meetings", reportes: "Reports", iaInsights: "AI Insights",
+      capacitaciones: "Training", reuniones: "Training", reportes: "Reports", iaInsights: "AI Insights",
       ajustes: "Settings", simulador: "Practice", chat: "AI Chat", conocimiento: "Memory",
-      inicio: "Progress", reuniones: "Training",
       paraCecilia: "Your Guide",
     },
     chips: {

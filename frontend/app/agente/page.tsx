@@ -12,7 +12,7 @@ import {
   type AgenteMe, type AgenteNotif, type CoachResp, type Journey, type Mission, type OnboardingItem, type RankItem, type Ruta, type Sesion, type SimMsg,
 } from "@/lib/queries/agente";
 
-type Tab = "hoy" | "agenda" | "ruta" | "progreso" | "logros" | "simular" | "novedades";
+type Tab = "hoy" | "agenda" | "ruta" | "progreso" | "logros" | "simular" | "novedades" | "ayuda";
 
 const PODIUM = ["from-amber-400 to-yellow-500", "from-slate-300 to-slate-400", "from-orange-400 to-amber-500"];
 

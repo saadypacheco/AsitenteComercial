@@ -32,12 +32,14 @@ const leftBorder: Record<Tone, string> = {
 export function Card({
   children,
   className = "",
+  id,
 }: {
   children: ReactNode;
   className?: string;
+  id?: string;
 }) {
   return (
-    <div className={`rounded-2xl border border-line bg-white shadow-card ${className}`}>
+    <div id={id} className={`rounded-2xl border border-line bg-white shadow-card ${className}`}>
       {children}
     </div>
   );
