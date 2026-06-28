@@ -3,53 +3,27 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { Avatar, Badge } from "@/components/executive";
+import { Avatar } from "@/components/executive";
 import { Card } from "@/components/ui";
 import { getToken, getUser } from "@/lib/auth";
 import { useLocale } from "@/lib/locale-context";
 import { getAgentes, getMensajesStats, getNotificaciones, getProgramaCapacitacion, marcarNotificacionLeida, type Agente, type MensajeInterno, type MensajesStats, type Programa } from "@/lib/queries/gestion";
 import { getReunionsPendientesDifusion, type ActaItem } from "@/lib/queries/reuniones";
 
-type AgentRow = {
-  nombre: string;
-  pct: number;
-  etapa_actual: string | null;
-  completados: number;
-  celular: string | null;
-  cerrados: number;
-  estado: string;
-};
-
-type Status = "completed" | "on_track" | "at_risk" | "never_started";
-
-function getStatus(row: AgentRow): Status {
-  if (row.pct >= 100) return "completed";
-  if (row.pct === 0 && row.completados === 0) return "never_started";
-  if (row.pct < 30) return "at_risk";
-  return "on_track";
+function getRisk(a: Agente): "ok" | "warning" | "danger" {
+  if (a.pct_onboarding >= 80) return "ok";
+  if (a.pct_onboarding >= 40) return "warning";
+  return "danger";
 }
-
-function getAlertMsg(status: Status, es: boolean): string | null {
-  if (status === "never_started") return es ? "Nunca ingresó al sistema" : "Never logged into the system";
-  if (status === "at_risk") return es ? "Progreso bajo — necesita seguimiento" : "Low progress — needs follow-up";
-  return null;
-}
-
-const STATUS_TONE: Record<Status, "ok" | "brand" | "warning" | "danger"> = {
-  completed: "ok",
-  on_track: "brand",
-  at_risk: "warning",
-  never_started: "danger",
-};
 
 export default function InicioPage() {
   const { locale, t: dict } = useLocale();
   const [ready, setReady] = useState(false);
   const [userName, setUserName] = useState("Cecilia");
   const [programa, setPrograma] = useState<Programa | null>(null);
-  const [rows, setRows] = useState<AgentRow[]>([]);
+  const [agentes, setAgentes] = useState<Agente[]>([]);
   const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState<"progress" | "risk" | "name">("progress");
+  const [sortBy, setSortBy] = useState<"progress" | "risk" | "name">("risk");
   const [mensajesStats, setMensajesStats] = useState<MensajesStats>({ nuevas: 0, grupos_activos: 0 });
   const [reunionesSinDifundir, setReunionesSinDifundir] = useState<ActaItem[]>([]);
   const [notificaciones, setNotificaciones] = useState<MensajeInterno[]>([]);
@@ -68,39 +42,25 @@ export default function InicioPage() {
     getNotificaciones().then(setNotificaciones).catch(() => {});
     Promise.all([getProgramaCapacitacion(locale), getAgentes()]).then(([p, ag]) => {
       setPrograma(p);
-      const agMap = new Map(ag.map((a) => [`${a.nombre} ${a.apellido ?? ""}`.trim().toLowerCase(), a]));
-      const r: AgentRow[] = p.agentes.map((pa) => {
-        const match = agMap.get(pa.nombre.toLowerCase()) ?? ag.find((a) => a.nombre.toLowerCase() === pa.nombre.split(" ")[0].toLowerCase());
-        return {
-          nombre: pa.nombre,
-          pct: pa.pct,
-          etapa_actual: pa.etapa_actual,
-          completados: pa.completados,
-          celular: match?.celular ?? null,
-          cerrados: match?.cerrados ?? 0,
-          estado: match?.estado ?? "activo",
-        };
-      });
-      setRows(r.sort((a, b) => b.pct - a.pct));
+      setAgentes(ag.sort((a, b) => b.pct_onboarding - a.pct_onboarding));
     }).catch(() => {});
   }, [ready, locale]);
 
   if (!ready) return <div className="min-h-screen bg-[#f5f7fb]" />;
 
   const es = locale === "es";
-  const total = rows.length;
-  const completed = rows.filter((r) => getStatus(r) === "completed").length;
-  const atRisk = rows.filter((r) => ["at_risk", "never_started"].includes(getStatus(r))).length;
-  const avgPct = total > 0 ? Math.round(rows.reduce((s, r) => s + r.pct, 0) / total) : 0;
+  const total = agentes.length;
+  const completed = agentes.filter((a) => a.pct_onboarding >= 100).length;
+  const atRisk = agentes.filter((a) => getRisk(a) === "danger").length;
+  const avgPct = total > 0 ? Math.round(agentes.reduce((s, a) => s + a.pct_onboarding, 0) / total) : 0;
+  const totalSesiones = agentes.length > 0 ? Math.max(...agentes.map((a) => a.sesiones_registradas)) : 0;
 
-  const RISK_ORDER: Record<Status, number> = { never_started: 0, at_risk: 1, on_track: 2, completed: 3 };
-
-  const filteredRows = rows
-    .filter((r) => !search.trim() || r.nombre.toLowerCase().includes(search.toLowerCase()))
+  const filteredAgentes = agentes
+    .filter((a) => !search.trim() || `${a.nombre} ${a.apellido ?? ""}`.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => {
       if (sortBy === "name") return a.nombre.localeCompare(b.nombre);
-      if (sortBy === "risk") return RISK_ORDER[getStatus(a)] - RISK_ORDER[getStatus(b)];
-      return b.pct - a.pct; // default: progress desc
+      if (sortBy === "risk") return a.pct_onboarding - b.pct_onboarding;
+      return b.pct_onboarding - a.pct_onboarding;
     });
 
   const fecha = (s: string | null) => s ? new Date(s).toLocaleDateString(locale, { day: "2-digit", month: "short" }) : "—";
@@ -271,85 +231,132 @@ export default function InicioPage() {
             </div>
           </div>
 
-          {rows.length === 0 && <div className="px-5 py-8 text-center text-sm text-muted">…</div>}
+          {agentes.length === 0 && <div className="px-5 py-8 text-center text-sm text-muted">…</div>}
 
-          {filteredRows.length === 0 && search && (
+          {filteredAgentes.length === 0 && search && (
             <div className="px-5 py-6 text-center text-sm text-muted">
               {es ? `Sin resultados para "${search}"` : `No results for "${search}"`}
             </div>
           )}
 
           <ul className="divide-y divide-line">
-            {filteredRows.map((row) => {
-              const status = getStatus(row);
-              const alertMsg = getAlertMsg(status, es);
+            {filteredAgentes.map((a) => {
+              const risk = getRisk(a);
+              const fullName = `${a.nombre}${a.apellido ? " " + a.apellido : ""}`;
+              const pctAsistencia = totalSesiones > 0 ? Math.round((a.sesiones_asistidas / totalSesiones) * 100) : 0;
+              const isAtRisk = risk === "danger";
               return (
-                <li key={row.nombre} className={`px-5 py-3.5 ${alertMsg ? "bg-amber-50/40" : ""}`}>
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
-                    {/* Avatar + name + phone */}
-                    <div className="flex min-w-0 items-center gap-3 sm:w-44">
-                      <Avatar name={row.nombre} />
+                <li key={a.id} className={`px-5 py-3.5 ${isAtRisk ? "bg-amber-50/30" : ""}`}>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+
+                    {/* Col 1: Identidad */}
+                    <div className="flex min-w-0 items-center gap-2.5 sm:w-40">
+                      <Avatar name={fullName} />
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-ink">{row.nombre}</p>
-                        {row.celular && (
-                          <a href={`tel:${row.celular}`} className="block text-xs text-brand hover:underline">
-                            📱 {row.celular}
+                        <p className="truncate text-sm font-semibold text-ink">{fullName}</p>
+                        {a.celular && (
+                          <a href={`tel:${a.celular}`} className="block truncate text-[11px] text-brand hover:underline">
+                            📱 {a.celular}
                           </a>
+                        )}
+                        {(a.ciudad || a.region) && (
+                          <p className="truncate text-[10px] text-faint">📍 {[a.ciudad, a.region].filter(Boolean).join(", ")}</p>
                         )}
                       </div>
                     </div>
 
-                    {/* Stage + progress bar */}
+                    {/* Col 2: Onboarding */}
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs text-muted">
-                        {row.etapa_actual ?? (status === "never_started"
-                          ? (es ? "Sin iniciar" : "Not started")
-                          : (es ? "Finalizado" : "Finished"))}
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-faint">{es ? "Onboarding" : "Onboarding"}</p>
+                      <p className="truncate text-[11px] text-muted">
+                        {a.etapa_actual ?? (a.pct_onboarding >= 100 ? (es ? "Finalizado" : "Finished") : (es ? "Sin iniciar" : "Not started"))}
                       </p>
-                      <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-soft">
+                      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-soft">
                         <div
-                          className={`h-full rounded-full transition-all ${
-                            status === "completed" ? "bg-ok"
-                            : status === "at_risk" || status === "never_started" ? "bg-warning"
-                            : "bg-brand"
-                          }`}
-                          style={{ width: `${row.pct}%` }}
+                          className={`h-full rounded-full transition-all ${risk === "ok" ? "bg-ok" : risk === "warning" ? "bg-warning" : "bg-danger"}`}
+                          style={{ width: `${a.pct_onboarding}%` }}
                         />
                       </div>
-                      <p className="mt-0.5 text-[11px] text-muted">{row.pct}%</p>
+                      <p className={`mt-0.5 text-[10px] font-semibold ${risk === "ok" ? "text-ok" : risk === "warning" ? "text-warning" : "text-danger"}`}>
+                        {a.pct_onboarding}%
+                      </p>
                     </div>
 
-                    {/* First client */}
-                    <div className="w-24 shrink-0 text-right">
-                      {row.cerrados > 0 ? (
-                        <span className="text-xs font-semibold text-ok">
-                          {es ? `${row.cerrados} cierre${row.cerrados !== 1 ? "s" : ""}` : `${row.cerrados} close${row.cerrados !== 1 ? "s" : ""}`}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-faint">{es ? "Pendiente" : "Pending"}</span>
+                    {/* Col 3: Asistencia */}
+                    <div className="w-28 shrink-0">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-faint">{es ? "Asistencia" : "Attendance"}</p>
+                      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-soft">
+                        <div
+                          className={`h-full rounded-full ${pctAsistencia >= 80 ? "bg-ok" : pctAsistencia >= 50 ? "bg-warning" : "bg-danger"}`}
+                          style={{ width: `${pctAsistencia}%` }}
+                        />
+                      </div>
+                      <p className="mt-0.5 text-[10px] text-ink">
+                        {pctAsistencia}% <span className="text-faint">({a.sesiones_asistidas}/{totalSesiones})</span>
+                      </p>
+                      {a.ultima_sesion_fecha && (
+                        <p className="text-[10px] text-faint">↩ {fecha(a.ultima_sesion_fecha)}</p>
                       )}
-                      <p className="text-[10px] text-faint">{es ? "Primer cliente" : "First client"}</p>
+                      {a.sesiones_faltadas > 0 && (
+                        <p className="text-[10px] font-semibold text-danger">✗ {a.sesiones_faltadas} {es ? "faltó" : "missed"}</p>
+                      )}
                     </div>
 
-                    {/* Status badge */}
-                    <div className="shrink-0">
-                      <Badge tone={STATUS_TONE[status]}>
-                        {status === "completed" ? (es ? "Completado" : "Completed")
-                          : status === "on_track" ? (es ? "En camino" : "On track")
-                          : status === "at_risk" ? (es ? "En riesgo" : "At risk")
-                          : (es ? "Sin iniciar" : "Never started")}
-                      </Badge>
+                    {/* Col 4: Actividad */}
+                    <div className="w-20 shrink-0">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-faint">{es ? "Actividad" : "Activity"}</p>
+                      {a.cerrados > 0 && (
+                        <p className="text-[11px] font-semibold text-ok">
+                          {a.cerrados} {es ? `cierre${a.cerrados !== 1 ? "s" : ""}` : `close${a.cerrados !== 1 ? "s" : ""}`}
+                        </p>
+                      )}
+                      {a.abiertas > 0 ? (
+                        <p className={`text-[11px] ${a.abiertas >= 5 ? "font-semibold text-danger" : "text-muted"}`}>
+                          {a.abiertas} {es ? "pend." : "open"}{a.abiertas >= 5 ? " ⚠" : ""}
+                        </p>
+                      ) : null}
+                      {a.cerrados === 0 && a.abiertas === 0 && (
+                        <p className="text-[11px] text-faint">—</p>
+                      )}
                     </div>
+
+                    {/* Col 5: Simulador */}
+                    <div className="w-24 shrink-0">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-faint">{es ? "Simulador" : "Simulator"}</p>
+                      {a.total_simulaciones === 0 ? (
+                        <p className="text-[11px] font-semibold text-danger">{es ? "Nunca usó" : "Never used"}</p>
+                      ) : (
+                        <>
+                          <p className="text-[11px] font-semibold text-ink">{a.total_simulaciones} {es ? "sim." : "sim."}</p>
+                          {a.puntaje_simulador !== null && (
+                            <p className={`text-[11px] font-semibold ${a.puntaje_simulador >= 70 ? "text-ok" : a.puntaje_simulador >= 50 ? "text-warning" : "text-danger"}`}>
+                              {a.puntaje_simulador}% avg
+                            </p>
+                          )}
+                          {a.escenario_favorito && (
+                            <p className="text-[10px] text-faint truncate">{a.escenario_favorito}</p>
+                          )}
+                        </>
+                      )}
+                    </div>
+
+                    {/* Ver → */}
+                    <Link
+                      href="/agentes"
+                      className="shrink-0 self-center rounded-md border border-line px-2.5 py-1 text-[11px] font-semibold text-brand hover:bg-soft"
+                    >
+                      {es ? "Ver →" : "View →"}
+                    </Link>
                   </div>
 
-                  {/* Inline alert — only for at-risk / never started */}
-                  {alertMsg && (
-                    <div className="mt-2 flex items-center gap-1.5 rounded-md border border-warning/30 bg-amber-50 px-2.5 py-1.5">
+                  {/* Inline alert for at-risk */}
+                  {isAtRisk && (
+                    <div className="mt-2 flex items-center gap-1.5 rounded-md border border-danger/30 bg-red-50 px-2.5 py-1.5">
                       <span className="text-xs">⚠️</span>
-                      <span className="text-xs text-amber-700">{alertMsg}</span>
-                      {row.celular && (
-                        <a href={`tel:${row.celular}`}
-                          className="ml-auto shrink-0 rounded bg-warning px-2 py-0.5 text-[10px] font-bold text-white hover:opacity-90">
+                      <span className="text-xs text-danger">{es ? "Progreso bajo — necesita seguimiento" : "Low progress — needs follow-up"}</span>
+                      {a.celular && (
+                        <a href={`tel:${a.celular}`}
+                          className="ml-auto shrink-0 rounded bg-danger px-2 py-0.5 text-[10px] font-bold text-white hover:opacity-90">
                           {es ? "Llamar" : "Call"}
                         </a>
                       )}

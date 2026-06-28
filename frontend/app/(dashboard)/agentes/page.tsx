@@ -362,7 +362,7 @@ function AgentesContent() {
 
               return (
                 <li key={a.id} className={`px-5 py-4 transition hover:bg-soft/30 ${risk === "danger" ? "bg-red-50/20" : ""}`}>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-[2fr_1fr_1fr_1fr_auto]">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto]">
 
                     {/* Col 1: Identidad */}
                     <div className="flex min-w-0 items-start gap-3">
@@ -459,7 +459,28 @@ function AgentesContent() {
                       )}
                     </div>
 
-                    {/* Col 5: Acciones */}
+                    {/* Col 5: Simulador */}
+                    <div className="flex flex-col justify-center gap-1">
+                      {a.total_simulaciones === 0 ? (
+                        <span className="inline-flex w-fit items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-danger">
+                          🎯 {es ? "Nunca usó" : "Never used"}
+                        </span>
+                      ) : (
+                        <>
+                          <p className="text-xs font-bold text-ink">🎯 {a.total_simulaciones} {es ? "sim." : "sim."}</p>
+                          {a.puntaje_simulador !== null && (
+                            <p className={`text-[11px] font-semibold ${a.puntaje_simulador >= 70 ? "text-ok" : a.puntaje_simulador >= 50 ? "text-warning" : "text-danger"}`}>
+                              {a.puntaje_simulador}% avg
+                            </p>
+                          )}
+                          {a.escenario_favorito && (
+                            <p className="max-w-[90px] truncate text-[10px] text-faint">{a.escenario_favorito}</p>
+                          )}
+                        </>
+                      )}
+                    </div>
+
+                    {/* Col 6: Acciones */}
                     <div className="flex flex-row flex-wrap items-center gap-1.5 sm:flex-col sm:items-end">
                       {a.celular && (
                         <a href={`tel:${a.celular}`}

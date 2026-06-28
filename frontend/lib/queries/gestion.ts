@@ -46,13 +46,17 @@ export type Agente = {
   abiertas: number;
   cerrados: number;
   es_lider: boolean;
-  // Campos enriquecidos
+  // Campos enriquecidos — asistencia
   sesiones_registradas: number;
   sesiones_asistidas: number;
   sesiones_faltadas: number;
   ultima_sesion_fecha: string | null;
   pct_onboarding: number;
   etapa_actual: string | null;
+  // Campos enriquecidos — simulador
+  total_simulaciones: number;
+  puntaje_simulador: number | null;
+  escenario_favorito: string | null;
 };
 
 export type AgenteInput = {
@@ -339,4 +343,83 @@ export async function getReunionsPendientesDifusion(): Promise<ReunionActa[]> {
   const res = await authFetch("/gestion/reuniones-pendientes-difusion");
   if (!res.ok) return [];
   return res.json();
+}
+
+// ── Simulador ────────────────────────────────────────────────────────────────
+export type AgenteEnEscenario = {
+  agente_id: string;
+  nombre: string;
+  usos: number;
+  puntaje_promedio: number | null;
+  ultimo_puntaje: number | null;
+};
+
+export type AgenteSinPractica = {
+  id: string;
+  nombre: string;
+};
+
+export type EscenarioStats = {
+  clave: string;
+  nombre: string;
+  activo: boolean;
+  total_usos: number;
+  puntaje_promedio: number | null;
+  agentes_usaron: number;
+  pct_adopcion: number;
+  agentes: AgenteEnEscenario[];
+  sin_practica: AgenteSinPractica[];
+};
+
+export type SimuladorStats = {
+  tasa_uso: number;
+  agentes_usaron: number;
+  total_agentes: number;
+  total_simulaciones: number;
+  puntaje_promedio: number | null;
+  escenarios: EscenarioStats[];
+};
+
+export async function getSimuladorStats(lang = "es"): Promise<SimuladorStats> {
+  const res = await authFetch(`/gestion/simulador?lang=${lang}`);
+  if (!res.ok) throw new Error(`simulador: ${res.status}`);
+  return res.json();
+}
+
+// ── Memoria ──────────────────────────────────────────────────────────────────
+export type MemoriaAlertas = {
+  pendientes_vencidos: { id: string; titulo: string; prioridad: string; tipo: string; fecha_cierre: string; agente: string | null }[];
+  sin_actividad: { id: string; nombre: string; apellido: string | null; celular: string | null; created_at: string }[];
+  sin_simulacion: { id: string; nombre: string; apellido: string | null }[];
+  notificaciones_olvidadas: number;
+};
+
+export async function getMemoriaAlertas(): Promise<MemoriaAlertas> {
+  const res = await authFetch("/gestion/memoria/alertas");
+  if (!res.ok) return { pendientes_vencidos: [], sin_actividad: [], sin_simulacion: [], notificaciones_olvidadas: 0 };
+  return res.json();
+}
+
+export async function enviarMensajeMasivo(
+  agente_ids: string[],
+  titulo: string,
+  cuerpo: string,
+  tipo = "aviso",
+): Promise<{ ok: boolean; enviado_a: number }> {
+  const res = await authFetch("/gestion/mensajes-internos/masivo", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ agente_ids, titulo, cuerpo, tipo }),
+  });
+  if (!res.ok) throw new Error(`masivo: ${res.status}`);
+  return res.json();
+}
+
+export async function patchEscenario(clave: string, activo: boolean): Promise<void> {
+  const res = await authFetch(`/gestion/escenarios/${clave}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ activo }),
+  });
+  if (!res.ok) throw new Error(`patch escenario: ${res.status}`);
 }
