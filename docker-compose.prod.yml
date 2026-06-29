@@ -1,0 +1,91 @@
+# =============================================================================
+# mentorcomercial · PRODUCCIÓN (VPS Hostinger + Traefik) — patrón solucionesdentales
+# -----------------------------------------------------------------------------
+# - Traefik (ya corriendo en el VPS, red externa "traefik") enruta por dominio
+#   con TLS Let's Encrypt automático. Estos contenedores NO publican puertos.
+# - DB: Supabase Cloud (DATABASE_URL en backend/.env) — sin Postgres local.
+# - WAHA (número observador) queda en red interna privada, no expuesto.
+#
+# Variables: copiar .env.prod.example → .env y completar (DOMAIN, secretos).
+# Arranque:  docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+# =============================================================================
+services:
+  mc-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mc-backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env                # ENVIRONMENT=production, DATABASE_URL (Supabase), secretos
+    networks:
+      - traefik
+      - mc-internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.mc-api.rule=Host(`api.${DOMAIN}`)"
+      - "traefik.http.routers.mc-api.entrypoints=websecure"
+      - "traefik.http.routers.mc-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.mc-api.loadbalancer.server.port=8002"
+
+  mc-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mc-worker
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    command: ["python", "-m", "app.services.worker"]
+    networks:
+      - mc-internal                   # DB (Supabase, vía internet) + WAHA (briefing)
+
+  mc-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://api.${DOMAIN}
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+    container_name: mc-frontend
+    restart: unless-stopped
+    depends_on:
+      - mc-backend
+    networks:
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.mc-web.rule=Host(`${DOMAIN}`) || Host(`www.${DOMAIN}`)"
+      - "traefik.http.routers.mc-web.entrypoints=websecure"
+      - "traefik.http.routers.mc-web.tls.certresolver=letsencrypt"
+      - "traefik.http.services.mc-web.loadbalancer.server.port=3000"
+
+  mc-waha:
+    image: devlikeapro/waha:latest
+    container_name: mc-waha
+    restart: unless-stopped
+    environment:
+      - WHATSAPP_API_KEY=${WAHA_API_KEY}
+      - WHATSAPP_DEFAULT_ENGINE=NOWEB
+      - WHATSAPP_HOOK_URL=http://mc-backend:8002/ingest/webhook
+      - WHATSAPP_HOOK_EVENTS=message,message.any,session.status
+      - WHATSAPP_DOWNLOAD_MEDIA=true
+    networks:
+      - mc-internal
+    volumes:
+      - waha_sessions:/app/.sessions   # CRÍTICO: la sesión del número sobrevive reinicios
+      - waha_media:/app/.media
+
+networks:
+  traefik:
+    external: true
+    name: traefik
+  mc-internal:
+    driver: bridge
+
+volumes:
+  waha_sessions:
+  waha_media:

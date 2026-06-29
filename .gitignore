@@ -1,20 +1,58 @@
+# =========================================================================
+# SECRETOS — nunca commitear
+# =========================================================================
+.env
+.env.*
+!.env.example
+!.env.prod.example
+*.pem
+*.key
+secrets/
+
+# =========================================================================
+# Node / Next.js (frontend)
+# =========================================================================
+node_modules/
+.next/
+out/
+.vercel/
+*.tsbuildinfo
+npm-debug.log*
+
+# =========================================================================
+# Python (backend)
+# =========================================================================
+__pycache__/
+*.pyc
+.venv/
+venv/
+.uv/
+.pytest_cache/
+.ruff_cache/
+
+# =========================================================================
+# Docker / infra (volúmenes locales, modelos descargados)
+# =========================================================================
+infra/volumes/
+*.whisper
+
+# =========================================================================
 # OS / editor
+# =========================================================================
 .DS_Store
 Thumbs.db
 *.swp
 .vscode/
 .idea/
 
-# Python
-__pycache__/
-*.pyc
-
-# Prototipos viejos archivados (no publicar)
-_archivo/
-
-# Documentos internos — NO publicar (precios / modelo de negocio / proceso interno)
-PROYECTO.md
-MATRIZ_PRIORIZACION.md
+# =========================================================================
+# Documentos INTERNOS — no publicar (precios / modelo de negocio / proceso)
+# =========================================================================
+docs/PROYECTO.md
+docs/MATRIZ_PRIORIZACION.md
+docs/DEFINICION_PRODUCTOS.md
+docs/REPLANTEO_WHATSAPP.md
 docs/architect-journey.md
-REPLANTEO_WHATSAPP.md
-DEFINICION_PRODUCTOS.md
+
+# Prototipos viejos archivados
+mockups/_archivo/
