@@ -212,16 +212,16 @@ def _connect():
 def get_user_by_email(email: str) -> dict | None:
     with _connect() as conn, conn.cursor() as cur:
         cur.execute(
-            "select id, tenant_id, email, password_hash, nombre, rol, activo, agente_id "
+            "select id, tenant_id, email, password_hash, nombre, rol, activo, agente_id, must_set_password "
             "from app_users where email = %s",
             (email.lower().strip(),),
         )
         row = cur.fetchone()
         if not row:
             return None
-        cols = ["id", "tenant_id", "email", "password_hash", "nombre", "rol", "activo", "agente_id"]
+        cols = ["id", "tenant_id", "email", "password_hash", "nombre", "rol", "activo", "agente_id", "must_set_password"]
         u = dict(zip(cols, row))
-        u["scope_agente_id"] = u.get("agente_id")  # líder: su nodo de la jerarquía
+        u["scope_agente_id"] = u.get("agente_id") if u.get("rol") == "lider" else None
         return u
 
 

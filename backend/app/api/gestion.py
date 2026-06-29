@@ -88,7 +88,10 @@ def list_agentes(ctx: dict = Depends(view_ctx)) -> list:
         " where sim.agente_id = a.id and sim.tenant_id = a.tenant_id) as puntaje_simulador, "
         "(select sim.escenario from simulaciones sim "
         " where sim.agente_id = a.id and sim.tenant_id = a.tenant_id "
-        " group by sim.escenario order by count(*) desc limit 1) as escenario_favorito "
+        " group by sim.escenario order by count(*) desc limit 1) as escenario_favorito, "
+        # cuenta de acceso del agente
+        "exists (select 1 from app_users u where u.agente_id = a.id and u.rol = 'agente') as tiene_usuario, "
+        "coalesce((select u.activo from app_users u where u.agente_id = a.id and u.rol = 'agente' limit 1), false) as usuario_activo "
         "from agentes a left join agentes s on s.id = a.superior_id "
         f"where a.tenant_id = %s and a.estado <> 'baja'{sc} "
         "order by a.nombre, a.apellido",
@@ -170,6 +173,60 @@ def quitar_lider(aid: str, tenant: str = Depends(require_owner)) -> dict:
     """Owner quita el rol de líder a un agente (borra su usuario del panel)."""
     _exec("delete from app_users where tenant_id = %s and agente_id = %s and rol = 'lider'", (tenant, aid))
     return {"ok": True}
+
+
+@router.post("/gestion/agentes/{aid}/usuario")
+def activar_usuario_agente(aid: str, tenant: str = Depends(require_owner)) -> dict:
+    """Crea cuenta de acceso para un agente y le envía el magic link por email."""
+    from app.core import auth as authcore
+    from app.services import email as email_svc
+    from app.core.config import settings
+    ag = _rows(
+        "select nombre, apellido, email from agentes where id = %s and tenant_id = %s and estado <> 'baja'",
+        (aid, tenant),
+    )
+    if not ag:
+        raise HTTPException(status_code=404, detail="Agente no encontrado")
+    email = (ag[0]["email"] or "").strip().lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="El agente necesita un email para activar su cuenta")
+    nombre = f"{ag[0]['nombre']} {ag[0].get('apellido') or ''}".strip()
+    _exec(
+        "insert into app_users (tenant_id, email, nombre, rol, agente_id, activo, must_set_password) "
+        "values (%s, %s, %s, 'agente', %s, true, true) "
+        "on conflict (email) do update set rol='agente', agente_id=excluded.agente_id, "
+        "activo=true, must_set_password=true",
+        (tenant, email, nombre, aid),
+    )
+    user = authcore.get_user_by_email(email)
+    if user:
+        token = authcore.make_magic_token(user)
+        link = f"{settings.frontend_url}/magic?token={token}"
+        email_svc.send_magic_link(email, link)
+    return {"ok": True, "email": email}
+
+
+@router.patch("/gestion/agentes/{aid}/usuario")
+def toggle_usuario_agente(aid: str, body: dict, tenant: str = Depends(require_owner)) -> dict:
+    """Activa o desactiva la cuenta de acceso de un agente."""
+    activo = bool(body.get("activo", True))
+    _exec(
+        "update app_users set activo = %s where tenant_id = %s and agente_id = %s and rol = 'agente'",
+        (activo, tenant, aid),
+    )
+    return {"ok": True, "activo": activo}
+
+
+@router.get("/gestion/agentes/{aid}/usuario")
+def get_usuario_agente(aid: str, tenant: str = Depends(require_owner)) -> dict:
+    """Estado de la cuenta de acceso de un agente."""
+    rows = _rows(
+        "select activo, must_set_password, email from app_users where tenant_id = %s and agente_id = %s and rol = 'agente'",
+        (tenant, aid),
+    )
+    if not rows:
+        return {"existe": False}
+    return {"existe": True, "activo": rows[0]["activo"], "must_set_password": rows[0]["must_set_password"], "email": rows[0]["email"]}
 
 
 @router.post("/gestion/agentes/{aid}/baja")

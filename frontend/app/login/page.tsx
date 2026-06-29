@@ -7,7 +7,7 @@
 // el mismo fondo continuo. Si existe /public/login-hero3.jpg se usa de fondo.
 import { useEffect, useState } from "react";
 
-import { getToken, login, requestMagicLink } from "@/lib/auth";
+import { getToken, getUser, login, requestMagicLink } from "@/lib/auth";
 import { DEFAULT_LOCALE, getDictionary, getStoredLocale, storeLocale, type Locale } from "@/lib/i18n";
 
 type Mode = "signin" | "recover";
@@ -37,7 +37,10 @@ export default function LoginPage() {
   const t = getDictionary(locale).login;
 
   useEffect(() => {
-    if (getToken()) { window.location.href = "/inicio"; return; }
+    if (getToken()) {
+      window.location.href = getUser()?.rol === "agente" ? "/agente" : "/inicio";
+      return;
+    }
     setLocale(getStoredLocale());
   }, []);
   function toggleLocale() {
@@ -51,8 +54,14 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      await login(email, password);
-      window.location.href = "/inicio";
+      const { rol, must_set_password } = await login(email, password);
+      if (must_set_password) {
+        window.location.href = "/set-password";
+      } else if (rol === "agente") {
+        window.location.href = "/agente";
+      } else {
+        window.location.href = "/inicio";
+      }
     } catch {
       setError(t.badCreds);
       setLoading(false);

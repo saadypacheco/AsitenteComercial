@@ -62,15 +62,16 @@ export async function verifyAgentMagic(token: string): Promise<void> {
   setSession(data.access_token, { email: "", nombre: data.agente.nombre, rol: "agente" });
 }
 
-export async function login(email: string, password: string): Promise<void> {
+export async function login(email: string, password: string): Promise<{ rol: string; must_set_password?: boolean }> {
   const res = await fetch(`${API}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
   if (!res.ok) throw new Error("Credenciales incorrectas");
-  const data = (await res.json()) as { access_token: string; user: SessionUser };
+  const data = (await res.json()) as { access_token: string; user: SessionUser; must_set_password?: boolean };
   setSession(data.access_token, data.user);
+  return { rol: data.user.rol, must_set_password: data.must_set_password };
 }
 
 /** Pide un magic link. En dev el backend devuelve el link para probar sin email. */
@@ -87,15 +88,16 @@ export async function requestMagicLink(
 }
 
 /** Canjea el token del magic link por una sesión. */
-export async function verifyMagicLink(token: string): Promise<void> {
+export async function verifyMagicLink(token: string): Promise<{ rol: string; must_set_password?: boolean }> {
   const res = await fetch(`${API}/auth/magic-link/verify`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ token }),
   });
   if (!res.ok) throw new Error("Enlace inválido o expirado");
-  const data = (await res.json()) as { access_token: string; user: SessionUser };
+  const data = (await res.json()) as { access_token: string; user: SessionUser; must_set_password?: boolean };
   setSession(data.access_token, data.user);
+  return { rol: data.user.rol, must_set_password: data.must_set_password };
 }
 
 /** fetch con Bearer; ante 401 limpia sesión y manda a /login. */

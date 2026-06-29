@@ -57,6 +57,9 @@ export type Agente = {
   total_simulaciones: number;
   puntaje_simulador: number | null;
   escenario_favorito: string | null;
+  // Cuenta de acceso
+  tiene_usuario: boolean;
+  usuario_activo: boolean;
 };
 
 export type AgenteInput = {
@@ -110,6 +113,21 @@ export async function designarLider(id: string): Promise<{ email: string }> {
 export async function quitarLider(id: string): Promise<void> {
   const res = await authFetch(`/gestion/agentes/${id}/lider`, { method: "DELETE" });
   if (!res.ok) throw new Error(`quitar líder: ${res.status}`);
+}
+
+export async function activarUsuarioAgente(id: string): Promise<{ ok: boolean; email: string }> {
+  const res = await authFetch(`/gestion/agentes/${id}/usuario`, { method: "POST" });
+  if (!res.ok) throw new Error(`activar usuario: ${res.status}`);
+  return res.json();
+}
+
+export async function toggleUsuarioAgente(id: string, activo: boolean): Promise<void> {
+  const res = await authFetch(`/gestion/agentes/${id}/usuario`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ activo }),
+  });
+  if (!res.ok) throw new Error(`toggle usuario: ${res.status}`);
 }
 
 // ── Grupos · Eventos · Capacitaciones ────────────────────────────────────────

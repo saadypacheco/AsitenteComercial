@@ -10,11 +10,13 @@ import { Card } from "@/components/ui";
 import { getUser } from "@/lib/auth";
 import { useLocale } from "@/lib/locale-context";
 import {
+  activarUsuarioAgente,
   bajaAgente,
   createAgente,
   designarLider,
   getAgentes,
   quitarLider,
+  toggleUsuarioAgente,
   updateAgente,
   type Agente,
   type AgenteInput,
@@ -99,6 +101,21 @@ function AgentesContent() {
       const r = await designarLider(a.id).catch(() => null);
       if (r) alert(`✅ ${r.email} ${t.agLiderDone}`);
     }
+    reload();
+    setBusy(false);
+  }
+
+  async function activarUsuario(a: Agente) {
+    setBusy(true);
+    const r = await activarUsuarioAgente(a.id).catch(() => null);
+    if (r) alert(`✅ ${es ? `Cuenta activada. Magic link enviado a ${r.email}` : `Account activated. Magic link sent to ${r.email}`}`);
+    reload();
+    setBusy(false);
+  }
+
+  async function toggleUsuario(a: Agente) {
+    setBusy(true);
+    await toggleUsuarioAgente(a.id, !a.usuario_activo).catch(() => {});
     reload();
     setBusy(false);
   }
@@ -374,6 +391,11 @@ function AgentesContent() {
                           <Badge tone={a.estado === "activo" ? "ok" : "warning"}>
                             {a.estado === "activo" ? t.estadoAgente.activo : t.estadoAgente.inactivo}
                           </Badge>
+                          {a.tiene_usuario && (
+                            <Badge tone={a.usuario_activo ? "ok" : "warning"}>
+                              🔑 {a.usuario_activo ? (es ? "Acceso activo" : "Access on") : (es ? "Acceso pausado" : "Access off")}
+                            </Badge>
+                          )}
                         </div>
                         {(a.ciudad || a.region) && (
                           <p className="mt-0.5 text-xs text-muted">📍 {[a.ciudad, a.region].filter(Boolean).join(", ")}</p>
@@ -496,6 +518,18 @@ function AgentesContent() {
                         <button onClick={() => toggleLider(a)} disabled={busy}
                           className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold disabled:opacity-50 ${a.es_lider ? "border-line text-muted hover:bg-soft" : "border-brand text-brand hover:bg-brand-soft"}`}>
                           ★ {a.es_lider ? t.agRemoveLider : t.agMakeLider}
+                        </button>
+                      )}
+                      {isOwner && a.email && !a.tiene_usuario && (
+                        <button onClick={() => activarUsuario(a)} disabled={busy}
+                          className="rounded-lg border border-brand px-2.5 py-1 text-[11px] font-semibold text-brand hover:bg-brand-soft disabled:opacity-50">
+                          🔑 {es ? "Activar acceso" : "Activate access"}
+                        </button>
+                      )}
+                      {isOwner && a.tiene_usuario && (
+                        <button onClick={() => toggleUsuario(a)} disabled={busy}
+                          className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold disabled:opacity-50 ${a.usuario_activo ? "border-line text-muted hover:bg-soft" : "border-ok text-ok hover:bg-green-50"}`}>
+                          {a.usuario_activo ? (es ? "⏸ Pausar acceso" : "⏸ Pause access") : (es ? "▶ Reactivar" : "▶ Reactivate")}
                         </button>
                       )}
                       <button onClick={() => darBaja(a)} disabled={busy}

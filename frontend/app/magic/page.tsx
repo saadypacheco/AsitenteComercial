@@ -21,9 +21,15 @@ export default function MagicPage() {
       return;
     }
     verifyMagicLink(token)
-      .then(() => {
+      .then(({ rol, must_set_password }) => {
         setStatus("ok");
-        window.location.href = "/inicio";
+        if (must_set_password) {
+          window.location.href = "/set-password";
+        } else if (rol === "agente") {
+          window.location.href = "/agente";
+        } else {
+          window.location.href = "/inicio";
+        }
       })
       .catch(() => setStatus("invalid"));
   }, []);
