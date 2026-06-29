@@ -115,7 +115,7 @@ export async function quitarLider(id: string): Promise<void> {
   if (!res.ok) throw new Error(`quitar líder: ${res.status}`);
 }
 
-export async function activarUsuarioAgente(id: string): Promise<{ ok: boolean; email: string }> {
+export async function activarUsuarioAgente(id: string): Promise<{ ok: boolean; email: string; link?: string }> {
   const res = await authFetch(`/gestion/agentes/${id}/usuario`, { method: "POST" });
   if (!res.ok) throw new Error(`activar usuario: ${res.status}`);
   return res.json();

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import { Avatar, Badge } from "@/components/executive";
 import { Card } from "@/components/ui";
+import { UsoPlataforma } from "@/components/uso-plataforma";
 import { getUser, logout, type SessionUser } from "@/lib/auth";
 import { useLocale } from "@/lib/locale-context";
 import { getBriefingConfig, getConfigStatus, getOnboardingGroup, previewBriefing, saveBriefingConfig, sendBriefingNow, setOnboardingGroup, type BriefingConfig, type ConfigStatus, type OnboardingGroupConfig } from "@/lib/queries/executive";
@@ -194,6 +195,17 @@ export default function AjustesPage() {
       <button onClick={logout} className="rounded-lg border border-line px-4 py-2 text-sm font-semibold text-danger hover:bg-red-50">
         {t.logout}
       </button>
+
+      {/* Uso de la plataforma — solo owner */}
+      {user?.alcance === "todo" && (
+        <div className="mt-8">
+          <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-brand">
+            Uso de la plataforma
+          </h2>
+          <p className="mb-4 text-xs text-muted">Últimos 30 días · se actualiza en cada visita.</p>
+          <UsoPlataforma />
+        </div>
+      )}
     </div>
   );
 }

@@ -108,7 +108,17 @@ function AgentesContent() {
   async function activarUsuario(a: Agente) {
     setBusy(true);
     const r = await activarUsuarioAgente(a.id).catch(() => null);
-    if (r) alert(`✅ ${es ? `Cuenta activada. Magic link enviado a ${r.email}` : `Account activated. Magic link sent to ${r.email}`}`);
+    if (r) {
+      if (r.link) {
+        // dev: link directo para probar sin email real
+        const open = window.confirm(
+          `✅ Cuenta activada para ${r.email}.\n\nDEV — Copiar link de acceso:\n${r.link}\n\n¿Abrir en nueva pestaña?`
+        );
+        if (open) window.open(r.link, "_blank");
+      } else {
+        alert(`✅ ${es ? `Magic link enviado a ${r.email}` : `Magic link sent to ${r.email}`}`);
+      }
+    }
     reload();
     setBusy(false);
   }

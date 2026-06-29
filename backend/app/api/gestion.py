@@ -199,11 +199,14 @@ def activar_usuario_agente(aid: str, tenant: str = Depends(require_owner)) -> di
         (tenant, email, nombre, aid),
     )
     user = authcore.get_user_by_email(email)
+    resp: dict = {"ok": True, "email": email}
     if user:
         token = authcore.make_magic_token(user)
         link = f"{settings.frontend_url}/magic?token={token}"
         email_svc.send_magic_link(email, link)
-    return {"ok": True, "email": email}
+        if settings.environment == "development":
+            resp["link"] = link
+    return resp
 
 
 @router.patch("/gestion/agentes/{aid}/usuario")

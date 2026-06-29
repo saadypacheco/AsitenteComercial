@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 
 import { getToken, getUser, login, requestMagicLink } from "@/lib/auth";
+import { logEvento } from "@/lib/log";
 import { DEFAULT_LOCALE, getDictionary, getStoredLocale, storeLocale, type Locale } from "@/lib/i18n";
 
 type Mode = "signin" | "recover";
@@ -55,6 +56,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const { rol, must_set_password } = await login(email, password);
+      logEvento("login", { rol });
       if (must_set_password) {
         window.location.href = "/set-password";
       } else if (rol === "agente") {
