@@ -887,28 +887,28 @@ def nav_badges(ctx: dict = Depends(view_ctx)) -> dict:
     tid = ctx["tenant_id"]
     scope = scoped_agente_ids(tid, ctx["scope_root"])
 
-    # Agentes en riesgo (onboarding < 40%)
+    def _safe(sql: str, params: tuple) -> int:
+        try:
+            rows = _rows(sql, params)
+            return (rows[0]["n"] if rows else 0) or 0
+        except Exception:
+            return 0
+
     sc_risk, sp_risk = _scope("a.id", scope)
-    risk_rows = _rows(
+    agentes_riesgo = _safe(
         "select count(*)::int as n from agentes a "
         "where a.tenant_id = %s and a.estado <> 'baja'" + sc_risk +
         " and (select coalesce(round(avg(case when ep.estado='completado' then 100 else 0 end)),0)::int "
         "      from etapa_progreso ep where ep.agente_id = a.id) < 40",
         (tid, *sp_risk),
     )
-    agentes_riesgo = (risk_rows[0]["n"] if risk_rows else 0) or 0
-
-    # Mensajes pendientes sin triar
-    msg_rows = _rows(
+    mensajes_nuevos = _safe(
         "select count(*)::int as n from messages m "
         "left join message_triage mt on mt.message_id = m.id "
         "where m.tenant_id = %s and coalesce(mt.status,'new') = 'new'",
         (tid,),
     )
-    mensajes_nuevos = (msg_rows[0]["n"] if msg_rows else 0) or 0
-
-    # Faltaron a última sesión + reuniones sin difundir
-    cap_rows = _rows(
+    faltaron = _safe(
         "select count(*)::int as n from capacitacion_asistencia ca "
         "join capacitaciones k on k.id = ca.capacitacion_id "
         "where k.tenant_id = %s and ca.asistio = false "
@@ -916,16 +916,12 @@ def nav_badges(ctx: dict = Depends(view_ctx)) -> dict:
         "            and fecha <= now() order by fecha desc limit 1)",
         (tid, tid),
     )
-    faltaron = (cap_rows[0]["n"] if cap_rows else 0) or 0
-
-    reu_rows = _rows(
+    reuniones_pend = _safe(
         "select count(*)::int as n from reuniones r "
         "where r.tenant_id = %s and coalesce(r.estado_difusion,'pendiente') <> 'enviado' "
         "and r.created_at >= now() - interval '30 days'",
         (tid,),
     )
-    reuniones_pend = (reu_rows[0]["n"] if reu_rows else 0) or 0
-
     return {
         "inicio":       agentes_riesgo,
         "conocimiento": mensajes_nuevos,
